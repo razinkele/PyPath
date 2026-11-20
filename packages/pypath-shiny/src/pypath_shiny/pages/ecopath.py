@@ -626,6 +626,14 @@ def ecopath_server(
 
     # Reactive values for this page
     params = reactive.Value(None)
+    # A grid edit changes the model in place, which ``params`` does not see:
+    # the edit handlers count here so the grids' tooltip data is rebuilt.
+    cell_edits = reactive.value(0)
+
+    def _note_cell_edit() -> None:
+        with reactive.isolate():
+            cell_edits.set(cell_edits.get() + 1)
+
     balanced_model = reactive.Value(None)
     balance_task_state = reactive.Value(TaskState(run_id="ecopath-balance-idle"))
     # Plain state, not reactive: set by "Create parameters", which builds a
@@ -773,6 +781,7 @@ def ecopath_server(
     def model_params_table_tips():
         """What the parameter grid's cell tooltips add: the unrounded values
         and the model's remarks (the grid shows 3 decimals)."""
+        cell_edits.get()  # rebuilt after an edit in a grid
         p = params.get()
         if p is None:
             return None
@@ -785,6 +794,7 @@ def ecopath_server(
     @render.ui
     def stanza_groups_table_tips():
         """The unrounded stanza parameters, for that grid's cell tooltips."""
+        cell_edits.get()  # rebuilt after an edit in a grid
         p = params.get()
         stanzas = getattr(p, "stanzas", None)
         groups = getattr(stanzas, "stgroups", None)
@@ -795,6 +805,7 @@ def ecopath_server(
     @render.ui
     def diet_matrix_table_tips():
         """The unrounded diet fractions, for the diet grid's cell tooltips."""
+        cell_edits.get()  # rebuilt after an edit in a grid
         p = params.get()
         if p is None:
             return None
@@ -1085,6 +1096,7 @@ def ecopath_server(
     @model_params_table.set_patch_fn
     def _handle_model_params_edit(*, patch: render.CellPatch) -> render.CellValue:
         """Handle edits to the model parameters table."""
+        _note_cell_edit()
         df, col_name, group_name = _resolve_patch(model_params_table, patch)
         original = _original_cell(df, patch)
         new_value = patch["value"]
@@ -1147,6 +1159,7 @@ def ecopath_server(
     @diet_matrix_table.set_patch_fn
     def _handle_diet_matrix_edit(*, patch: render.CellPatch) -> render.CellValue:
         """Handle edits to the diet matrix table."""
+        _note_cell_edit()
         df, col_name, prey_name = _resolve_patch(diet_matrix_table, patch)
         original = _original_cell(df, patch)
         new_value = patch["value"]
@@ -1203,6 +1216,7 @@ def ecopath_server(
     @fisheries_table.set_patch_fn
     def _handle_fisheries_edit(*, patch: render.CellPatch) -> render.CellValue:
         """Persist landings/discards edits into params.model."""
+        _note_cell_edit()
         df, col_name, group_name = _resolve_patch(fisheries_table, patch)
         original = _original_cell(df, patch)
         new_value = patch["value"]

@@ -739,17 +739,18 @@ def prebalance_server(
                 else "No predator-prey ratios for this model."
             )
 
-        df = report["predator_prey_ratios"].copy()
+        # Sort by ratio descending; the unrounded frame feeds the tooltips
+        full = report["predator_prey_ratios"].sort_values("Ratio", ascending=False)
+        df = full.copy()
 
         # Format numeric columns
         df["Prey_Biomass"] = df["Prey_Biomass"].apply(lambda x: f"{x:.2f}")
         df["Predator_Biomass"] = df["Predator_Biomass"].apply(lambda x: f"{x:.2f}")
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
-        # Sort by ratio descending
-        df = df.sort_values("Ratio", ascending=False, key=lambda x: x.astype(float))
-
-        return with_cell_tips(format_diagnostics_table(df, "Predator-Prey Ratios"), df)
+        return with_cell_tips(
+            format_diagnostics_table(df, "Predator-Prey Ratios"), full
+        )
 
     @render.ui
     def table_pb_ratios():
@@ -763,7 +764,8 @@ def prebalance_server(
                 else "No P/B ratios for this model."
             )
 
-        df = report["pb_ratios"].copy()
+        full = report["pb_ratios"]
+        df = full.copy()
 
         # Format numeric columns
         df["Prey_Rate_Mean"] = df["Prey_Rate_Mean"].apply(lambda x: f"{x:.3f}")
@@ -771,7 +773,7 @@ def prebalance_server(
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
         return with_cell_tips(
-            format_diagnostics_table(df, "Production/Biomass Ratios"), df
+            format_diagnostics_table(df, "Production/Biomass Ratios"), full
         )
 
     @render.ui
@@ -786,7 +788,8 @@ def prebalance_server(
                 else "No Q/B ratios for this model."
             )
 
-        df = report["qb_ratios"].copy()
+        full = report["qb_ratios"]
+        df = full.copy()
 
         # Format numeric columns
         df["Prey_Rate_Mean"] = df["Prey_Rate_Mean"].apply(lambda x: f"{x:.3f}")
@@ -794,7 +797,7 @@ def prebalance_server(
         df["Ratio"] = df["Ratio"].apply(lambda x: f"{x:.3f}")
 
         return with_cell_tips(
-            format_diagnostics_table(df, "Consumption/Biomass Ratios"), df
+            format_diagnostics_table(df, "Consumption/Biomass Ratios"), full
         )
 
     @render.plot

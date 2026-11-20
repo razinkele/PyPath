@@ -132,6 +132,17 @@ def test_cells_have_tooltips_and_headings_stay_put(server, browser):  # noqa: F8
     edited = _tip(page, row.locator("td").nth(2))
     assert edited[0] == f"{group} · Biomass" and float(edited[1]) == 7.5
     assert "From <the> survey" not in edited or len(edited) == 3
+    # A second edit the grid rounds to the same text: the tooltip must
+    # follow the model, not keep the value from before the edit.
+    target.dblclick()
+    editor.wait_for(state="visible", timeout=5000)
+    editor.fill("7.5004")
+    editor.press("Enter")
+    end = time.monotonic() + 10
+    while (again := _tip(page, row.locator("td").nth(2)))[1:2] != ["7.5004"]:
+        assert time.monotonic() < end, again
+        time.sleep(0.5)
+    assert row.locator("td").nth(2).inner_text().strip() == "7.5"
     grid = _fixed_heading(page, "#model_params_table .shiny-data-grid")
     assert grid["scrolled"] > 0 and grid["after"] == grid["before"]
 

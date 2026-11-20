@@ -60,11 +60,26 @@
   // Whether a full value is the number the cell shows, before rounding.
   // A cell edited in a grid shows its new value before the server has sent
   // new data, and the old full value must not be passed off as it.
+  // A cell shown as a percentage ("12.3%") holds a fraction (0.1234).
   function roundsTo(full, shown) {
     var text = shown.replace(/,/g, "");
+    var scale = 1;
+    if (/%$/.test(text)) {
+      text = text.slice(0, -1).trim();
+      scale = 100;
+    }
     if (text === "" || isNaN(Number(text)) || isNaN(Number(full))) return false;
     var places = (text.split(".")[1] || "").replace(/[^0-9].*$/, "").length;
-    return Math.abs(Number(full) - Number(text)) <= 0.5000001 * Math.pow(10, -places);
+    return (
+      Math.abs(Number(full) * scale - Number(text)) <= 0.5000001 * Math.pow(10, -places)
+    );
+  }
+
+  // The full value in the cell's own unit: a fraction behind "12.3%" reads
+  // as a percentage too.
+  function inCellUnit(full, shown) {
+    if (!/%\s*$/.test(shown)) return full;
+    return String(Number((Number(full) * 100).toPrecision(15))) + "%";
   }
 
   function escapeHtml(s) {
@@ -84,6 +99,7 @@
     var extra = lookup(table, text(row.cells[0]), column) || {};
     var full = cell.getAttribute("data-full") || extra.full || "";
     if (full && !roundsTo(full, shown)) full = "";
+    if (full) full = inCellUnit(full, shown);
     var remark = cell.getAttribute("data-remark") || extra.remark || "";
     var value = full || shown;
     if (!value && !remark) return "";
@@ -106,7 +122,7 @@
       html: true, // every piece is escaped above
       sanitize: false,
       container: "body",
-      trigger: "hover",
+      trigger: "hover focus", // a grid's cells take the keyboard focus
       placement: "top",
       delay: { show: 350, hide: 0 },
       customClass: "cell-tip",

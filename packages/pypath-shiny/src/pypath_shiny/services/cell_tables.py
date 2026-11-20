@@ -88,6 +88,12 @@ def _all_whole(values: pd.Series) -> bool:
     return len(present) > 0 and bool((present == np.floor(present)).all())
 
 
+def _label(value) -> str:
+    """A row label or column name as the page reads it from a cell: runs of
+    whitespace are one space and the ends are trimmed (cell-tips.js)."""
+    return "" if _is_missing(value) else " ".join(str(value).split())
+
+
 def _decimals_for(decimals, column) -> int:
     if isinstance(decimals, Mapping):
         return int(decimals.get(column, DEFAULT_DECIMALS))
@@ -161,6 +167,10 @@ def cell_table(
         ),
         class_="cell-table-wrap",
         style=f"max-height: {max_height};",
+        # reachable and scrollable from the keyboard
+        tabindex="0",
+        role="region",
+        aria_label="Table; scrolls",
     )
 
 
@@ -226,15 +236,23 @@ def cell_tips_data(
     key : str, optional
         The column whose text labels a row (the first one by default). Rows
         that share a label get no entry: the page could not tell them apart.
+        Labels are compared as the page reads them from the cells, with runs
+        of whitespace as one space.
     """
     data: dict[str, dict[str, dict[str, str]]] = {}
     if df is not None and df.shape[0] and df.shape[1]:
         key = df.columns[0] if key is None else key
-        labels = df[key].map(lambda v: "" if _is_missing(v) else str(v))
+        # Labels as the page reads them; rows it could not tell apart, and
+        # columns likewise, get no entry.
+        labels = df[key].map(_label)
         unique = ~labels.duplicated(keep=False)
+        names = [_label(column) for column in df.columns]
+        clear = {name for name in names if names.count(name) == 1}
         for index, label in zip(df.index[unique], labels[unique]):
             entry = {}
-            for column in df.columns:
+            for column, name in zip(df.columns, names):
+                if name not in clear:
+                    continue
                 value = df.at[index, column]
                 cell = {}
                 if _is_fraction(value):
@@ -243,7 +261,7 @@ def cell_tips_data(
                 if remark:
                     cell["remark"] = remark
                 if cell:
-                    entry[str(column)] = cell
+                    entry[name] = cell
             if entry:
                 data[label] = entry
     # "<" escaped: the text must not be able to close the script element.

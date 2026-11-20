@@ -144,6 +144,21 @@ def test_tips_inside_an_output_need_no_id(groups):
     assert "data-for" not in html
 
 
+def test_labels_are_matched_as_the_page_reads_them():
+    """The page collapses runs of whitespace in a cell's text."""
+    df = pd.DataFrame({"Group": ["Ad.  Cod", " Sprat "], "P  B": [0.12345, 0.6789]})
+    data = _payload(cell_tips_data("grid", df))
+    assert data == {
+        "Ad. Cod": {"P B": {"full": "0.12345"}},
+        "Sprat": {"P B": {"full": "0.6789"}},
+    }
+
+
+def test_rows_the_page_could_not_tell_apart_get_no_entry():
+    df = pd.DataFrame({"Group": ["A B", "A  B", "C"], "PB": [0.111, 0.222, 0.333]})
+    assert list(_payload(cell_tips_data("grid", df))) == ["C"]
+
+
 def test_rows_that_share_a_label_get_no_entry():
     df = pd.DataFrame({"Year": [1, 1], "Catch": [0.12345, 0.6789]})
     assert _payload(cell_tips_data("grid", df)) == {}
@@ -162,6 +177,46 @@ def test_remarks_follow_their_group_whatever_the_row_order(groups):
 
 def test_a_model_without_remarks_has_none(groups):
     assert remarks_by_row(groups, None) is None
+
+
+def test_a_grid_edit_rebuilds_the_tooltip_data():
+    """An edit changes the model in place; the tips must not keep the old value."""
+    tree = ast.parse((SRC / "pages" / "ecopath.py").read_text(encoding="utf-8"))
+    functions = {
+        n.name: ast.unparse(n) for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+    }
+    for handler in (
+        "_handle_model_params_edit",
+        "_handle_diet_matrix_edit",
+        "_handle_fisheries_edit",
+    ):
+        assert "_note_cell_edit()" in functions[handler], handler
+    for tips in (
+        "model_params_table_tips",
+        "diet_matrix_table_tips",
+        "stanza_groups_table_tips",
+    ):
+        assert "cell_edits.get()" in functions[tips], tips
+
+
+def test_the_scrolling_box_can_be_reached_from_the_keyboard(groups):
+    html = _html(cell_table(groups))
+    assert 'tabindex="0"' in html and 'role="region"' in html
+
+
+def test_tables_do_not_round_before_the_tooltips_see_the_numbers():
+    results = (SRC / "pages" / "results.py").read_text(encoding="utf-8")
+    assert ".round(4)" not in results
+    for page in ("prebalance.py", "optimization_demo.py"):
+        tree = ast.parse((SRC / "pages" / page).read_text(encoding="utf-8"))
+        frames = [
+            ast.unparse(node.args[1])
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and getattr(node.func, "id", None) == "with_cell_tips"
+        ]
+        # the frame kept from before the page rounded or formatted its copy
+        assert frames and set(frames) == {"full"}, page
 
 
 def test_the_ecopath_grids_have_their_tooltip_data():
@@ -213,6 +268,8 @@ def test_the_page_loads_the_tooltip_script():
         "data-remark",
         "cell-tips-data",
         "roundsTo",  # a full value is used only while it matches the cell
+        "hover focus",  # a focused grid cell shows its tooltip too
+        "inCellUnit",  # a fraction behind a percentage reads as one
     ):
         assert needed in script, needed
 

@@ -538,7 +538,7 @@ def results_server(
                 model.DC[:n_bio, :n_living],
                 index=groups[:n_bio],
                 columns=groups[:n_living],
-            ).round(4)
+            )
             df.insert(0, "Prey", df.index)
 
         if df.empty:
@@ -560,9 +560,7 @@ def results_server(
         n_bio = info["num_living"] + info["num_dead"]
         groups = info["groups"]
 
-        df = pd.DataFrame(
-            sim.out_Biomass[:, 1 : n_bio + 1], columns=groups[:n_bio]
-        ).round(4)
+        df = pd.DataFrame(sim.out_Biomass[:, 1 : n_bio + 1], columns=groups[:n_bio])
         df.insert(0, "Month", range(len(df)))
         df.insert(1, "Year", df["Month"] / 12)
 
@@ -590,7 +588,7 @@ def results_server(
 
         df = pd.DataFrame(
             sim.annual_Catch[:, 1 : n_living + 1], columns=groups[:n_living]
-        ).round(4)
+        )
         df.insert(0, "Year", range(1, len(df) + 1))
 
         if df.empty:
