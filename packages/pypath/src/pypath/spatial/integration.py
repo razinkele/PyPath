@@ -12,9 +12,15 @@ from __future__ import annotations
 
 import copy
 import logging
+import warnings
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 import numpy as np
+
+from pypath.core._parallel import NUMPY_DEFAULT_ERRSTATE, resolve_n_jobs
+from pypath.core._parallel import mp_context as mp_context_for
 
 # Import ecosim_deriv at module level - no circular dependency exists
 from pypath.core.ecosim_deriv import (
@@ -79,6 +85,75 @@ def _local_deriv(
         for key, value in rates.items():
             rates[key] = value * w
     return deriv
+
+
+# Keys of the run's params the patch workers do not get: the pool itself and
+# the per-patch arrays, whose columns travel with each chunk.
+_NOT_FOR_WORKERS = ("_patch_pool", "_hden_patches", "_eat_eff_patches")
+
+
+def _patch_chunk_derivs(
+    state_cols,
+    params,
+    forcings,
+    fishing,
+    t,
+    shares,
+    hden_cols,
+    eat_cols,
+    bref_cols,
+    qq_bases,
+    want_rates,
+):
+    """Local derivatives of a chunk of patches, in a worker process.
+
+    The same calls as the serial loop of ``deriv_vector_spatial``, on the
+    worker's own copy of ``params``. Returns the derivative columns, the Hden
+    columns (advanced by the calls) and each patch's rates.
+    """
+    deriv = np.zeros_like(state_cols, dtype=float)
+    rates_list = []
+    # A worker inherits neither the caller's warning filters nor its
+    # np.seterr; it runs with warnings ignored and numpy's defaults.
+    with warnings.catch_warnings(), np.errstate(**NUMPY_DEFAULT_ERRSTATE):
+        warnings.simplefilter("ignore")
+        for j in range(state_cols.shape[1]):
+            if hden_cols is not None:
+                params["_hden"] = hden_cols[:, j]  # a view, advanced in place
+            if eat_cols is not None:
+                params["_eat_eff"] = eat_cols[:, j]
+            if bref_cols is not None:
+                params["B_BaseRef"] = bref_cols[:, j]
+                params["Bbase"] = bref_cols[:, j]
+                if qq_bases is not None:
+                    params["QQbase"] = qq_bases[j]
+            rates = {} if want_rates else None
+            deriv[:, j] = _local_deriv(
+                state_cols[:, j],
+                params,
+                forcings[j],
+                fishing,
+                t,
+                shares,
+                j,
+                rates=rates,
+            )
+            rates_list.append(rates)
+    return deriv, hden_cols, rates_list
+
+
+def _n_patch_workers(scenario, ecospace, n_jobs) -> int:
+    """Worker processes for a spatial run's patches; 1 keeps the serial loop.
+
+    ``n_jobs`` is checked as ``resolve_n_jobs`` does and capped at the number
+    of patches. A scenario with IBM groups runs serially: their individuals
+    live in this process, and a worker's changes to its copy would be lost.
+    """
+    n_workers = resolve_n_jobs(n_jobs, ecospace.grid.n_patches)
+    if n_workers > 1 and getattr(scenario.params, "ibm_groups", None):
+        logger.info("n_jobs=%s ignored: IBM groups run in this process only", n_jobs)
+        return 1
+    return n_workers
 
 
 def _ecosim_detritus_out(params, forcing, fishing, biomass, hden_start):
@@ -507,12 +582,56 @@ def deriv_vector_spatial(
         _per_patch_keys += ["B_BaseRef", "Bbase", "QQbase"]
     _prior = {key: params.get(key, _MISSING) for key in _per_patch_keys}
 
+    # rsim_run_spatial(n_jobs=...) puts its process pool here. Each worker
+    # takes a chunk of patches: the columns it needs travel with the task and
+    # the columns it advanced (Hden), with the derivatives and rates, come
+    # back. IBM groups keep the serial loop (see _n_patch_workers).
+    _pool = params.get("_patch_pool")
+    if ibm_spatial_contexts:
+        _pool = None
     try:
+        if _pool is not None:
+            executor, n_jobs = _pool
+            worker_params = {
+                k: v for k, v in params.items() if k not in _NOT_FOR_WORKERS
+            }
+            _eat = (
+                _eat_eff_patches
+                if _space_cal is not None and _eat_eff_patches is not None
+                else None
+            )
+            chunks = [c for c in np.array_split(np.arange(n_patches), n_jobs) if len(c)]
+            futures = [
+                executor.submit(
+                    _patch_chunk_derivs,
+                    state_spatial[:, ch],
+                    worker_params,
+                    [_patch_forcing(int(i)) for i in ch],
+                    fishing,
+                    t,
+                    None if patch_share is None else patch_share[ch],
+                    None if _hden_patches is None else _hden_patches[:, ch],
+                    None if _eat is None else _eat[:, ch],
+                    b_base_ref_patches[:, ch] if params_need_modification else None,
+                    [_patch_qq_base(int(i)) for i in ch]
+                    if params_need_modification and capacity_overlap is not None
+                    else None,
+                    rates_out is not None,
+                )
+                for ch in chunks
+            ]
+            for ch, future in zip(chunks, futures):
+                d, h, rates_list = future.result()
+                deriv_spatial[:, ch] = d
+                if _hden_patches is not None:
+                    _hden_patches[:, ch] = h
+                for i, rates in zip(ch, rates_list):
+                    _store_rates(int(i), rates)
         # Patches run one after another on this thread. The per-patch step is
         # Python (deriv_vector), so threads cannot run patches in parallel
         # under the GIL; a thread pool here only added overhead and was
         # removed after profiling (2026-11-17).
-        for patch_idx in range(n_patches):
+        for patch_idx in range(n_patches if _pool is not None else 0, n_patches):
             state_patch = state_spatial[:, patch_idx]
             patch_forcing = _patch_forcing(patch_idx)
             rates = {} if rates_out is not None else None
@@ -655,6 +774,8 @@ def rsim_run_spatial(
     store_state_vectors: bool = False,
     implicit_movement: bool = True,
     on_month: Optional[Callable[[int, int], Optional[bool]]] = None,
+    n_jobs: int = 1,
+    mp_context: Optional[str] = None,
 ) -> RsimOutput:
     """Run spatial Ecosim simulation.
 
@@ -711,6 +832,29 @@ def rsim_run_spatial(
         stops the run with ``RunCancelled`` (any other value, truthy or not,
         lets it go on), as in ``rsim_run``. Without ``ecospace`` it is passed
         to ``rsim_run``.
+    n_jobs : int
+        Worker processes for the patches' local dynamics. 1 (default) runs
+        them one after another in this process. A larger number starts that
+        many processes for the run, each taking a share of the patches at
+        every derivative evaluation; -1 uses one per CPU this process may
+        use. Never more than the number of patches. The results are the
+        serial run's, bit for bit. It pays off on grids of a few hundred
+        patches with 4 or more workers: the Black Sea test model (304
+        patches, 3 years) ran 1.2 times faster with 2 workers, 2.3 with 4
+        and 3.1 with 8, on a busy 28-core machine. The workers take a
+        second or two to start, and every evaluation hands them the run's
+        parameters, so a small grid or a short run gains nothing. Movement,
+        stanzas and the month's bookkeeping stay in this process. With IBM
+        groups, or without ``ecospace``, the run is serial whatever
+        ``n_jobs`` says. In the workers warnings are ignored and numpy's
+        default error handling applies: the caller's warning filters and
+        ``np.seterr`` do not reach them.
+    mp_context : str, optional
+        The multiprocessing start method for the workers: "forkserver",
+        "spawn" or "fork". None uses forkserver on Linux and spawn on macOS
+        and Windows. Call from under ``if __name__ == "__main__":`` in a
+        script, as these methods import the main module in each worker.
+        Avoid "fork" in a program that runs threads.
 
     Returns
     -------
@@ -733,6 +877,61 @@ def rsim_run_spatial(
     >>> spatial_biomass = result.out_Biomass_spatial  # [n_months, n_groups, n_patches]
     >>> total_biomass = result.out_Biomass  # [n_months, n_groups] (summed over patches)
     """
+    context = mp_context_for(mp_context)  # refuses an unknown method
+    run = dict(
+        scenario=scenario,
+        method=method,
+        years=years,
+        ecospace=ecospace,
+        environmental_drivers=environmental_drivers,
+        mpa=mpa,
+        spatial_fishing=spatial_fishing,
+        initial_state_vector=initial_state_vector,
+        store_state_vectors=store_state_vectors,
+        implicit_movement=implicit_movement,
+        on_month=on_month,
+    )
+    if ecospace is None:
+        resolve_n_jobs(n_jobs, 1)  # checked, though nothing runs in workers
+        return _run_spatial(**run)
+    n_workers = _n_patch_workers(scenario, ecospace, n_jobs)
+    if n_workers == 1:
+        return _run_spatial(**run)
+
+    pool = ProcessPoolExecutor(max_workers=n_workers, mp_context=context)
+    finished = False
+    try:
+        output = _run_spatial(**run, patch_pool=(pool, n_workers))
+        finished = True
+        return output
+    except BrokenProcessPool as exc:
+        raise BrokenProcessPool(
+            "An Ecospace worker process died. It may have run out of memory, "
+            "or failed to unpickle the model: a mediation class must be "
+            "importable from a module, not defined in a notebook or in "
+            "__main__. Try n_jobs=1."
+        ) from exc
+    finally:
+        # After an error or a cancel the tasks in flight are not waited for.
+        pool.shutdown(wait=finished, cancel_futures=True)
+
+
+def _run_spatial(
+    scenario,
+    method,
+    years,
+    ecospace,
+    environmental_drivers,
+    *,
+    mpa,
+    spatial_fishing,
+    initial_state_vector,
+    store_state_vectors,
+    implicit_movement,
+    on_month,
+    patch_pool=None,
+) -> RsimOutput:
+    """``rsim_run_spatial``'s run; ``patch_pool`` is ``(executor, n_workers)``."""
     # Backward compatibility: if no ecospace, use standard Ecosim
     if ecospace is None:
         from pypath.core.ecosim import rsim_run
@@ -912,6 +1111,8 @@ def rsim_run_spatial(
         # (cSpaceSolver.vb 1009, 2861)
         "RpathPrimaryProduction": True,
     }
+    if patch_pool is not None:
+        params_dict["_patch_pool"] = patch_pool
     # Prey switching normalises by the Ecosim base, not a patch's B * c
     from pypath.core.ecosim import _set_switch_weights
 
