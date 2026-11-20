@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 # pypath imports (path setup handled by app/__init__.py)
+from pypath.core.ecosim import RunCancelled
 from pypath.spatial import (
     EcospaceGrid,
     SpatialFishing,
@@ -36,6 +37,7 @@ from shiny import Inputs, Outputs, Session, reactive, render, ui
 from shiny_deckgl import CARTO_DARK, MapWidget
 
 from pypath_shiny.config import SPATIAL
+from pypath_shiny.pages.ecosim import month_progress_tags
 from pypath_shiny.services.background_runs import (
     SpatialOutcome,
     run_spatial,
@@ -57,7 +59,7 @@ from pypath_shiny.services.deckgl_maps import (
     grid_overview_layers,
     patch_value_layers,
 )
-from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunSlot
+from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunControl, RunSlot
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -71,6 +73,7 @@ from pypath_shiny.services.tasks import (
     apply_if_latest,
     finish_task,
     new_running_task,
+    transition_task_state,
     update_task_progress,
 )
 
@@ -114,6 +117,12 @@ def spatial_task_alert(task_state: TaskState) -> tuple[str, str, str]:
             "alert alert-success mt-2",
             "bi bi-check-circle me-2",
             task_state.message or "Spatial simulation completed.",
+        )
+    if task_state.status is TaskStatus.CANCELLED:
+        return (
+            "alert alert-warning mt-2",
+            "bi bi-pause-circle me-2",
+            task_state.message or "Spatial simulation cancelled.",
         )
     return ("", "", "")
 
@@ -1453,10 +1462,13 @@ def ecospace_server(
             return None
         return ports
 
-    # This session's spatial run in the process-wide executor. A spatial run
-    # cannot be stopped once a worker has it, so the slot stays taken until
-    # the thread finishes; a second click is refused meanwhile.
+    # This session's spatial run in the process-wide executor. A run a worker
+    # has started stops only between months, so after a cancel the slot stays
+    # taken until the month in progress ends; a click is refused meanwhile.
     run_slot = RunSlot()
+    # The live run's RunControl: the worker records each month on it and the
+    # loop reads the progress and asks for a stop through it.
+    launched = {"control": None}
 
     @ui.bind_task_button(button_id="run_spatial_sim")
     @reactive.extended_task
@@ -1469,6 +1481,7 @@ def ecospace_server(
         spatial_fishing,
         used,
         slot,
+        control,
         fingerprint,
     ):
         """Integrate on a worker thread, off the event loop.
@@ -1480,15 +1493,29 @@ def ecospace_server(
         outcome, both on the loop.
         """
         future = RUN_EXECUTOR.submit(
-            run_spatial, scen, ecospace_params, spatial_fishing
+            run_spatial, scen, ecospace_params, spatial_fishing, control=control
         )
         slot.acquire(future)
         out = await asyncio.wrap_future(future)
         return SpatialOutcome(run_id, source, source_grid, out, used, fingerprint)
 
+    def _stop_spatial_run() -> None:
+        """Stop the session's spatial run, on the loop.
+
+        The control's stop ends a computing run at its next month boundary
+        (its future then completes with ``RunCancelled``, which frees the
+        slot); the task's cancel drops the outcome, and cancels a run still
+        queued for a worker outright.
+        """
+        control = launched["control"]
+        if control is not None:
+            control.request_stop()
+        _spatial_task.cancel()
+
     # A closed or reloaded tab must not leave its run queued for a worker with
-    # no owner. A run already computing finishes and its result is dropped.
-    _session.on_ended(_spatial_task.cancel)
+    # no owner; a run already computing stops at its next month boundary and
+    # its result is dropped.
+    _session.on_ended(_stop_spatial_run)
 
     # Run spatial simulation handler
     @reactive.effect
@@ -1500,10 +1527,19 @@ def ecospace_server(
         if (
             spatial_task_state.get().status is TaskStatus.RUNNING
             or _spatial_task.status() == "running"
-            or run_slot.busy
         ):
             _notify_legacy(
-                "A spatial simulation is already running. Please wait for it.",
+                "A spatial simulation is already running. Cancel it first, or "
+                "wait for it.",
+                type="warning",
+                duration=5,
+            )
+            return
+        if run_slot.busy:
+            # A cancelled run's thread computes on to its next month boundary.
+            _notify_legacy(
+                "The cancelled run is finishing its current month. "
+                "Try again in a moment.",
                 type="warning",
                 duration=5,
             )
@@ -1597,6 +1633,8 @@ def ecospace_server(
             spatial_fishing = _build_spatial_fishing()
             # The worker integrates a copy: the page's scenario stays usable
             # (and editable) while the run computes.
+            control = RunControl()
+            launched["control"] = control
             _spatial_task.invoke(
                 run_id,
                 scenario,
@@ -1606,6 +1644,7 @@ def ecospace_server(
                 spatial_fishing=spatial_fishing,
                 used=used,
                 slot=run_slot,
+                control=control,
                 fingerprint=scenario_fingerprint(scenario),
             )
 
@@ -1718,10 +1757,62 @@ def ecospace_server(
                     return
                 try:
                     _spatial_task.result()
+                except RunCancelled as e:
+                    # Defensive: _stop_spatial_run cancels the task before the
+                    # worker reaches its month boundary, so the task ends
+                    # "cancelled" and does not land here. If a stopped run's
+                    # outcome ever does, it is a cancel, never an error.
+                    logger.debug("Spatial run %s stopped: %s", state.run_id, e)
+                    spatial_task_state.set(_cancelled_state(state))
                 except Exception as e:
                     logger.error("Spatial simulation failed: %s", e, exc_info=True)
                     _fail_spatial_run(state.run_id, f"Spatial simulation failed: {e!s}")
-            # "cancelled": only a closed session cancels, and it shows nothing.
+            # "cancelled": whoever cancelled has already set the state.
+
+    def _cancelled_state(state: TaskState) -> TaskState:
+        return transition_task_state(
+            state,
+            TaskStatus.CANCELLED,
+            message="Spatial simulation cancelled.",
+            can_cancel=False,
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_cancel_spatial)
+    def _cancel_spatial_simulation():
+        """Cancel the running spatial simulation; its result is discarded."""
+        state = spatial_task_state.get()
+        if state.status is not TaskStatus.RUNNING:
+            return
+        # A run already computing stops at its next month boundary (a month
+        # in progress is not interrupted) and holds the session's slot until
+        # then; a run still queued for a worker is cancelled outright.
+        _stop_spatial_run()
+        spatial_task_state.set(_cancelled_state(state))
+        _notify_legacy(
+            "Cancelled: the run stops at the end of its current month and "
+            "its result is discarded.",
+            type="warning",
+            duration=6,
+        )
+
+    @render.ui
+    def spatial_month_progress():
+        """The running run's ``Month m of n (p%)`` bar, ticking every second.
+
+        Reads the run's ``RunControl`` here, on the loop (the worker only
+        writes it). Empty until the first month completes: the status line
+        above it says what the run is doing until then.
+        """
+        state = spatial_task_state.get()
+        if state.status is not TaskStatus.RUNNING:
+            return None
+        reactive.invalidate_later(1)
+        control = launched["control"]
+        progress = control.progress() if control is not None else None
+        if progress is None:
+            return None
+        return month_progress_tags(progress, state.message)
 
     @render.ui
     def spatial_switching_line():
@@ -1742,10 +1833,28 @@ def ecospace_server(
         if not message:
             return ui.div()
 
-        return ui.div(
+        alert = ui.div(
             ui.tags.i(class_=icon_class),
             message,
             class_=alert_class,
+        )
+        if task_state.status is not TaskStatus.RUNNING:
+            return alert
+        # The month progress ticks in its own output, so this block and its
+        # Cancel button are not rebuilt every second.
+        return ui.div(
+            alert,
+            ui.output_ui("spatial_month_progress"),
+            ui.input_action_button(
+                "btn_cancel_spatial",
+                ui.span(
+                    ui.tags.i(class_="bi bi-stop-circle me-2"),
+                    "Cancel Simulation",
+                ),
+                class_="btn btn-warning w-100 mt-2",
+            )
+            if task_state.can_cancel
+            else None,
         )
 
     # Grid visualization (deck.gl)

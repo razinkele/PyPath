@@ -69,11 +69,11 @@ _QS_NOTE = (
 # At most this many integrations run at once in the app's process, over all
 # sessions and pages: Ecosim runs, the Ecospace page's spatial runs and the IBM
 # page's comparisons share this executor (services.background_runs). A
-# cancelled run stops only at its next month boundary (a RunControl; a month
-# in progress is not interrupted), a spatial run cannot be stopped at all, and
-# each is CPU-bound: an unbounded pool would let Run-then-Cancel pile up
-# threads that starve every session. Further runs queue, so two long spatial
-# runs make the other sessions' runs wait for a worker.
+# cancelled run, spatial ones included, stops only at its next month boundary
+# (a RunControl; a month in progress is not interrupted), and each is
+# CPU-bound: an unbounded pool would let Run-then-Cancel pile up threads that
+# starve every session. Further runs queue, so two long spatial runs make the
+# other sessions' runs wait for a worker.
 MAX_CONCURRENT_RUNS = 2
 RUN_EXECUTOR = ThreadPoolExecutor(
     max_workers=MAX_CONCURRENT_RUNS, thread_name_prefix="ecosim-run"

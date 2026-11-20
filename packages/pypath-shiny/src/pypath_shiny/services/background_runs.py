@@ -129,7 +129,7 @@ class SpatialOutcome:
     fingerprint: str = ""
 
 
-def run_spatial(scenario, ecospace_params, spatial_fishing):
+def run_spatial(scenario, ecospace_params, spatial_fishing, control=None):
     """Run the spatial simulation; called on a worker thread.
 
     Parameters
@@ -140,16 +140,27 @@ def run_spatial(scenario, ecospace_params, spatial_fishing):
         The run's spatial configuration.
     spatial_fishing : SpatialFishing or None
         The run's effort allocation.
+    control : RunControl, optional
+        Its ``on_month`` is passed to the run, which records each month's
+        progress on it and stops at the next month boundary after a
+        requested stop (``RunCancelled``).
 
     Returns
     -------
     RsimOutput
         The spatial run's output.
+
+    Raises
+    ------
+    RunCancelled
+        When ``control`` was asked to stop.
     """
+    hook = {} if control is None else {"on_month": control.on_month}
     return rsim_run_spatial(
         scenario,
         ecospace=ecospace_params,
         spatial_fishing=spatial_fishing,
+        **hook,
     )
 
 

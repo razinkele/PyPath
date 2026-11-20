@@ -57,6 +57,21 @@ def test_spatial_task_alert_error_prefers_error_field():
     assert "numerical issue" in message
 
 
+def test_spatial_task_alert_cancelled_is_a_warning():
+    from pypath_shiny.pages.ecospace import spatial_task_alert
+    from pypath_shiny.services.tasks import TaskState, TaskStatus
+
+    state = TaskState(
+        run_id="s4",
+        status=TaskStatus.CANCELLED,
+        message="Spatial simulation cancelled.",
+    )
+    alert_class, _icon, message = spatial_task_alert(state)
+
+    assert alert_class == "alert alert-warning mt-2"
+    assert message == "Spatial simulation cancelled."
+
+
 def test_spatial_task_alert_success_uses_message():
     from pypath_shiny.pages.ecospace import spatial_task_alert
     from pypath_shiny.services.tasks import TaskState, TaskStatus
