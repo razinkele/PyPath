@@ -982,3 +982,32 @@ button[data-theme-toggle="true"] .bi {
 .card[data-full-screen="true"] .deckgl-map {
   height: max(500px, calc(100vh - 14rem)) !important;
 }
+
+/* Drawing tools on a deck.gl map (the Ecospace wizard's study area).
+   mapbox-gl-draw names its control for Mapbox GL (mapboxgl-ctrl), while
+   MapLibre styles, and lets the pointer reach, only maplibregl-ctrl: without
+   these rules the buttons are bare and every click falls through to the map
+   (shiny-deckgl 1.16.0). */
+.deckgl-map .mapboxgl-ctrl {
+  pointer-events: auto;
+  clear: both;
+  float: left;
+  margin: 10px 0 0 10px;
+}
+.deckgl-map .mapboxgl-ctrl-group {
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+.deckgl-map .mapboxgl-ctrl-group button {
+  display: block;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  cursor: pointer;
+}
+.deckgl-map .mapboxgl-ctrl-group button + button {
+  border-top: 1px solid #ddd;
+}
