@@ -20,7 +20,7 @@ SRC = Path(pypath_shiny.__file__).resolve().parent
 REPO = SRC.parents[3]
 PAGES = sorted((SRC / "pages").glob("*.py"))
 
-FLOORS = {"shiny": "1.9.0", "shiny-deckgl": "1.16.0", "uvicorn": "0.50"}
+FLOORS = {"shiny": "1.9.0", "shiny-deckgl": "1.16.1", "uvicorn": "0.50"}
 
 
 def _floor(requirements, name):
@@ -85,3 +85,13 @@ def test_no_page_uses_the_legacy_output_decorator():
         lines = path.read_text(encoding="utf-8").splitlines()
         legacy = [i + 1 for i, line in enumerate(lines) if line.strip() == "@output"]
         assert legacy == [], f"{path.name}: {legacy[:5]}"
+
+
+def test_the_stylesheet_no_longer_works_around_the_draw_control():
+    """shiny-deckgl 1.16.1 gives mapbox-gl-draw MapLibre's class names itself.
+
+    Before that the draw buttons could not be clicked, and the stylesheet
+    carried rules for ``.mapboxgl-ctrl``; they match nothing now.
+    """
+    css = (SRC / "static" / "custom.css").read_text(encoding="utf-8")
+    assert "mapboxgl-ctrl" not in css

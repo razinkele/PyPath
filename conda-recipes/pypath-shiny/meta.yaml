@@ -30,7 +30,7 @@ requirements:
     - shiny >=1.9.0
     - shinywidgets >=0.8.2
     - great_tables >=0.1.0
-    - shiny-deckgl >=1.16.0  # razinka channel
+    - shiny-deckgl >=1.16.1  # razinka channel
     - shinyswatch >=0.7.0
     - httpx >=0.24
     - uvicorn >=0.50
