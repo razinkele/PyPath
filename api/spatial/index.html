@@ -1170,6 +1170,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.spatial.monthly_capacity.MonthlyCapacity.movement_rows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        movement_rows
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.spatial.monthly_capacity.MonthlyCapacity.prepare" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4094,6 +4105,17 @@
     <span class="md-ellipsis">
       
         month_index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.spatial.monthly_capacity.MonthlyCapacity.movement_rows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        movement_rows
       
     </span>
   </a>
@@ -7779,7 +7801,8 @@ the groups they carry; see <code>pypath.spatial.transport</code></p>
             <td>
               <div class="doc-md-description">
                 <p>A habitat capacity for every month for chosen groups, acting on the
-local dynamics; see <code>pypath.spatial.monthly_capacity</code></p>
+local dynamics and, with its <code>movement=True</code>, on movement between
+patches; see <code>pypath.spatial.monthly_capacity</code></p>
               </div>
             </td>
           </tr>
@@ -7982,7 +8005,8 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 <span class="normal">535</span>
 <span class="normal">536</span>
 <span class="normal">537</span>
-<span class="normal">538</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">538</span>
+<span class="normal">539</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EcospaceParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Spatial parameters for ECOSPACE simulation.</span>
 
@@ -8023,7 +8047,8 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 <span class="sd">        the groups they carry; see ``pypath.spatial.transport``</span>
 <span class="sd">    monthly_capacity : Optional[MonthlyCapacity]</span>
 <span class="sd">        A habitat capacity for every month for chosen groups, acting on the</span>
-<span class="sd">        local dynamics; see ``pypath.spatial.monthly_capacity``</span>
+<span class="sd">        local dynamics and, with its ``movement=True``, on movement between</span>
+<span class="sd">        patches; see ``pypath.spatial.monthly_capacity``</span>
 <span class="sd">    environmental_drivers : Optional[object]</span>
 <span class="sd">        Time-varying environmental drivers (EnvironmentalDrivers instance).</span>
 <span class="sd">        A run does not evaluate them: make a capacity from them with</span>
@@ -8157,8 +8182,7 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">483</span>
-<span class="normal">484</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">484</span>
 <span class="normal">485</span>
 <span class="normal">486</span>
 <span class="normal">487</span>
@@ -8212,7 +8236,8 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 <span class="normal">535</span>
 <span class="normal">536</span>
 <span class="normal">537</span>
-<span class="normal">538</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="normal">538</span>
+<span class="normal">539</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Validate spatial parameters."""</span>
     <span class="n">n_patches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">n_patches</span>
 
@@ -9262,8 +9287,7 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">541</span>
-<span class="normal">542</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">542</span>
 <span class="normal">543</span>
 <span class="normal">544</span>
 <span class="normal">545</span>
@@ -9304,7 +9328,8 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 <span class="normal">580</span>
 <span class="normal">581</span>
 <span class="normal">582</span>
-<span class="normal">583</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">583</span>
+<span class="normal">584</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SpatialState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Extended state for spatial simulation.</span>
 
@@ -9404,15 +9429,15 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">560</span>
-<span class="normal">561</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">561</span>
 <span class="normal">562</span>
 <span class="normal">563</span>
 <span class="normal">564</span>
 <span class="normal">565</span>
 <span class="normal">566</span>
 <span class="normal">567</span>
-<span class="normal">568</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">collapse_to_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">568</span>
+<span class="normal">569</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">collapse_to_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Sum biomass across patches for compatibility.</span>
 
 <span class="sd">    Returns</span>
@@ -9499,8 +9524,7 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">570</span>
-<span class="normal">571</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">571</span>
 <span class="normal">572</span>
 <span class="normal">573</span>
 <span class="normal">574</span>
@@ -9512,7 +9536,8 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 <span class="normal">580</span>
 <span class="normal">581</span>
 <span class="normal">582</span>
-<span class="normal">583</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_patch_biomass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patch_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">583</span>
+<span class="normal">584</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_patch_biomass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patch_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Get biomass in a specific patch.</span>
 
 <span class="sd">    Parameters</span>
@@ -12608,10 +12633,23 @@ rest of the year: in one lagoon model a zooplankton group with such a
 response fell to 7 % of its biomass each winter. Shape a response so that
 it is near 1 under the conditions the model describes, and lower only where
 the group really does worse.</p>
-<p>The base map still sets the start distribution, movement between patches,
-the rest state of <code>WaterTransport</code> with <code>rest="capacity"</code>, and the
-stanza ratios. Movement does not yet follow the month's map (in EwE it
-does).</p>
+<p>The base map still sets the start distribution, the stanza ratios, the
+rest state of <code>WaterTransport</code> with <code>rest="capacity"</code> and, unless
+asked, movement between patches. With <code>movement=True</code> the groups'
+diffusion reads the month's map, as movement does in EwE (which sets its
+movement rates again whenever the capacity has changed): a group then
+leaves a patch that has turned poor, at <code>min(1, capacity there / capacity
+here)</code> of its dispersal rate towards each neighbour. Without it, diffusion
+keeps pulling the group back to the base pattern, which at a high dispersal
+rate undoes much of what the month's capacity does locally.
+Habitat-directed advection reads <code>habitat_preference</code> and is not changed.</p>
+<p>The rest state of water transport does not follow the month's map, with or
+without <code>movement</code>. Water exchange moves a group towards its rest pattern
+at the water's rate divided by the zone's weight, so a zone whose capacity
+fell in one month would lose far more than its water carries (with 5 % of
+the water exchanged in a month, 39 % of the biomass at a capacity of 0.05).
+For a carried group whose capacity changes by month, <code>rest="volume"</code> lets
+the water mix it without a habitat pattern.</p>
 <p>Groups a run does not treat as one pool per patch are refused: multi-stanza
 groups and IBM groups. So is a monthly capacity on a uniform base map
 together with an MPA capacity bonus, which acts differently on a uniform map
@@ -12719,6 +12757,18 @@ over all the years given; or hold the nearest month.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.monthly_capacity.MonthlyCapacity.movement">movement</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether these groups' diffusion between patches reads the month's
+map (as EwE's movement does) and not the base map. Off by default.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -12731,21 +12781,7 @@ over all the years given; or hold the nearest month.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/spatial/monthly_capacity.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 59</span>
-<span class="normal"> 60</span>
-<span class="normal"> 61</span>
-<span class="normal"> 62</span>
-<span class="normal"> 63</span>
-<span class="normal"> 64</span>
-<span class="normal"> 65</span>
-<span class="normal"> 66</span>
-<span class="normal"> 67</span>
-<span class="normal"> 68</span>
-<span class="normal"> 69</span>
-<span class="normal"> 70</span>
-<span class="normal"> 71</span>
-<span class="normal"> 72</span>
-<span class="normal"> 73</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 73</span>
 <span class="normal"> 74</span>
 <span class="normal"> 75</span>
 <span class="normal"> 76</span>
@@ -12984,7 +13020,46 @@ over all the years given; or hold the nearest month.</p>
 <span class="normal">309</span>
 <span class="normal">310</span>
 <span class="normal">311</span>
-<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MonthlyCapacity</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""A capacity per month, patch and group, for the groups named.</span>
 
@@ -13004,12 +13079,16 @@ over all the years given; or hold the nearest month.</p>
 <span class="sd">        after: refuse the run; repeat the nearest twelve months, in step</span>
 <span class="sd">        with the calendar; use the mean year, each calendar month's mean</span>
 <span class="sd">        over all the years given; or hold the nearest month.</span>
+<span class="sd">    movement : bool</span>
+<span class="sd">        Whether these groups' diffusion between patches reads the month's</span>
+<span class="sd">        map (as EwE's movement does) and not the base map. Off by default.</span>
 <span class="sd">    """</span>
 
     <span class="n">groups</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="n">first_month</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">beyond</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"refuse"</span>
+    <span class="n">movement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">groups</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">]</span>
@@ -13047,6 +13126,7 @@ over all the years given; or hold the nearest month.</p>
         <span class="n">group_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">combine</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"multiplicative"</span><span class="p">,</span>
         <span class="n">beyond</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"refuse"</span><span class="p">,</span>
+        <span class="n">movement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MonthlyCapacity"</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Each month's capacity from monthly layers and response functions.</span>
 
@@ -13071,6 +13151,8 @@ over all the years given; or hold the nearest month.</p>
 <span class="sd">        combine : {"multiplicative", "minimum"}</span>
 <span class="sd">            How a group's responses to several layers are combined.</span>
 <span class="sd">        beyond : str</span>
+<span class="sd">            As on the class.</span>
+<span class="sd">        movement : bool</span>
 <span class="sd">            As on the class.</span>
 
 <span class="sd">        Raises</span>
@@ -13143,7 +13225,13 @@ over all the years given; or hold the nearest month.</p>
                     <span class="k">if</span> <span class="n">combine</span> <span class="o">==</span> <span class="s2">"multiplicative"</span>
                     <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
                 <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">groups</span><span class="o">=</span><span class="n">rows</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span> <span class="n">first_month</span><span class="o">=</span><span class="n">months</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">beyond</span><span class="o">=</span><span class="n">beyond</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">groups</span><span class="o">=</span><span class="n">rows</span><span class="p">,</span>
+            <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">first_month</span><span class="o">=</span><span class="n">months</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">beyond</span><span class="o">=</span><span class="n">beyond</span><span class="p">,</span>
+            <span class="n">movement</span><span class="o">=</span><span class="n">movement</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="c1"># -- time --------------------------------------------------------------</span>
 
@@ -13238,6 +13326,18 @@ over all the years given; or hold the nearest month.</p>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">month_index</span><span class="p">(</span><span class="n">month</span><span class="p">)]</span> <span class="o">/</span> <span class="n">peak</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">_MIN_CAPACITY</span>
         <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">movement_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">month</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">base_peak</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The capacity that movement reads in a run's month, by group row.</span>
+
+<span class="sd">        Empty unless ``movement`` is set. Otherwise each group given maps to</span>
+<span class="sd">        its month's capacity per patch, floored as ``efficiency`` floors it</span>
+<span class="sd">        (EwE's movement reads the same floored map), so a patch at no</span>
+<span class="sd">        capacity is left slowly and not at an infinite rate.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">movement</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">efficiency</span><span class="p">(</span><span class="n">month</span><span class="p">,</span> <span class="n">base_peak</span><span class="p">)))</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -13299,18 +13399,18 @@ minimum capacity.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/monthly_capacity.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">301</span>
-<span class="normal">302</span>
-<span class="normal">303</span>
-<span class="normal">304</span>
-<span class="normal">305</span>
-<span class="normal">306</span>
-<span class="normal">307</span>
-<span class="normal">308</span>
-<span class="normal">309</span>
-<span class="normal">310</span>
-<span class="normal">311</span>
-<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">efficiency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">month</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">base_peak</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">efficiency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">month</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">base_peak</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Feeding efficiency of the groups given, in a run's month.</span>
 
 <span class="sd">    ``base_peak`` is the peak of each of those groups' base maps</span>
@@ -13340,7 +13440,7 @@ minimum capacity.</p>
   </span>
 
 <a href="#pypath.spatial.monthly_capacity.MonthlyCapacity.from_layers" class="headerlink" title="Permanent link">&para;</a></h5>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">from_layers</span><span class="p">(</span><span class="n">drivers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s1">'EnvironmentalDrivers'</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s1">'EnvironmentalLayer'</span><span class="p">]],</span> <span class="n">responses</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]],</span> <span class="o">*</span><span class="p">,</span> <span class="n">group_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">combine</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'multiplicative'</span><span class="p">,</span> <span class="n">beyond</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'refuse'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'MonthlyCapacity'</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">from_layers</span><span class="p">(</span><span class="n">drivers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s1">'EnvironmentalDrivers'</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s1">'EnvironmentalLayer'</span><span class="p">]],</span> <span class="n">responses</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]],</span> <span class="o">*</span><span class="p">,</span> <span class="n">group_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">combine</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'multiplicative'</span><span class="p">,</span> <span class="n">beyond</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'refuse'</span><span class="p">,</span> <span class="n">movement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'MonthlyCapacity'</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -13448,6 +13548,22 @@ these groups get a monthly capacity.</p>
                   <code>&#39;refuse&#39;</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>movement</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As on the class.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -13478,25 +13594,7 @@ time, or the layers' months have gaps.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/monthly_capacity.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">131</span>
 <span class="normal">132</span>
 <span class="normal">133</span>
 <span class="normal">134</span>
@@ -13583,7 +13681,34 @@ time, or the layers' months have gaps.</p>
 <span class="normal">215</span>
 <span class="normal">216</span>
 <span class="normal">217</span>
-<span class="normal">218</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_layers</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">drivers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">"EnvironmentalDrivers"</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">"EnvironmentalLayer"</span><span class="p">]],</span>
@@ -13592,6 +13717,7 @@ time, or the layers' months have gaps.</p>
     <span class="n">group_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">combine</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"multiplicative"</span><span class="p">,</span>
     <span class="n">beyond</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"refuse"</span><span class="p">,</span>
+    <span class="n">movement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MonthlyCapacity"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Each month's capacity from monthly layers and response functions.</span>
 
@@ -13616,6 +13742,8 @@ time, or the layers' months have gaps.</p>
 <span class="sd">    combine : {"multiplicative", "minimum"}</span>
 <span class="sd">        How a group's responses to several layers are combined.</span>
 <span class="sd">    beyond : str</span>
+<span class="sd">        As on the class.</span>
+<span class="sd">    movement : bool</span>
 <span class="sd">        As on the class.</span>
 
 <span class="sd">    Raises</span>
@@ -13688,7 +13816,13 @@ time, or the layers' months have gaps.</p>
                 <span class="k">if</span> <span class="n">combine</span> <span class="o">==</span> <span class="s2">"multiplicative"</span>
                 <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
             <span class="p">)</span>
-    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">groups</span><span class="o">=</span><span class="n">rows</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span> <span class="n">first_month</span><span class="o">=</span><span class="n">months</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">beyond</span><span class="o">=</span><span class="n">beyond</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+        <span class="n">groups</span><span class="o">=</span><span class="n">rows</span><span class="p">,</span>
+        <span class="n">values</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+        <span class="n">first_month</span><span class="o">=</span><span class="n">months</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">beyond</span><span class="o">=</span><span class="n">beyond</span><span class="p">,</span>
+        <span class="n">movement</span><span class="o">=</span><span class="n">movement</span><span class="p">,</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -13713,23 +13847,23 @@ time, or the layers' months have gaps.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/monthly_capacity.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">month_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">month</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">month_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">month</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The row of ``values`` used for a run's month (0 is the first)."""</span>
     <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_months</span>
     <span class="n">rel</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">month</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_month</span>
@@ -13755,6 +13889,55 @@ time, or the layers' months have gaps.</p>
 <div class="doc doc-object doc-function">
 
 
+<h5 id="pypath.spatial.monthly_capacity.MonthlyCapacity.movement_rows" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">movement_rows</span>
+
+
+<a href="#pypath.spatial.monthly_capacity.MonthlyCapacity.movement_rows" class="headerlink" title="Permanent link">&para;</a></h5>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">movement_rows</span><span class="p">(</span><span class="n">month</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">base_peak</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The capacity that movement reads in a run's month, by group row.</p>
+<p>Empty unless <code>movement</code> is set. Otherwise each group given maps to
+its month's capacity per patch, floored as <code>efficiency</code> floors it
+(EwE's movement reads the same floored map), so a patch at no
+capacity is left slowly and not at an infinite rate.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/spatial/monthly_capacity.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">movement_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">month</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">base_peak</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The capacity that movement reads in a run's month, by group row.</span>
+
+<span class="sd">    Empty unless ``movement`` is set. Otherwise each group given maps to</span>
+<span class="sd">    its month's capacity per patch, floored as ``efficiency`` floors it</span>
+<span class="sd">    (EwE's movement reads the same floored map), so a patch at no</span>
+<span class="sd">    capacity is left slowly and not at an infinite rate.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">movement</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">efficiency</span><span class="p">(</span><span class="n">month</span><span class="p">,</span> <span class="n">base_peak</span><span class="p">)))</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h5 id="pypath.spatial.monthly_capacity.MonthlyCapacity.prepare" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">prepare</span>
 
@@ -13770,34 +13953,7 @@ time, or the layers' months have gaps.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/monthly_capacity.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">247</span>
-<span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span>
-<span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span>
-<span class="normal">260</span>
-<span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">274</span>
 <span class="normal">275</span>
 <span class="normal">276</span>
 <span class="normal">277</span>
@@ -13822,7 +13978,34 @@ time, or the layers' months have gaps.</p>
 <span class="normal">296</span>
 <span class="normal">297</span>
 <span class="normal">298</span>
-<span class="normal">299</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">ecospace</span><span class="p">:</span> <span class="s2">"EcospaceParams"</span><span class="p">,</span>
     <span class="n">n_run_months</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -18435,12 +18618,7 @@ net_flux[p] = Σ_q flux_matrix[q, p] - Σ_q flux_matrix[p, q]
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">520</span>
-<span class="normal">521</span>
-<span class="normal">522</span>
-<span class="normal">523</span>
-<span class="normal">524</span>
-<span class="normal">525</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">525</span>
 <span class="normal">526</span>
 <span class="normal">527</span>
 <span class="normal">528</span>
@@ -18485,7 +18663,12 @@ net_flux[p] = Σ_q flux_matrix[q, p] - Σ_q flux_matrix[p, q]
 <span class="normal">567</span>
 <span class="normal">568</span>
 <span class="normal">569</span>
-<span class="normal">570</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_external_flux</span><span class="p">(</span>
+<span class="normal">570</span>
+<span class="normal">571</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_external_flux</span><span class="p">(</span>
     <span class="n">biomass_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">external_flux</span><span class="p">:</span> <span class="n">ExternalFluxTimeseries</span><span class="p">,</span>
     <span class="n">group_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -18648,14 +18831,7 @@ during the timestep.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">797</span>
-<span class="normal">798</span>
-<span class="normal">799</span>
-<span class="normal">800</span>
-<span class="normal">801</span>
-<span class="normal">802</span>
-<span class="normal">803</span>
-<span class="normal">804</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">804</span>
 <span class="normal">805</span>
 <span class="normal">806</span>
 <span class="normal">807</span>
@@ -18679,7 +18855,14 @@ during the timestep.</p>
 <span class="normal">825</span>
 <span class="normal">826</span>
 <span class="normal">827</span>
-<span class="normal">828</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_flux_limiter</span><span class="p">(</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span>
+<span class="normal">835</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_flux_limiter</span><span class="p">(</span>
     <span class="n">flux</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">biomass</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Apply flux limiter to prevent negative biomass.</span>
@@ -18865,12 +19048,7 @@ flux[g, p] = net flux for group g in patch p</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">676</span>
-<span class="normal">677</span>
-<span class="normal">678</span>
-<span class="normal">679</span>
-<span class="normal">680</span>
-<span class="normal">681</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">681</span>
 <span class="normal">682</span>
 <span class="normal">683</span>
 <span class="normal">684</span>
@@ -18955,7 +19133,14 @@ flux[g, p] = net flux for group g in patch p</p>
 <span class="normal">763</span>
 <span class="normal">764</span>
 <span class="normal">765</span>
-<span class="normal">766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_spatial_flux</span><span class="p">(</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_spatial_flux</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">ecospace</span><span class="p">:</span> <span class="n">EcospaceParams</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -19029,7 +19214,9 @@ flux[g, p] = net flux for group g in patch p</p>
                     <span class="n">ecospace</span><span class="o">.</span><span class="n">dispersal_rate</span><span class="p">[</span><span class="n">eco_idx</span><span class="p">],</span>
                     <span class="n">grid</span><span class="p">,</span>
                     <span class="n">adj</span><span class="p">,</span>
-                    <span class="n">capacity</span><span class="o">=</span><span class="n">movement_capacity</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">eco_idx</span><span class="p">),</span>
+                    <span class="n">capacity</span><span class="o">=</span><span class="n">movement_capacity</span><span class="p">(</span>
+                        <span class="n">ecospace</span><span class="p">,</span> <span class="n">eco_idx</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_movement_capacity"</span><span class="p">)</span>
+                    <span class="p">),</span>
                 <span class="p">)</span>
 
             <span class="c1"># Add habitat-directed movement if enabled</span>
@@ -19209,12 +19396,7 @@ coefficient in km² per year.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">246</span>
 <span class="normal">247</span>
 <span class="normal">248</span>
 <span class="normal">249</span>
@@ -19299,7 +19481,12 @@ coefficient in km² per year.</p>
 <span class="normal">328</span>
 <span class="normal">329</span>
 <span class="normal">330</span>
-<span class="normal">331</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">diffusion_flux</span><span class="p">(</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">diffusion_flux</span><span class="p">(</span>
     <span class="n">biomass_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">dispersal_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">grid</span><span class="p">:</span> <span class="n">EcospaceGrid</span><span class="p">,</span>
@@ -19557,12 +19744,7 @@ Higher values = stronger distance penalty</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">426</span>
-<span class="normal">427</span>
-<span class="normal">428</span>
-<span class="normal">429</span>
-<span class="normal">430</span>
-<span class="normal">431</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">431</span>
 <span class="normal">432</span>
 <span class="normal">433</span>
 <span class="normal">434</span>
@@ -19648,7 +19830,12 @@ Higher values = stronger distance penalty</p>
 <span class="normal">514</span>
 <span class="normal">515</span>
 <span class="normal">516</span>
-<span class="normal">517</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">gravity_model_flux</span><span class="p">(</span>
+<span class="normal">517</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">gravity_model_flux</span><span class="p">(</span>
     <span class="n">biomass_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">attractiveness</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">gravity_strength</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -19891,12 +20078,7 @@ to the habitat gradient and to the density of the patch they leave
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">339</span>
 <span class="normal">340</span>
 <span class="normal">341</span>
 <span class="normal">342</span>
@@ -19980,7 +20162,12 @@ to the habitat gradient and to the density of the patch they leave
 <span class="normal">420</span>
 <span class="normal">421</span>
 <span class="normal">422</span>
-<span class="normal">423</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">habitat_advection</span><span class="p">(</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span>
+<span class="normal">428</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">habitat_advection</span><span class="p">(</span>
     <span class="n">biomass_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">habitat_preference</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">gravity_strength</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -20257,12 +20444,7 @@ movement (see <code>diffusion_flux</code>). Uniform or None is plain diffusion.<
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span>
-<span class="normal">616</span>
-<span class="normal">617</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">617</span>
 <span class="normal">618</span>
 <span class="normal">619</span>
 <span class="normal">620</span>
@@ -20318,7 +20500,12 @@ movement (see <code>diffusion_flux</code>). Uniform or None is plain diffusion.<
 <span class="normal">670</span>
 <span class="normal">671</span>
 <span class="normal">672</span>
-<span class="normal">673</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">implicit_diffusion_step</span><span class="p">(</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">implicit_diffusion_step</span><span class="p">(</span>
     <span class="n">biomass_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">dispersal_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">grid</span><span class="p">:</span> <span class="n">EcospaceGrid</span><span class="p">,</span>
@@ -20394,14 +20581,16 @@ movement (see <code>diffusion_flux</code>). Uniform or None is plain diffusion.<
 
 
 <a href="#pypath.spatial.dispersal.movement_capacity" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">movement_capacity</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">eco_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">movement_capacity</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">eco_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">month_rows</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>A group's habitat capacity row for movement, or None.</p>
 <p>None when there is no habitat capacity, no row for the group, or the row
-is the same everywhere: movement is then plain diffusion.</p>
+is the same everywhere: movement is then plain diffusion. <code>month_rows</code>
+holds the rows of the groups whose movement follows a monthly capacity
+(<code>MonthlyCapacity.movement_rows</code>); the other groups read the base map.</p>
 
 
             <details class="mkdocstrings-source">
@@ -20419,12 +20608,22 @@ is the same everywhere: movement is then plain diffusion.</p>
 <span class="normal">212</span>
 <span class="normal">213</span>
 <span class="normal">214</span>
-<span class="normal">215</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">movement_capacity</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">eco_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">movement_capacity</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">eco_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">month_rows</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""A group's habitat capacity row for movement, or None.</span>
 
 <span class="sd">    None when there is no habitat capacity, no row for the group, or the row</span>
-<span class="sd">    is the same everywhere: movement is then plain diffusion.</span>
+<span class="sd">    is the same everywhere: movement is then plain diffusion. ``month_rows``</span>
+<span class="sd">    holds the rows of the groups whose movement follows a monthly capacity</span>
+<span class="sd">    (``MonthlyCapacity.movement_rows``); the other groups read the base map.</span>
 <span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">month_rows</span> <span class="ow">and</span> <span class="n">eco_idx</span> <span class="ow">in</span> <span class="n">month_rows</span><span class="p">:</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">month_rows</span><span class="p">[</span><span class="n">eco_idx</span><span class="p">]</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">_uniform</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">else</span> <span class="n">row</span>
     <span class="n">cap</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">ecospace</span><span class="p">,</span> <span class="s2">"habitat_capacity"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">cap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
@@ -20529,14 +20728,7 @@ is the same everywhere: movement is then plain diffusion.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/dispersal.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">769</span>
-<span class="normal">770</span>
-<span class="normal">771</span>
-<span class="normal">772</span>
-<span class="normal">773</span>
-<span class="normal">774</span>
-<span class="normal">775</span>
-<span class="normal">776</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">776</span>
 <span class="normal">777</span>
 <span class="normal">778</span>
 <span class="normal">779</span>
@@ -20554,7 +20746,14 @@ is the same everywhere: movement is then plain diffusion.</p>
 <span class="normal">791</span>
 <span class="normal">792</span>
 <span class="normal">793</span>
-<span class="normal">794</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_flux_conservation</span><span class="p">(</span><span class="n">flux</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_flux_conservation</span><span class="p">(</span><span class="n">flux</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Validate that spatial flux conserves mass.</span>
 
 <span class="sd">    The sum of flux over all patches should be zero</span>
