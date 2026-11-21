@@ -97,9 +97,10 @@ def zone_series_layer(
     zones_of_patches : np.ndarray, optional
         The zone of each patch [n_patches]. Default: ``patch_zones(grid)``.
     stamped_at_end : bool
-        Records are stamped at the end of their interval (as SHYFEM's are),
-        so each is counted in the month its interval lies in. With False a
-        record counts in the month of its stamp.
+        Records are stamped at the end of their interval (as SHYFEM's are):
+        each counts in the month of its stamp, except one stamped at the
+        first instant of a month, which closes the month before. With False
+        a record always counts in the month of its stamp.
 
     Returns
     -------
@@ -144,10 +145,10 @@ def zone_series_layer(
         )
     column = order[where]  # the series column of each patch
 
-    stamps = times
-    if stamped_at_end and len(times) > 1:
-        step = np.median(np.diff(times).astype("timedelta64[s]").astype(float))
-        stamps = times - np.timedelta64(int(step // 2), "s")
+    # A record stamped at the end of its interval counts in the month that
+    # interval ends in; one stamped at the first instant of a month closes
+    # the month before (the rule of read_box_series(monthly=True)).
+    stamps = times - np.timedelta64(1, "s") if stamped_at_end else times
     month = _month_index(stamps)
     first = (
         int(month.min())

@@ -294,20 +294,47 @@ def read_box_series(
     ------
     ValueError
         For a file with no time record, a record whose boxes, variables or
-        sections differ from the first one's, or counts that cannot be right.
+        sections differ from the first one's, a record before the last that
+        lacks its box or section table, or counts that cannot be right. A
+        last record cut short is left out.
     """
     times: list = []
     # every record, or (monthly) the running means of the calendar months
     box_tables = _MonthlyMeans() if monthly else []
     flow_tables = _MonthlyMeans() if monthly else []
+    boxes = variables = sec_from = sec_to = None
+    # the record being read: kept only once it is complete, so a table can
+    # never be paired with another record's time
+    pending: dict = {}
 
-    def keep(store, table):
-        if monthly:
-            store.add(times[-1], table)
-        else:
-            store.append(table)
+    def commit(last: bool) -> None:
+        """Keep the pending record, or refuse an incomplete one."""
+        if not pending:
+            return
+        stamp = pending["stamp"]
+        lacks = None
+        if "boxes" not in pending:
+            lacks = "box table"
+        elif sec_from is not None and "flow" not in pending:
+            lacks = "section table"
+        elif "flow" in pending and times and not len(flow_tables):
+            raise ValueError(
+                f"the record at {stamp} has sections, earlier records have none"
+            )
+        if lacks is not None:
+            if last:  # a file cut short: the last record is left out
+                pending.clear()
+                return
+            raise ValueError(f"the record at {stamp} has no {lacks}")
+        times.append(stamp)
+        for store, key in ((box_tables, "boxes"), (flow_tables, "flow")):
+            if key in pending:
+                if monthly:
+                    store.add(stamp, pending[key])
+                else:
+                    store.append(pending[key])
+        pending.clear()
 
-    boxes = variables = sec_from = sec_to = order = None
     with open(path, errors="replace") as handle:
         lines = iter(enumerate(handle, 1))
 
@@ -315,7 +342,7 @@ def read_box_series(
             """The next line that is not a ``#`` header, as tokens."""
             for lineno, line in lines:
                 tokens = line.split()
-                if tokens and tokens[0] != "#" and not tokens[0].startswith("#"):
+                if tokens and not tokens[0].startswith("#"):
                     return lineno, tokens
             raise ValueError(f"{path}: the file ends inside a record")
 
@@ -323,13 +350,14 @@ def read_box_series(
             text = line.strip().lower()
             try:
                 if text.startswith("#") and "time record" in text:
+                    commit(last=False)
                     if max_records is not None and len(times) >= max_records:
                         break
                     _, tokens = data_line()
-                    times.append(_parse_stamp(tokens[-1]))
+                    pending["stamp"] = _parse_stamp(tokens[-1])
                 elif text.startswith("#") and text.split()[1:3] == ["boxes", "nvars"]:
-                    if len(box_tables) >= len(times):
-                        continue  # a table before any time record: not a series
+                    if not pending or "boxes" in pending:
+                        continue  # not the box table of a time record
                     _, tokens = data_line()
                     n_boxes, n_vars = int(tokens[0]), int(tokens[1])
                     if not 0 < n_boxes <= _MAX_BOXES:
@@ -348,16 +376,16 @@ def read_box_series(
                         _, tokens = data_line()
                         numbers[k] = int(tokens[0])
                         table[k] = [float(v) for v in tokens[1 : 1 + n_vars]]
+                    order = np.argsort(numbers, kind="stable")
                     if boxes is None:
-                        order = np.argsort(numbers, kind="stable")
                         boxes, variables = numbers[order], names
                     elif names != variables or not np.array_equal(
-                        np.sort(numbers), boxes
+                        numbers[order], boxes
                     ):
                         raise ValueError("the boxes differ from the first record's")
-                    keep(box_tables, table[np.argsort(numbers, kind="stable")])
+                    pending["boxes"] = table[order]
                 elif text.startswith("#") and text.split()[1:] == ["sections"]:
-                    if len(flow_tables) >= len(times):
+                    if not pending or "flow" in pending:
                         continue
                     _, tokens = data_line()
                     n_sections = int(tokens[0])
@@ -377,20 +405,22 @@ def read_box_series(
                         and np.array_equal(ends[:, 1], sec_to)
                     ):
                         raise ValueError("the sections differ from the first record's")
-                    keep(flow_tables, flow)
+                    pending["flow"] = flow
             except (ValueError, IndexError, StopIteration) as exc:
                 raise ValueError(f"{path}, near line {lineno}: {exc}") from exc
+        else:
+            try:
+                commit(last=True)
+            except ValueError as exc:
+                raise ValueError(f"{path}: {exc}") from exc
 
-    n = min(len(times), len(box_tables))
-    if n == 0:
+    if not times:
         raise ValueError(f"{path}: no time record with a box table in the file")
-    if flow_tables and len(flow_tables) < n:
-        n = len(flow_tables)  # a last record cut short
     if monthly:
         box_tables.fold()
         flow_tables.fold()
         times = box_tables.months
-        n = len(times)
+    n = len(times)
     logger.debug("%s: %d records, %d boxes", path, n, len(boxes))
     return ShyfemBoxSeries(
         times=np.array(times[:n], dtype="datetime64[s]"),

@@ -349,3 +349,74 @@ def test_monthly_means_made_while_reading_give_the_same_layers(tmp_path):
     for name in ("temp", "salt", "volume"):
         np.testing.assert_allclose(b.layers[name].values, a.layers[name].values)
         np.testing.assert_allclose(b.layers[name].times, a.layers[name].times)
+
+
+def _records(tmp_path, hours):
+    """The lines of a box file, split into its records."""
+    lines = _box_file(tmp_path, hours=hours).read_text().splitlines()
+    starts = [i for i, line in enumerate(lines) if line == "# time record"]
+    return lines[: starts[0]], [
+        lines[a:b] for a, b in zip(starts, starts[1:] + [len(lines)])
+    ]
+
+
+def test_a_record_without_its_box_table_is_refused_not_shifted(tmp_path):
+    """Record 2 without a table must not give record 3's values its time."""
+    head, records = _records(tmp_path, hours=3)
+    records[1] = records[1][:2]  # the time stamp only
+    path = tmp_path / "gap.txt"
+    path.write_text("\n".join(head + sum(records, [])) + "\n")
+    with pytest.raises(ValueError, match="2001-01-01T02:00:00 has no box table"):
+        read_box_series(path)
+
+
+def test_a_record_without_its_section_table_is_refused(tmp_path):
+    head, records = _records(tmp_path, hours=3)
+    cut = records[1].index("#   sections")
+    records[1] = records[1][:cut]
+    path = tmp_path / "gap.txt"
+    path.write_text("\n".join(head + sum(records, [])) + "\n")
+    with pytest.raises(ValueError, match="has no section table"):
+        read_box_series(path)
+
+
+@pytest.mark.parametrize("monthly", [False, True])
+def test_a_last_record_cut_short_is_left_out_of_values_and_flows(tmp_path, monthly):
+    """January complete, then one February record whose sections are missing."""
+    head, records = _records(tmp_path, hours=24 * 31 + 1)
+    cut = records[-1].index("#   sections")
+    records[-1] = records[-1][:cut]
+    path = tmp_path / "short.txt"
+    path.write_text("\n".join(head + sum(records, [])) + "\n")
+    series = read_box_series(path, monthly=monthly)
+    expected = 1 if monthly else 24 * 31
+    assert len(series.times) == expected
+    assert series.values.shape[0] == series.section_flow.shape[0] == expected
+    np.testing.assert_allclose(series.variable("temp")[-1], [10.0, 20.0, 30.0])
+
+
+def test_both_ways_of_making_monthly_means_put_a_record_in_the_same_month(tmp_path):
+    """Stamps ten minutes past the hour: 00:10 on 1 February is February's."""
+    lines = _box_file(tmp_path, hours=24 * 40).read_text().replace(":00:00", ":10:00")
+    path = tmp_path / "offset.txt"
+    path.write_text(lines)
+    grid = EcospaceGrid.from_shyfem_grd(_zone_grd(tmp_path), patches="type")
+    full, monthly = read_box_series(path), read_box_series(path, monthly=True)
+    a, b = shyfem_box_layers(full, grid), shyfem_box_layers(monthly, grid)
+    np.testing.assert_allclose(b.layers["temp"].values, a.layers["temp"].values)
+    np.testing.assert_allclose(b.layers["temp"].times, a.layers["temp"].times)
+
+
+def test_one_record_ending_at_midnight_on_the_first_belongs_to_the_month_before(
+    tmp_path,
+):
+    grid = EcospaceGrid.from_shyfem_grd(_zone_grd(tmp_path), patches="type")
+    stamp = np.array(["2001-02-01T00:00:00"], dtype="datetime64[s]")
+    values = np.array([[1.0, 2.0, 3.0]])
+    kwargs = dict(name="x", start="2001-01-01")
+    ended = zone_series_layer(stamp, values, [1, 2, 3], grid, **kwargs)
+    np.testing.assert_allclose(ended.times, [0.0])  # January
+    stamped = zone_series_layer(
+        stamp, values, [1, 2, 3], grid, stamped_at_end=False, **kwargs
+    )
+    np.testing.assert_allclose(stamped.times, [1 / 12])  # February
