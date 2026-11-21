@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.18.0 (2026-11-21)
+
+### Bug Fixes
+
+- **spatial**: Review of the link flows and the AQUABC reader
+  ([`c01f7eb`](https://github.com/razinkele/PyPath/commit/c01f7ebbee57fb9c103ef9c89b414f130c9133d0))
+
+### Features
+
+- **spatial**: Transport from directed link flows; runs outside the flows' years
+  ([`283aa77`](https://github.com/razinkele/PyPath/commit/283aa77d53662be9373fa47ed28a80500cfddd79))
+
+
 ## v1.17.0 (2026-11-21)
 
 ### Bug Fixes
