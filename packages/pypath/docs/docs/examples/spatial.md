@@ -210,5 +210,8 @@ scenario.params.ibm_groups = {3: smelt}
 results = run_ecospace(scenario, ecospace, years=range(1, 21))
 ```
 
+To use a hydrodynamic model's mesh, box fields and water flows (SHYFEM,
+AQUABC), see [Ecospace on a Hydrodynamic Model's Boxes](hydrodynamic-link.md).
+
 See the [Spatial API Reference](../api/spatial.md) for full details on
 all spatial modules.

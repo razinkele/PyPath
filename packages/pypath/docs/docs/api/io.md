@@ -111,6 +111,24 @@ Service for use as Ecospace habitat and environmental inputs.
     options:
       show_root_heading: true
 
+## SHYFEM
+
+Read SHYFEM's finite-element grid (`.grd`) and the output of its box model
+(`boxes_2d.txt`): box means and the flows through the sections between
+boxes.
+
+::: pypath.io.shyfem
+    options:
+      show_root_heading: true
+
+## AQUABC
+
+Read the link flows, boxes and bathymetry of an AQUABC input folder.
+
+::: pypath.io.aquabc
+    options:
+      show_root_heading: true
+
 ## Utilities
 
 Shared I/O helper functions: CSV reading, unit conversions, and data
