@@ -8,7 +8,12 @@ import pytest
 
 from pypath.core.ecosim import rsim_run
 from pypath.io.shyfem import read_grd
-from pypath.spatial import EcospaceGrid, EcospaceParams, rsim_run_spatial
+from pypath.spatial import (
+    EcospaceGrid,
+    EcospaceParams,
+    dispersal_rate_for_grid,
+    rsim_run_spatial,
+)
 from pypath.spatial.dispersal import implicit_diffusion_step
 
 pytestmark = pytest.mark.filterwarnings(
@@ -187,6 +192,51 @@ def test_a_mesh_of_squares_is_the_regular_grid(tmp_path, spatial_scenario):
     )
 
 
+def test_quadrilaterals_and_triangles_in_one_mesh(tmp_path):
+    lines = [
+        "1 1 0 0 0",
+        "1 2 0 2000 0",
+        "1 3 0 2000 1000",
+        "1 4 0 0 1000",
+        "1 5 0 3000 0",
+        "2 1 0 4 1 2 3 4",  # a 2 km x 1 km rectangle
+        "2 2 0 3 2 5 3",  # a triangle on its east side
+    ]
+    grid = EcospaceGrid.from_shyfem_grd(_write(tmp_path, lines))
+    np.testing.assert_allclose(grid.patch_areas, [2.0, 0.5])
+    np.testing.assert_allclose(grid.centroid_km[0], [1.0, 0.5])
+    assert grid.get_edge_length(0, 1) == pytest.approx(1.0)
+
+
+def test_a_projected_mesh_with_a_crs_gets_longitude_and_latitude(tmp_path):
+    pytest.importorskip("pyproj")
+    # UTM zone 30N: easting 500 km is the central meridian, 3 W
+    path = _write(tmp_path, _square_mesh(2, 1, 1000.0, x0=499000.0, y0=4170000.0))
+    grid = EcospaceGrid.from_shyfem_grd(path, patches="type", crs="EPSG:32630")
+    assert grid.crs == "EPSG:4326"
+    np.testing.assert_allclose(grid.patch_areas, 1.0)  # from the mesh's plane
+    lon, lat = grid.patch_centroids.T
+    assert lon[0] < -3.0 < lon[1] and np.all((37.0 < lat) & (lat < 38.0))
+    local = EcospaceGrid.from_shyfem_grd(path, patches="type")
+    assert local.crs == "local"
+    np.testing.assert_allclose(local.patch_centroids[0], [499500.0, 4170500.0])
+    np.testing.assert_allclose(local.centroid_km, grid.centroid_km)
+
+
+def test_port_distance_is_measured_in_km_on_a_mesh_grid(tmp_path):
+    from pypath.spatial.fishing import allocate_port_based
+
+    path = _write(tmp_path, _square_mesh(3, 1, 0.1, x0=21.0, y0=55.0))
+    grid = EcospaceGrid.from_shyfem_grd(path, patches="type")
+    effort = allocate_port_based(
+        grid, port_patches=np.array([0]), total_effort=1.0, beta=1.0
+    )
+    step = 6371.0088 * np.deg2rad(0.1) * np.cos(np.deg2rad(55.05))  # 6.37 km
+    # effort falls as 1 / distance: patch 2 is twice as far as patch 1
+    assert effort[1] / effort[2] == pytest.approx(2.0, rel=1e-3)
+    assert effort[0] / effort[1] == pytest.approx(step / 0.1, rel=2e-3)
+
+
 def _uneven_mesh(tmp_path):
     """Squares grouped into four zones of 1, 2, 3 and 6 squares."""
     zone = {(0, 0): 1, (1, 0): 2, (2, 0): 2, (3, 0): 3, (0, 1): 3, (1, 1): 3}
@@ -244,3 +294,34 @@ def test_geometry_is_built_on_request(tmp_path):
         (21.0, 55.0, 21.1, 55.1)
     )
     assert EcospaceGrid.from_shyfem_grd(path, patches="type").geometry is None
+
+
+def test_zones_and_elements_spread_alike_at_the_same_diffusivity(tmp_path):
+    """A release in one zone: the element run, summed to zones, follows the zone run."""
+    path = _write(tmp_path, _square_mesh(12, 2, 1000.0, zone=lambda ix, iy: ix // 2))
+    zones = EcospaceGrid.from_shyfem_grd(path, patches="type")  # 6 zones of 4 km2
+    elements = EcospaceGrid.from_shyfem_grd(path, patches="element")  # 48 of 0.5
+    rate = 0.5
+    fine_rate = dispersal_rate_for_grid(rate, zones, elements)
+    assert fine_rate == pytest.approx(rate * 8.0)
+    zone_of = np.repeat(np.arange(12) // 2, 2).reshape(1, -1).repeat(2, axis=0).ravel()
+    coarse = np.array([100.0, 0, 0, 0, 0, 0])
+    fine = np.where(zone_of == 0, 100.0 / 8, 0.0)
+    for _ in range(24):
+        coarse = implicit_diffusion_step(
+            coarse, rate, zones, zones.adjacency_matrix, 1 / 12
+        )
+        fine = implicit_diffusion_step(
+            fine, fine_rate, elements, elements.adjacency_matrix, 1 / 12
+        )
+    summed = np.bincount(zone_of, weights=fine, minlength=6)
+    assert summed.sum() == pytest.approx(100.0)
+    assert 20.0 < coarse[0] < 80.0  # the release is under way, not finished
+    assert np.abs(summed - coarse).sum() / 2 < 6.0  # within 6 % of the total
+    # at the zones' own rate the elements would lag far behind
+    slow = np.where(zone_of == 0, 100.0 / 8, 0.0)
+    for _ in range(24):
+        slow = implicit_diffusion_step(
+            slow, rate, elements, elements.adjacency_matrix, 1 / 12
+        )
+    assert np.bincount(zone_of, weights=slow, minlength=6)[0] > coarse[0] + 10.0

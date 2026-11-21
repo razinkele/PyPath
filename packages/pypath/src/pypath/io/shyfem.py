@@ -1,7 +1,7 @@
 """Reader for SHYFEM finite-element grids (``.grd``).
 
-SHYFEM (Umgiesser et al., the Shallow water HYdrodynamic Finite Element
-Model) keeps its meshes in a plain-text ``.grd`` file of numbered items::
+SHYFEM (the Shallow water HYdrodynamic Finite Element Model) keeps its
+meshes in a plain-text ``.grd`` file of numbered items::
 
     0  a comment
     1  number  type  x  y  [depth]                    a node

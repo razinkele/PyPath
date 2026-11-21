@@ -8,7 +8,8 @@ of the element sides they share, and its depth the area-weighted mean.
 
 Lengths and areas are in km. Degrees are projected first, by an azimuthal
 equidistant projection about the middle of the mesh: within about 500 km of
-that point lengths and areas are right to about 0.1 %.
+that point lengths and areas are right to about 0.1 %. The sphere's radius
+is 6371.0088 km; SHYFEM's own element areas are about 0.2 % larger.
 """
 
 from __future__ import annotations
@@ -27,10 +28,31 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["grid_from_mesh", "grid_from_shyfem_grd", "mesh_units"]
+__all__ = [
+    "dispersal_rate_for_grid",
+    "grid_from_mesh",
+    "grid_from_shyfem_grd",
+    "mesh_units",
+]
 
 _EARTH_RADIUS_KM = 6371.0088
 _UNITS = ("auto", "degrees", "m", "km")
+
+
+def dispersal_rate_for_grid(rate, from_grid: "EcospaceGrid", to_grid: "EcospaceGrid"):
+    """The dispersal rate on ``to_grid`` that spreads biomass as ``rate`` does on ``from_grid``.
+
+    Ecospace's dispersal rate is an exchange rate between neighbouring
+    patches: the flow is rate x mean patch area x border / distance x the
+    density difference (``pypath.spatial.dispersal.diffusion_flux``). The
+    diffusivity in km2 per year is therefore rate x mean patch area, and the
+    same rate spreads biomass more slowly on a finer grid. This returns
+    ``rate x mean area of from_grid / mean area of to_grid``, which keeps
+    the diffusivity: a release in one box of a 29-box mesh then spreads the
+    same, within a few percent, on its 2027 elements.
+    """
+    ratio = float(np.mean(from_grid.patch_areas)) / float(np.mean(to_grid.patch_areas))
+    return np.asarray(rate, dtype=float) * ratio
 
 
 def mesh_units(xy: np.ndarray) -> str:
@@ -110,8 +132,13 @@ def grid_from_mesh(
     element_depth : np.ndarray, optional
         Depth of each element; a patch gets the area-weighted mean.
     crs : str, optional
-        Coordinate system of ``xy``, kept on the grid. Degrees are
-        "EPSG:4326" unless named; without it metres and km are "local".
+        Coordinate system of ``xy``. Degrees are "EPSG:4326" unless named.
+        Metres and km without one make a "local" grid, whose centroids stay
+        in the mesh's units: the run is right, but maps and the samplers of
+        ``pypath.io.marine_data`` need longitude and latitude. With one
+        (e.g. "EPSG:32630"; needs pyproj) the centroids and polygons are
+        given in longitude and latitude and the grid is "EPSG:4326". Areas
+        and lengths come from the mesh's own plane either way.
     geometry : bool
         Also build the patches' polygons as a GeoDataFrame (needs geopandas;
         a zone's polygon is the union of its elements).
@@ -120,7 +147,7 @@ def grid_from_mesh(
     -------
     EcospaceGrid
         ``patch_ids`` are the zone ids (or 0..n-1 per element),
-        ``patch_centroids`` are in the units of ``xy``, ``centroid_km``
+        ``patch_centroids`` are in the units of ``xy`` (see ``crs``), ``centroid_km``
         holds them in km for distances, and ``cell_metadata`` has ``zone``,
         ``n_elements`` and ``depth`` per patch.
     """
@@ -223,11 +250,23 @@ def grid_from_mesh(
         with np.errstate(invalid="ignore", divide="ignore"):
             meta["depth"] = np.where(weight > 0, total / weight, np.nan)
 
-    if crs is None:
-        crs = "EPSG:4326" if units == "degrees" else "local"
+    map_xy = xy
+    if units == "degrees":
+        crs = crs or "EPSG:4326"
+    elif crs is None:
+        crs = "local"
+    else:
+        # a projected mesh with a named system: centroids and polygons go to
+        # longitude and latitude, which the maps and the data samplers read
+        map_xy = _to_lonlat(xy * (1000.0 if units == "km" else 1.0), crs)
+        _, centroid_e_xy = _polygon_area_centroid(
+            map_xy - map_xy.mean(axis=0), elements
+        )
+        centroid_xy = _mean(centroid_e_xy + map_xy.mean(axis=0))
+        crs = "EPSG:4326"
     geo = None
     if geometry:
-        geo = _geometry(xy, elements, n_vert, patch_of, zone_ids, crs)
+        geo = _geometry(map_xy, elements, n_vert, patch_of, zone_ids, crs)
 
     return EcospaceGrid(
         n_patches=n_patches,
@@ -241,6 +280,20 @@ def grid_from_mesh(
         cell_metadata=meta,
         centroid_km=centroid_km,
     )
+
+
+def _to_lonlat(xy_m: np.ndarray, crs: str) -> np.ndarray:
+    """Coordinates in metres of ``crs`` as longitude and latitude."""
+    try:
+        from pyproj import Transformer
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise ImportError(
+            "a mesh in metres with a crs needs pyproj to find longitude and "
+            "latitude: pip install pyproj (or leave crs out for a local grid)"
+        ) from exc
+    transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    lon, lat = transformer.transform(xy_m[:, 0], xy_m[:, 1])
+    return np.column_stack([lon, lat])
 
 
 def _geometry(xy, elements, n_vert, patch_of, zone_ids, crs):

@@ -104,6 +104,18 @@ class SpatialFishing:
             self.port_patches = np.asarray(self.port_patches, dtype=int)
 
 
+def _distance_points(grid):
+    """Centroids to measure distance with, and km per unit of them.
+
+    A grid with ``centroid_km`` (a mesh grid) is measured on that plane;
+    otherwise ``patch_centroids`` in degrees x 111.
+    """
+    plane = getattr(grid, "centroid_km", None)
+    if plane is not None:
+        return np.asarray(plane, dtype=float), 1.0
+    return np.asarray(grid.patch_centroids, dtype=float), 111.0
+
+
 def allocate_uniform(n_patches: int, total_effort: float = 1.0) -> np.ndarray:
     """Allocate effort uniformly across all patches.
 
@@ -250,9 +262,9 @@ def allocate_port_based(
     n_patches = grid.n_patches
 
     # Vectorized distance from each patch to nearest port
-    all_centroids = grid.patch_centroids  # [n_patches, 2]
+    all_centroids, km_per_unit = _distance_points(grid)  # [n_patches, 2]
     port_centroids = all_centroids[port_patches]  # [n_ports, 2]
-    dist_matrix = cdist(all_centroids, port_centroids, metric="euclidean") * 111.0
+    dist_matrix = cdist(all_centroids, port_centroids, metric="euclidean") * km_per_unit
     distance_to_port = np.maximum(dist_matrix.min(axis=1), 0.1)
 
     # Calculate effort based on inverse distance
@@ -298,9 +310,9 @@ def calculate_distance_penalty(
     """
     from scipy.spatial.distance import cdist
 
-    all_centroids = grid.patch_centroids
+    all_centroids, km_per_unit = _distance_points(grid)
     port_centroids = all_centroids[port_patches]
-    dist_matrix = cdist(all_centroids, port_centroids, metric="euclidean") * 111.0
+    dist_matrix = cdist(all_centroids, port_centroids, metric="euclidean") * km_per_unit
     min_dist = np.maximum(dist_matrix.min(axis=1), 0.1)
     return min_dist**beta
 
