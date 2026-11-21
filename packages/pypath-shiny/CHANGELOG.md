@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.17.0 (2026-11-21)
+
+### Bug Fixes
+
+- **spatial**: Bound the mesh reader and the upload; docstrings the docs build accepts
+  ([`f878a01`](https://github.com/razinkele/PyPath/commit/f878a01ac4c9034e813043838ad49e22678ba58d))
+
+### Features
+
+- **shiny**: SHYFEM mesh as an Ecospace grid type
+  ([`4c9391f`](https://github.com/razinkele/PyPath/commit/4c9391f0adde597bf325a51c46a668cbf49a0361))
+
+
 ## v1.16.0 (2026-11-20)
 
 ### Bug Fixes
