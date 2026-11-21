@@ -155,6 +155,9 @@ from pypath.spatial.mesh import (
     grid_from_mesh,
     grid_from_shyfem_grd,
 )
+
+# A habitat capacity for every month
+from pypath.spatial.monthly_capacity import MonthlyCapacity
 from pypath.spatial.movement import (
     MovementKernel,
     aggregation_index,
@@ -198,6 +201,7 @@ __all__ = [
     "dispersal_rate_for_grid",
     "grid_from_mesh",
     "WaterTransport",
+    "MonthlyCapacity",
     "capacity_from_layers",
     "patch_zones",
     "shyfem_box_layers",
