@@ -520,7 +520,8 @@ def test_a_group_without_a_monthly_capacity_moves_as_before(spatial_scenario):
     )
 
 
-def test_the_rest_state_of_water_transport_follows_with_movement(spatial_scenario):
+def test_the_rest_state_of_water_transport_keeps_the_base_map(spatial_scenario):
+    """On the month's map a zone would lose more than its water carries."""
     from pypath.spatial.transport import WaterTransport
 
     scenario, _ = spatial_scenario
@@ -528,48 +529,22 @@ def test_the_rest_state_of_water_transport_follows_with_movement(spatial_scenari
     flow = np.zeros((MONTHS, 3, 3))
     for a, b in ((0, 1), (1, 2)):
         flow[:, a, b] = flow[:, b, a] = 40.0
-
-    def transport():
-        return WaterTransport(
-            zones=[1, 2, 3],
-            flow=flow,
-            volume=np.full((MONTHS, 3), 1e8),
-            groups=[2],
-        )
-
     base, off = _switching(scenario, grid, movement=False)
     _, on = _switching(scenario, grid, movement=True)
-    assert transport().rest == "capacity"
-    runs = {
-        name: _moving(
-            scenario,
-            grid,
-            base,
-            monthly,
-            rate=0.0,
-            ecospace_fields={"water_transport": transport()},
+    runs = []
+    for monthly in (off, on):
+        transport = WaterTransport(
+            zones=[1, 2, 3], flow=flow, volume=np.full((MONTHS, 3), 1e8), groups=[2]
         )
-        for name, monthly in (("kept", off), ("follows", on))
-    }
-    fish = 3
-    np.testing.assert_array_equal(runs["follows"][:13], runs["kept"][:13])
-    ratio = {
-        name: (run[-1, fish, 2] / grid.patch_areas[2])
-        / (run[-1, fish, 0] / grid.patch_areas[0])
-        for name, run in runs.items()
-    }
-    assert ratio["follows"] < 0.8 * ratio["kept"]
-    # with the water's volume as rest state the capacity plays no part
-    by_volume = {}
-    for name, monthly in (("kept", off), ("follows", on)):
-        carrier = transport()
-        carrier.rest = "volume"
-        by_volume[name] = _moving(
-            scenario,
-            grid,
-            base,
-            monthly,
-            rate=0.0,
-            ecospace_fields={"water_transport": carrier},
+        assert transport.rest == "capacity"
+        runs.append(
+            _moving(
+                scenario,
+                grid,
+                base,
+                monthly,
+                rate=0.0,
+                ecospace_fields={"water_transport": transport},
+            )
         )
-    np.testing.assert_array_equal(by_volume["follows"], by_volume["kept"])
+    np.testing.assert_array_equal(runs[0], runs[1])

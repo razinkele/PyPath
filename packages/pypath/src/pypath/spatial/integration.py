@@ -1265,7 +1265,7 @@ def _run_spatial(
     # by group row, and that month's factorisations
     _month_rows: dict = {}
     _month_lu: dict = {}
-    _month_lu_index = _cap_index = None
+    _month_lu_index = None
 
     # EwE's NewMultiStanza model: each life stage's map-wide total is spread
     # by a population index per patch (pypath.spatial.stanza_space)
@@ -1568,16 +1568,7 @@ def _run_spatial(
         # The month's water movement, for the groups it carries
         for row in transport_rows:
             current_biomass[row] = water_transport.move(
-                current_biomass[row],
-                row - 1,
-                month_idx - 1,
-                DELTA_T,
-                ecospace,
-                capacity=(
-                    (_cap_index, _month_rows[row - 1])
-                    if row - 1 in _month_rows
-                    else None
-                ),
+                current_biomass[row], row - 1, month_idx - 1, DELTA_T, ecospace
             )
 
         if stanza_state is not None:

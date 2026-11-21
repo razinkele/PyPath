@@ -23,16 +23,24 @@ response fell to 7 % of its biomass each winter. Shape a response so that
 it is near 1 under the conditions the model describes, and lower only where
 the group really does worse.
 
-The base map still sets the start distribution and the stanza ratios, and
-unless asked also movement between patches and the rest state of
-``WaterTransport`` with ``rest="capacity"``. With ``movement=True`` those
-two read the month's map, as movement does in EwE (which sets its movement
-rates again whenever the capacity has changed): a group then leaves a patch
-that has turned poor, at ``min(1, capacity there / capacity here)`` of its
-dispersal rate towards each neighbour, and water exchange spreads it in
-proportion to the month's capacity. Without it, movement keeps pulling the
-group back to the base pattern, which at a high dispersal rate undoes much
-of what the month's capacity does locally.
+The base map still sets the start distribution, the stanza ratios, the
+rest state of ``WaterTransport`` with ``rest="capacity"`` and, unless
+asked, movement between patches. With ``movement=True`` the groups'
+diffusion reads the month's map, as movement does in EwE (which sets its
+movement rates again whenever the capacity has changed): a group then
+leaves a patch that has turned poor, at ``min(1, capacity there / capacity
+here)`` of its dispersal rate towards each neighbour. Without it, diffusion
+keeps pulling the group back to the base pattern, which at a high dispersal
+rate undoes much of what the month's capacity does locally.
+Habitat-directed advection reads ``habitat_preference`` and is not changed.
+
+The rest state of water transport does not follow the month's map, with or
+without ``movement``. Water exchange moves a group towards its rest pattern
+at the water's rate divided by the zone's weight, so a zone whose capacity
+fell in one month would lose far more than its water carries (with 5 % of
+the water exchanged in a month, 39 % of the biomass at a capacity of 0.05).
+For a carried group whose capacity changes by month, ``rest="volume"`` lets
+the water mix it without a habitat pattern.
 
 Groups a run does not treat as one pool per patch are refused: multi-stanza
 groups and IBM groups. So is a monthly capacity on a uniform base map
@@ -83,8 +91,7 @@ class MonthlyCapacity:
         with the calendar; use the mean year, each calendar month's mean
         over all the years given; or hold the nearest month.
     movement : bool
-        Whether these groups' movement between patches, and the rest state
-        of ``WaterTransport`` with ``rest="capacity"``, read the month's
+        Whether these groups' diffusion between patches reads the month's
         map (as EwE's movement does) and not the base map. Off by default.
     """
 
