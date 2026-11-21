@@ -431,6 +431,9 @@ class EcospaceParams:
     external_flux : Optional[ExternalFluxTimeseries]
         Externally provided flux (e.g., from ocean models)
         If provided for a group, overrides model-calculated dispersal
+    water_transport : Optional[WaterTransport]
+        Monthly water flows between zones (a hydrodynamic box model's) and
+        the groups they carry; see ``pypath.spatial.transport``
     environmental_drivers : Optional[object]
         Time-varying environmental drivers (EnvironmentalDrivers instance)
     new_multi_stanza : bool
@@ -457,6 +460,9 @@ class EcospaceParams:
     advection_enabled: np.ndarray
     gravity_strength: np.ndarray
     external_flux: Optional[ExternalFluxTimeseries] = None
+    # Water flows between zones carrying chosen groups (WaterTransport of
+    # pypath.spatial.transport), applied implicitly once a month.
+    water_transport: Optional[object] = None
     environmental_drivers: Optional[object] = (
         None  # EnvironmentalDrivers when available
     )
