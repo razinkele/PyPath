@@ -66,7 +66,7 @@ __all__ = ["WaterTransport"]
 
 _SECONDS_PER_YEAR = 365.25 * 86400.0
 _RESTS = ("volume", "capacity")
-_BEYOND = ("refuse", "repeat_year", "hold")
+_BEYOND = ("refuse", "repeat_year", "mean_year", "hold")
 
 
 @dataclass
@@ -100,9 +100,15 @@ class WaterTransport:
         With throughflow, the boundary ids whose net inflow brings none of
         the group. Default: the boundaries that bring in more water than
         they take out over the series.
-    beyond : {"refuse", "repeat_year", "hold"}
-        A run longer than the flows: refuse it, repeat the last twelve
-        months, or hold the last month.
+    beyond : {"refuse", "repeat_year", "mean_year", "hold"}
+        The months of a run the flows do not cover, before their first
+        month or after their last: refuse the run; repeat the nearest
+        twelve months of the flows (the first year before them, the last
+        after); use the mean year, each calendar month's mean over all the
+        years of the flows; or hold the nearest month.
+    first_month : int
+        The run's month (0 is its first) that the first month of the flows
+        belongs to. Above 0 the flows begin after the run does.
     """
 
     zones: np.ndarray
@@ -117,6 +123,7 @@ class WaterTransport:
     throughflow: bool = False
     open_boundaries: Optional[Sequence[int]] = None
     beyond: str = "refuse"
+    first_month: int = 0
 
     def __post_init__(self):
         if self.rest is None:
@@ -140,8 +147,10 @@ class WaterTransport:
             raise ValueError(f"rest must be one of {_RESTS}, not {self.rest!r}")
         if self.beyond not in _BEYOND:
             raise ValueError(f"beyond must be one of {_BEYOND}, not {self.beyond!r}")
-        if self.beyond == "repeat_year" and m < 12:
-            raise ValueError("repeat_year needs at least twelve months of flows")
+        if self.beyond in ("repeat_year", "mean_year") and m < 12:
+            raise ValueError(f"{self.beyond} needs at least twelve months of flows")
+        self.first_month = int(self.first_month)
+        self._n_given = m
         # each group once: a group named twice would be moved twice a month
         self.groups = list(dict.fromkeys(int(g) for g in self.groups))
         self.boundary_id = np.asarray(self.boundary_id, dtype=int)
@@ -171,10 +180,171 @@ class WaterTransport:
                 f"open_boundaries {sorted(unknown)} are not boundary ids "
                 f"({sorted(set(self.boundary_id.tolist()))})"
             )
+        if self.beyond == "mean_year":
+            # twelve more rows: each calendar month's mean over the years
+            for name in ("flow", "volume", "boundary_in", "boundary_out"):
+                table = getattr(self, name)
+                mean = np.stack([table[c:m:12].mean(axis=0) for c in range(12)])
+                setattr(self, name, np.concatenate([table, mean]))
         self._solvers: dict = {}
         self._patch_zone: Optional[np.ndarray] = None
 
     # -- construction ------------------------------------------------------
+
+    @classmethod
+    def from_link_flows(
+        cls,
+        times,
+        flows,
+        upstream,
+        downstream,
+        volume,
+        groups: Sequence[int],
+        *,
+        zones=None,
+        start=None,
+        stamped_at_end: bool = False,
+        rest: Optional[str] = None,
+        throughflow: bool = False,
+        open_boundaries: Optional[Sequence[int]] = None,
+        beyond: str = "refuse",
+    ) -> "WaterTransport":
+        """Monthly flows from a time series of directed links between zones.
+
+        A link carries water one way, from its upstream zone to its
+        downstream zone; an exchange is two links. A zone id below 1 is the
+        outside (a river, the open sea), with that id as the boundary's.
+        Links with the same two ends add up. Each calendar month's mean is
+        taken, so the series should be daily or finer: both directions of a
+        section matter, and flows averaged over a week or more lose them.
+
+        Parameters
+        ----------
+        times : array of datetime64
+            Time stamp of each record [n_times].
+        flows : np.ndarray
+            Flow through each link, m3/s, not negative [n_times, n_links].
+        upstream, downstream : array of int
+            The zone each link leaves and the zone it enters [n_links].
+        volume : np.ndarray
+            The zones' volumes, m3, in the order of ``zones``: constant
+            [n_zones], or a series on ``times`` [n_times, n_zones].
+        groups : sequence of int
+            The groups carried, as rows of ``EcospaceParams`` arrays.
+        zones : array of int, optional
+            The zone ids. Default: the ids of the links' ends, ascending.
+        start : str or datetime64, optional
+            The date of time 0 of the run. Months of flows before it are
+            dropped; if the flows begin after it, ``first_month`` says by
+            how many months. Default: the first month of the flows.
+        stamped_at_end : bool
+            True when a record is stamped at the end of its interval (as
+            SHYFEM's are): one stamped at the first instant of a month then
+            closes the month before. Default: a record counts in the month
+            of its stamp.
+        rest, throughflow, open_boundaries, beyond
+            As on the class.
+
+        Raises
+        ------
+        ValueError
+            For flows that are negative, a link between unknown zones or
+            from the outside to the outside, months missing inside the
+            series, and no data on or after ``start``.
+        """
+        times = np.asarray(times).astype("datetime64[s]")
+        flows = np.asarray(flows, dtype=float)
+        upstream = np.asarray(upstream, dtype=int)
+        downstream = np.asarray(downstream, dtype=int)
+        if flows.ndim != 2 or flows.shape != (len(times), len(upstream)):
+            raise ValueError(
+                f"flows must be [n_times, n_links] = ({len(times)}, "
+                f"{len(upstream)}), got {flows.shape}"
+            )
+        if len(downstream) != len(upstream):
+            raise ValueError("upstream and downstream need one zone per link")
+        if np.any((upstream < 1) & (downstream < 1)):
+            raise ValueError("a link cannot run from the outside to the outside")
+        if zones is None:
+            ends = np.concatenate([upstream, downstream])
+            zones = np.unique(ends[ends > 0])
+        zones = np.asarray(zones)
+        n = len(zones)
+        position = {int(z): i for i, z in enumerate(zones)}
+        unknown = sorted(
+            {int(z) for z in np.concatenate([upstream, downstream]) if z > 0}
+            - set(position)
+        )
+        if unknown:
+            raise ValueError(f"links name zones {unknown}, which are not in zones")
+        volume = np.asarray(volume, dtype=float)
+        if volume.shape not in ((n,), (len(times), n)):
+            raise ValueError(
+                f"volume must be [{n}] or [{len(times)}, {n}], got {volume.shape}"
+            )
+
+        stamps = times - np.timedelta64(1, "s") if stamped_at_end else times
+        month = stamps.astype("datetime64[M]").astype(int)
+        first = (
+            int(month.min())
+            if start is None
+            else int(np.datetime64(start, "s").astype("datetime64[M]").astype(int))
+        )
+        months = np.unique(month[month >= first])
+        if len(months) == 0:
+            raise ValueError(f"the flows have no data on or after {start}")
+        if np.any(np.diff(months) != 1):
+            raise ValueError(
+                "the flows must cover every month from their first to their "
+                "last; some are missing"
+            )
+
+        inside = (upstream > 0) & (downstream > 0)
+        b_links = np.flatnonzero(~inside)
+        # one boundary entry per (id, zone) pair, in order of appearance
+        pairs = []
+        for k in b_links:
+            pair = (
+                (int(upstream[k]), position[int(downstream[k])])
+                if upstream[k] < 1
+                else (int(downstream[k]), position[int(upstream[k])])
+            )
+            if pair not in pairs:
+                pairs.append(pair)
+        flow = np.zeros((len(months), n, n))
+        vol = np.empty((len(months), n))
+        b_in = np.zeros((len(months), len(pairs)))
+        b_out = np.zeros_like(b_in)
+        for row, m in enumerate(months):
+            rows = month == m
+            mean = flows[rows].mean(axis=0)
+            vol[row] = volume if volume.ndim == 1 else volume[rows].mean(axis=0)
+            for k in np.flatnonzero(inside):
+                flow[row, position[int(upstream[k])], position[int(downstream[k])]] += (
+                    mean[k]
+                )
+            for k in b_links:
+                if upstream[k] < 1:  # comes in
+                    pair = (int(upstream[k]), position[int(downstream[k])])
+                    b_in[row, pairs.index(pair)] += mean[k]
+                else:  # goes out
+                    pair = (int(downstream[k]), position[int(upstream[k])])
+                    b_out[row, pairs.index(pair)] += mean[k]
+        return cls(
+            zones=zones,
+            flow=flow,
+            volume=vol,
+            groups=groups,
+            boundary_id=np.array([p[0] for p in pairs], dtype=int),
+            boundary_zone=np.array([p[1] for p in pairs], dtype=int),
+            boundary_in=b_in,
+            boundary_out=b_out,
+            rest=rest,
+            throughflow=throughflow,
+            open_boundaries=open_boundaries,
+            beyond=beyond,
+            first_month=int(months[0] - first),
+        )
 
     @classmethod
     def from_shyfem_box_series(
@@ -189,6 +359,9 @@ class WaterTransport:
         beyond: str = "refuse",
     ) -> "WaterTransport":
         """Monthly flows and volumes from a SHYFEM box model's output.
+
+        Each section becomes two links, its positive part one way and its
+        negative part the other (``from_link_flows``).
 
         Parameters
         ----------
@@ -207,67 +380,19 @@ class WaterTransport:
         """
         if len(series.section_from) == 0:
             raise ValueError("the box series holds no section flows")
-        times = np.asarray(series.times).astype("datetime64[s]")
-        stamps = times if series.monthly else times - np.timedelta64(1, "s")
-        month = stamps.astype("datetime64[M]").astype(int)
-        first = (
-            int(month.min())
-            if start is None
-            else int(np.datetime64(start, "s").astype("datetime64[M]").astype(int))
-        )
-        months = np.unique(month[month >= first])
-        if len(months) == 0:
-            raise ValueError(f"the series has no data on or after {start}")
-        if months[0] != first or np.any(np.diff(months) != 1):
-            raise ValueError(
-                "the flows must cover every month from the start date on; "
-                f"found months {months[0] - first}..{months[-1] - first} with gaps"
-                if months[0] == first
-                else f"the series starts {months[0] - first} months after {start}"
-            )
-        zones = np.asarray(series.boxes)
-        n = len(zones)
-        position = {int(z): i for i, z in enumerate(zones)}
-        volume_all = series.variable("volume")
-        frm, to = series.section_from, series.section_to
-        outside = (frm < 0) | (to < 0)
-        b_id = np.where(frm[outside] < 0, frm[outside], to[outside])
-        b_zone = np.array(
-            [
-                position[int(t if f < 0 else f)]
-                for f, t in zip(frm[outside], to[outside])
-            ],
-            dtype=int,
-        )
-        flow = np.zeros((len(months), n, n))
-        volume = np.empty((len(months), n))
-        b_in = np.zeros((len(months), int(outside.sum())))
-        b_out = np.zeros_like(b_in)
-        for k, m in enumerate(months):
-            rows = month == m
-            volume[k] = volume_all[rows].mean(axis=0)
-            plus = series.section_flow[rows, :, 1].mean(axis=0)
-            minus = series.section_flow[rows, :, 2].mean(axis=0)
-            b = 0
-            for s, (f, t) in enumerate(zip(frm, to)):
-                if f > 0 and t > 0:
-                    flow[k, position[int(f)], position[int(t)]] += plus[s]
-                    flow[k, position[int(t)], position[int(f)]] += minus[s]
-                    continue
-                # the positive part runs from ``f`` to ``t``
-                into, out = (plus[s], minus[s]) if f < 0 else (minus[s], plus[s])
-                b_in[k, b] += into
-                b_out[k, b] += out
-                b += 1
-        return cls(
-            zones=zones,
-            flow=flow,
-            volume=volume,
-            groups=groups,
-            boundary_id=b_id,
-            boundary_zone=b_zone,
-            boundary_in=b_in,
-            boundary_out=b_out,
+        frm, to = np.asarray(series.section_from), np.asarray(series.section_to)
+        return cls.from_link_flows(
+            series.times,
+            np.concatenate(
+                [series.section_flow[:, :, 1], series.section_flow[:, :, 2]], axis=1
+            ),
+            np.concatenate([frm, to]),
+            np.concatenate([to, frm]),
+            series.variable("volume"),
+            groups,
+            zones=np.asarray(series.boxes),
+            start=start,
+            stamped_at_end=not series.monthly,
             rest=rest,
             throughflow=throughflow,
             open_boundaries=open_boundaries,
@@ -278,22 +403,26 @@ class WaterTransport:
 
     @property
     def n_months(self) -> int:
-        return self.flow.shape[0]
+        """Months of flows given (the mean year's rows are not counted)."""
+        return self._n_given
 
     def month_index(self, month: int) -> int:
         """The row of the flows used for a run's month (0 is the first)."""
         m = self.n_months
-        if 0 <= month < m:
-            return int(month)
+        rel = int(month) - self.first_month  # months from the flows' first
+        if 0 <= rel < m:
+            return rel
         if self.beyond == "hold":
-            return m - 1 if month >= m else 0
+            return m - 1 if rel >= m else 0
+        if self.beyond == "mean_year":
+            return m + rel % 12
         if self.beyond == "repeat_year":
-            if month < 0:
-                return int(month % 12)
-            return int(m - 12 + (month - (m - 12)) % 12)
+            # the nearest twelve months, in step with the calendar
+            return rel % 12 if rel < 0 else m - 12 + (rel - (m - 12)) % 12
         raise ValueError(
-            f"month {month} is outside the {m} months of water flows; set "
-            'beyond="repeat_year" or "hold" to run longer'
+            f"month {month} of the run is outside the water flows (its months "
+            f"{self.first_month}..{self.first_month + m - 1}); set "
+            'beyond="mean_year", "repeat_year" or "hold" to run there'
         )
 
     # -- the operator ------------------------------------------------------
@@ -405,10 +534,13 @@ class WaterTransport:
         self._patch_zone = order[where]
         self._covered = np.bincount(self._patch_zone, minlength=len(self.zones)) > 0
         self._solvers = {}
-        if self.beyond == "refuse" and n_run_months > self.n_months:
+        if self.beyond == "refuse" and (
+            self.first_month > 0 or n_run_months > self.first_month + self.n_months
+        ):
             raise ValueError(
-                f"the run has {n_run_months} months, the water flows "
-                f'{self.n_months}; set beyond="repeat_year" or "hold" to run longer'
+                f"the run has months 0..{n_run_months - 1}, the water flows cover "
+                f"{self.first_month}..{self.first_month + self.n_months - 1}; set "
+                'beyond="mean_year", "repeat_year" or "hold" to run the others'
             )
         # the run's groups; EcospaceParams may carry rows beyond them
         n_rows = len(ecospace.dispersal_rate)
