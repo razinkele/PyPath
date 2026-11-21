@@ -6,6 +6,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.15.0 (2026-11-21)
+
+### Bug Fixes
+
+- **spatial**: Bound the mesh reader and the upload; docstrings the docs build accepts
+  ([`f878a01`](https://github.com/razinkele/PyPath/commit/f878a01ac4c9034e813043838ad49e22678ba58d))
+
+- **spatial**: Mesh neighbours measured through their shared sides; polygons by patch
+  ([`c19221f`](https://github.com/razinkele/PyPath/commit/c19221fb45cd114ee751079e55c1ecb1ebf2d9de))
+
+### Features
+
+- **spatial**: Ecospace grids from SHYFEM finite-element meshes
+  ([`94de293`](https://github.com/razinkele/PyPath/commit/94de2938617c55557d31b4008df3b9eef64117cf))
+
+- **spatial**: Mesh grids keep km distances everywhere; rate conversion between resolutions
+  ([`38a9224`](https://github.com/razinkele/PyPath/commit/38a9224b69794abe71813453d1e2d2b969070f48))
+
+
 ## v1.14.0 (2026-11-20)
 
 ### Features
