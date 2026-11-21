@@ -1261,6 +1261,11 @@ def _run_spatial(
         ecospace, params_dict, n_groups, fast_mask if use_fast else None
     )
     diffusion_lu: dict = {}  # this run's factorisations (not stored on the grid)
+    # the groups whose movement follows a monthly capacity: the month's map
+    # by group row, and that month's factorisations
+    _month_rows: dict = {}
+    _month_lu: dict = {}
+    _month_lu_index = None
 
     # EwE's NewMultiStanza model: each life stage's map-wide total is spread
     # by a population index per patch (pypath.spatial.stanza_space)
@@ -1438,6 +1443,14 @@ def _run_spatial(
                 month_idx - 1, _capacity_peak
             )
             params_dict["_eat_eff_patches"] = _eff
+            # movement on the month's map, for the groups that asked for it
+            _cap_index = monthly_capacity.month_index(month_idx - 1)
+            _month_rows = monthly_capacity.movement_rows(month_idx - 1, _capacity_peak)
+            params_dict["_movement_capacity"] = _month_rows
+            if _cap_index != _month_lu_index:
+                # one month's factorisations at a time: a long series would
+                # otherwise keep one per group and month
+                _month_lu, _month_lu_index = {}, _cap_index
 
         _month_kwargs = dict(
             mpa_effort_mask=_mpa_effort_mask,
@@ -1545,8 +1558,8 @@ def _run_spatial(
                         ecospace.grid,
                         ecospace.grid.adjacency_matrix,
                         hh,
-                        cache=diffusion_lu,
-                        capacity=movement_capacity(ecospace, row - 1),
+                        cache=_month_lu if row - 1 in _month_rows else diffusion_lu,
+                        capacity=movement_capacity(ecospace, row - 1, _month_rows),
                     )
 
         # Prevent negative biomass
