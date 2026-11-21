@@ -433,7 +433,8 @@ class WaterTransport:
                     "a fast-equilibrium group",
                     fast_rows,
                     "its biomass is set to its local equilibrium at every step; "
-                    'build the scenario with fast_group_rule="rpath" to integrate it',
+                    "pass the scenario through pypath.core.ecosim.integrate_groups "
+                    "to integrate it",
                 ),
                 (
                     "a multi-stanza group",
