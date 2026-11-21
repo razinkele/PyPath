@@ -12,7 +12,15 @@ A record may run over several lines. The file names no coordinate system:
 x and y are degrees in one project and metres in another.
 
 Only nodes and elements are read. ``pypath.spatial.EcospaceGrid.from_shyfem_grd``
-turns the mesh into an Ecospace grid. numpy is the only dependency.
+turns the mesh into an Ecospace grid.
+
+``read_box_series`` reads the text output of SHYFEM's box model
+(``boxes_2d.txt``): per time record a table of box means (temperature,
+salinity, current speed, water level, bottom stress, volume) and a table of
+the flows through the sections between boxes. ``pypath.spatial.zone_fields``
+puts the box means on the patches of a grid.
+
+numpy is the only dependency.
 """
 
 from __future__ import annotations
@@ -20,13 +28,19 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["MAX_ELEMENT_NODES", "ShyfemMesh", "read_grd"]
+__all__ = [
+    "MAX_ELEMENT_NODES",
+    "ShyfemBoxSeries",
+    "ShyfemMesh",
+    "read_box_series",
+    "read_grd",
+]
 
 # SHYFEM's elements are triangles. A record claiming more nodes than this is
 # refused: the element table is a rectangle as wide as the widest element,
@@ -160,4 +174,174 @@ def read_grd(path: Union[str, Path]) -> ShyfemMesh:
         element_number=np.array([e[0] for e in elements], dtype=int),
         element_type=np.array([e[1] for e in elements], dtype=int),
         element_depth=np.array([e[3] for e in elements], dtype=float),
+    )
+
+
+# Bounds on a box file's own counts: the tables are allocated from them.
+_MAX_BOXES = 100_000
+_MAX_BOX_VARIABLES = 64
+_MAX_SECTIONS = 1_000_000
+
+
+@dataclass
+class ShyfemBoxSeries:
+    """Time series of a SHYFEM box model's 2-D output.
+
+    Attributes
+    ----------
+    times : np.ndarray
+        Time stamp of each record, ``datetime64[s]`` [n_times]. SHYFEM stamps
+        a record at the end of its output interval.
+    boxes : np.ndarray
+        Box numbers, ascending [n_boxes].
+    variables : list of str
+        Names of the box variables, as in the file (``temp``, ``salt``,
+        ``cur_speed``, ``act_eta``, ``aver_eta``, ``bstress``, ``volume``).
+    values : np.ndarray
+        Box means [n_times, n_boxes, n_variables], boxes in ``boxes`` order.
+    section_from, section_to : np.ndarray
+        The boxes each section joins [n_sections]; a negative number is an
+        open boundary or a river.
+    section_flow : np.ndarray
+        Flow through each section, m3/s [n_times, n_sections, 3]: total
+        (positive from ``section_from`` to ``section_to``), positive part
+        and negative part.
+    """
+
+    times: np.ndarray
+    boxes: np.ndarray
+    variables: list
+    values: np.ndarray
+    section_from: np.ndarray
+    section_to: np.ndarray
+    section_flow: np.ndarray
+
+    def variable(self, name: str) -> np.ndarray:
+        """One variable's box means [n_times, n_boxes]."""
+        if name not in self.variables:
+            raise KeyError(
+                f"no variable {name!r} in the box series; it has {self.variables}"
+            )
+        return self.values[:, :, self.variables.index(name)]
+
+
+def _parse_stamp(text: str) -> np.datetime64:
+    """SHYFEM's ``2001-01-01::01:00:00`` as datetime64[s]."""
+    return np.datetime64(text.replace("::", "T"), "s")
+
+
+def read_box_series(
+    path: Union[str, Path], max_records: Optional[int] = None
+) -> ShyfemBoxSeries:
+    """Read the box means and section flows of a SHYFEM ``boxes_2d.txt``.
+
+    The file is read line by line (a year of hourly output of 29 boxes is
+    about 54 MB). Every record must list the same boxes and sections.
+
+    Parameters
+    ----------
+    path : str or Path
+        The box model's 2-D text output.
+    max_records : int, optional
+        Stop after this many time records.
+
+    Raises
+    ------
+    ValueError
+        For a file with no time record, a record whose boxes, variables or
+        sections differ from the first one's, or counts that cannot be right.
+    """
+    times: list = []
+    box_tables: list = []
+    flow_tables: list = []
+    boxes = variables = sec_from = sec_to = order = None
+    with open(path, errors="replace") as handle:
+        lines = iter(enumerate(handle, 1))
+
+        def data_line():
+            """The next line that is not a ``#`` header, as tokens."""
+            for lineno, line in lines:
+                tokens = line.split()
+                if tokens and tokens[0] != "#" and not tokens[0].startswith("#"):
+                    return lineno, tokens
+            raise ValueError(f"{path}: the file ends inside a record")
+
+        for lineno, line in lines:
+            text = line.strip().lower()
+            try:
+                if text.startswith("#") and "time record" in text:
+                    if max_records is not None and len(times) >= max_records:
+                        break
+                    _, tokens = data_line()
+                    times.append(_parse_stamp(tokens[-1]))
+                elif text.startswith("#") and text.split()[1:3] == ["boxes", "nvars"]:
+                    if len(box_tables) >= len(times):
+                        continue  # a table before any time record: not a series
+                    _, tokens = data_line()
+                    n_boxes, n_vars = int(tokens[0]), int(tokens[1])
+                    if not 0 < n_boxes <= _MAX_BOXES:
+                        raise ValueError(f"{n_boxes} boxes cannot be right")
+                    if not 0 < n_vars <= _MAX_BOX_VARIABLES:
+                        raise ValueError(f"{n_vars} variables cannot be right")
+                    _, header = next(lines)
+                    names = header.replace("#", " ").split()[1:]
+                    if len(names) != n_vars:
+                        raise ValueError(
+                            f"{n_vars} variables announced, {len(names)} named"
+                        )
+                    table = np.empty((n_boxes, n_vars))
+                    numbers = np.empty(n_boxes, dtype=int)
+                    for k in range(n_boxes):
+                        _, tokens = data_line()
+                        numbers[k] = int(tokens[0])
+                        table[k] = [float(v) for v in tokens[1 : 1 + n_vars]]
+                    if boxes is None:
+                        order = np.argsort(numbers, kind="stable")
+                        boxes, variables = numbers[order], names
+                    elif names != variables or not np.array_equal(
+                        np.sort(numbers), boxes
+                    ):
+                        raise ValueError("the boxes differ from the first record's")
+                    box_tables.append(table[np.argsort(numbers, kind="stable")])
+                elif text.startswith("#") and text.split()[1:] == ["sections"]:
+                    if len(flow_tables) >= len(times):
+                        continue
+                    _, tokens = data_line()
+                    n_sections = int(tokens[0])
+                    if not 0 <= n_sections <= _MAX_SECTIONS:
+                        raise ValueError(f"{n_sections} sections cannot be right")
+                    next(lines)  # the column header
+                    ends = np.empty((n_sections, 2), dtype=int)
+                    flow = np.empty((n_sections, 3))
+                    for k in range(n_sections):
+                        _, tokens = data_line()
+                        ends[k] = int(tokens[1]), int(tokens[2])
+                        flow[k] = [float(v) for v in tokens[3:6]]
+                    if sec_from is None:
+                        sec_from, sec_to = ends[:, 0].copy(), ends[:, 1].copy()
+                    elif not (
+                        np.array_equal(ends[:, 0], sec_from)
+                        and np.array_equal(ends[:, 1], sec_to)
+                    ):
+                        raise ValueError("the sections differ from the first record's")
+                    flow_tables.append(flow)
+            except (ValueError, IndexError, StopIteration) as exc:
+                raise ValueError(f"{path}, near line {lineno}: {exc}") from exc
+
+    n = min(len(times), len(box_tables))
+    if n == 0:
+        raise ValueError(f"{path}: no time record with a box table in the file")
+    if flow_tables and len(flow_tables) < n:
+        n = len(flow_tables)  # a last record cut short
+    logger.debug("%s: %d records, %d boxes", path, n, len(boxes))
+    return ShyfemBoxSeries(
+        times=np.array(times[:n], dtype="datetime64[s]"),
+        boxes=boxes,
+        variables=list(variables),
+        values=np.stack(box_tables[:n]),
+        section_from=sec_from if sec_from is not None else np.empty(0, dtype=int),
+        section_to=sec_to if sec_to is not None else np.empty(0, dtype=int),
+        section_flow=(
+            np.stack(flow_tables[:n]) if flow_tables else np.empty((n, 0, 3))
+        ),
     )

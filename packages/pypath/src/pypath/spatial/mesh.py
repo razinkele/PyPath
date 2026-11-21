@@ -385,6 +385,32 @@ def grid_from_shyfem_grd(
         warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN rows stay NaN
         from_nodes = np.nanmean(node_mean, axis=1)
     depth = np.where(np.isfinite(mesh.element_depth), mesh.element_depth, from_nodes)
+    grid = _grid_with_types(mesh, zones, units, depth, crs, geometry)
+    return grid
+
+
+def _grid_with_types(mesh, zones, units, depth, crs, geometry) -> "EcospaceGrid":
+    """The grid, with each patch's element type in ``cell_metadata["type"]``.
+
+    The type is the box number in a SHYFEM box model: series given per box
+    find their patches by it (``pypath.spatial.zone_fields``). A patch whose
+    elements have several types gets the type covering most of its elements.
+    """
+    grid = _plain_grid(mesh, zones, units, depth, crs, geometry)
+    if zones is None:
+        grid.cell_metadata["type"] = mesh.element_type
+    else:
+        _, patch_of = np.unique(zones, return_inverse=True)
+        types = np.empty(grid.n_patches, dtype=mesh.element_type.dtype)
+        for patch in range(grid.n_patches):
+            members = mesh.element_type[patch_of == patch]
+            found, counts = np.unique(members, return_counts=True)
+            types[patch] = found[np.argmax(counts)]
+        grid.cell_metadata["type"] = types
+    return grid
+
+
+def _plain_grid(mesh, zones, units, depth, crs, geometry) -> "EcospaceGrid":
     return grid_from_mesh(
         mesh.xy,
         mesh.elements,
