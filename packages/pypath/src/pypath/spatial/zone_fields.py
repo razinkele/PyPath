@@ -9,7 +9,8 @@ variable of a SHYFEM box model's output. ``capacity_from_layers`` makes a
 habitat capacity from layers and response functions.
 
 Time in a layer is in years from a start date, as in a spatial run; a
-month's mean is held for the whole month.
+month's mean is held for the whole month (month k covers k/12 up to
+(k+1)/12).
 """
 
 from __future__ import annotations
@@ -103,9 +104,10 @@ def zone_series_layer(
     Returns
     -------
     EnvironmentalLayer
-        ``values`` [n_months, n_patches] with ``times`` at the middle of
-        each month, in years from ``start``; not interpolated, so a month's
-        mean holds for the whole month.
+        ``values`` [n_months, n_patches] with ``times`` at the start of
+        each month, in years from ``start``, and ``hold`` set: month k's
+        mean holds from k/12 up to (k+1)/12. Before the first month the
+        first mean is given, after the last month the last.
 
     Raises
     ------
@@ -163,8 +165,8 @@ def zone_series_layer(
         name=name,
         units=units,
         values=means[:, column],
-        times=(months - first + 0.5) / 12.0,
-        interpolate=False,
+        times=(months - first) / 12.0,
+        hold=True,
     )
 
 
@@ -210,6 +212,8 @@ def shyfem_box_layers(
             units=_SHYFEM_UNITS.get(name, ""),
             start=start,
             zones_of_patches=zones_of_patches,
+            # monthly means made while reading are stamped with their month
+            stamped_at_end=not getattr(series, "monthly", False),
         )
     return EnvironmentalDrivers(layers)
 

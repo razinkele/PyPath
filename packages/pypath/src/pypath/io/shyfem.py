@@ -206,6 +206,10 @@ class ShyfemBoxSeries:
         Flow through each section, m3/s [n_times, n_sections, 3]: total
         (positive from ``section_from`` to ``section_to``), positive part
         and negative part.
+    monthly : bool
+        True when the records are monthly means made while reading
+        (``read_box_series(..., monthly=True)``); ``times`` are then the
+        first day of each month.
     """
 
     times: np.ndarray
@@ -215,6 +219,7 @@ class ShyfemBoxSeries:
     section_from: np.ndarray
     section_to: np.ndarray
     section_flow: np.ndarray
+    monthly: bool = False
 
     def variable(self, name: str) -> np.ndarray:
         """One variable's box means [n_times, n_boxes]."""
@@ -225,18 +230,54 @@ class ShyfemBoxSeries:
         return self.values[:, :, self.variables.index(name)]
 
 
+class _MonthlyMeans:
+    """Running means of tables by calendar month, for a file read once."""
+
+    def __init__(self):
+        self.months: list = []  # first day of each month, datetime64[s]
+        self._means: list = []
+        self._sum = None
+        self._count = 0
+        self._current = None
+
+    def add(self, stamp: np.datetime64, table: np.ndarray) -> None:
+        # a record stamped at the first instant of a month closes the one before
+        month = (stamp - np.timedelta64(1, "s")).astype("datetime64[M]")
+        if self._current is None or month != self._current:
+            self.fold()
+            self._current, self._sum, self._count = month, np.zeros_like(table), 0
+        self._sum += table
+        self._count += 1
+
+    def fold(self) -> None:
+        if self._count:
+            self.months.append(self._current.astype("datetime64[s]"))
+            self._means.append(self._sum / self._count)
+            self._count = 0
+
+    def __len__(self) -> int:
+        return len(self._means) + (1 if self._count else 0)
+
+    def __getitem__(self, item):
+        return self._means[item]
+
+
 def _parse_stamp(text: str) -> np.datetime64:
     """SHYFEM's ``2001-01-01::01:00:00`` as datetime64[s]."""
     return np.datetime64(text.replace("::", "T"), "s")
 
 
 def read_box_series(
-    path: Union[str, Path], max_records: Optional[int] = None
+    path: Union[str, Path],
+    max_records: Optional[int] = None,
+    monthly: bool = False,
 ) -> ShyfemBoxSeries:
     """Read the box means and section flows of a SHYFEM ``boxes_2d.txt``.
 
     The file is read line by line (a year of hourly output of 29 boxes is
-    about 54 MB). Every record must list the same boxes and sections.
+    about 54 MB). Every record must list the same boxes and sections. With
+    ``monthly`` only the monthly means are kept, which a run of many years
+    needs: 24 years of hourly records would take over 600 MB.
 
     Parameters
     ----------
@@ -244,6 +285,10 @@ def read_box_series(
         The box model's 2-D text output.
     max_records : int, optional
         Stop after this many time records.
+    monthly : bool
+        Keep the mean of each calendar month instead of every record. A
+        record counts in the month its interval ends in, except one stamped
+        at the first instant of a month, which closes the month before.
 
     Raises
     ------
@@ -252,8 +297,16 @@ def read_box_series(
         sections differ from the first one's, or counts that cannot be right.
     """
     times: list = []
-    box_tables: list = []
-    flow_tables: list = []
+    # every record, or (monthly) the running means of the calendar months
+    box_tables = _MonthlyMeans() if monthly else []
+    flow_tables = _MonthlyMeans() if monthly else []
+
+    def keep(store, table):
+        if monthly:
+            store.add(times[-1], table)
+        else:
+            store.append(table)
+
     boxes = variables = sec_from = sec_to = order = None
     with open(path, errors="replace") as handle:
         lines = iter(enumerate(handle, 1))
@@ -302,7 +355,7 @@ def read_box_series(
                         np.sort(numbers), boxes
                     ):
                         raise ValueError("the boxes differ from the first record's")
-                    box_tables.append(table[np.argsort(numbers, kind="stable")])
+                    keep(box_tables, table[np.argsort(numbers, kind="stable")])
                 elif text.startswith("#") and text.split()[1:] == ["sections"]:
                     if len(flow_tables) >= len(times):
                         continue
@@ -324,7 +377,7 @@ def read_box_series(
                         and np.array_equal(ends[:, 1], sec_to)
                     ):
                         raise ValueError("the sections differ from the first record's")
-                    flow_tables.append(flow)
+                    keep(flow_tables, flow)
             except (ValueError, IndexError, StopIteration) as exc:
                 raise ValueError(f"{path}, near line {lineno}: {exc}") from exc
 
@@ -333,6 +386,11 @@ def read_box_series(
         raise ValueError(f"{path}: no time record with a box table in the file")
     if flow_tables and len(flow_tables) < n:
         n = len(flow_tables)  # a last record cut short
+    if monthly:
+        box_tables.fold()
+        flow_tables.fold()
+        times = box_tables.months
+        n = len(times)
     logger.debug("%s: %d records, %d boxes", path, n, len(boxes))
     return ShyfemBoxSeries(
         times=np.array(times[:n], dtype="datetime64[s]"),
@@ -342,6 +400,7 @@ def read_box_series(
         section_from=sec_from if sec_from is not None else np.empty(0, dtype=int),
         section_to=sec_to if sec_to is not None else np.empty(0, dtype=int),
         section_flow=(
-            np.stack(flow_tables[:n]) if flow_tables else np.empty((n, 0, 3))
+            np.stack(flow_tables[:n]) if len(flow_tables) else np.empty((n, 0, 3))
         ),
+        monthly=monthly,
     )

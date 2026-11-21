@@ -399,14 +399,16 @@ def _grid_with_types(mesh, zones, units, depth, crs, geometry) -> "EcospaceGrid"
     grid = _plain_grid(mesh, zones, units, depth, crs, geometry)
     if zones is None:
         grid.cell_metadata["type"] = mesh.element_type
-    else:
-        _, patch_of = np.unique(zones, return_inverse=True)
-        types = np.empty(grid.n_patches, dtype=mesh.element_type.dtype)
-        for patch in range(grid.n_patches):
-            members = mesh.element_type[patch_of == patch]
-            found, counts = np.unique(members, return_counts=True)
-            types[patch] = found[np.argmax(counts)]
-        grid.cell_metadata["type"] = types
+        return grid
+    _, patch_of = np.unique(zones, return_inverse=True)
+    # each patch's commonest type: count the (patch, type) pairs, then keep
+    # the pair with the highest count in every patch
+    kinds, type_of = np.unique(mesh.element_type, return_inverse=True)
+    pair, counts = np.unique(patch_of * len(kinds) + type_of, return_counts=True)
+    patch, kind = pair // len(kinds), pair % len(kinds)
+    order = np.lexsort((counts, patch))  # by patch, the highest count last
+    last = np.r_[patch[order][1:] != patch[order][:-1], True]
+    grid.cell_metadata["type"] = kinds[kind[order][last]]
     return grid
 
 

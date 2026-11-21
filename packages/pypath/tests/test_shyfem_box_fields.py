@@ -145,11 +145,16 @@ def test_monthly_means_by_zone_id_not_by_position(tmp_path):
     assert layer.values.shape == (2, 3)
     np.testing.assert_allclose(layer.values[0], [10.0, 20.0, 30.0])
     np.testing.assert_allclose(layer.values[1], [20.0, 40.0, 60.0])
-    np.testing.assert_allclose(layer.times, [0.5 / 12, 1.5 / 12])
-    # held for the month: any time in February gives February's mean
-    np.testing.assert_allclose(layer.get_value_at_time(1.01 / 12), [20, 40, 60])
-    np.testing.assert_allclose(layer.get_value_at_time(1.99 / 12), [20, 40, 60])
-    np.testing.assert_allclose(layer.get_value_at_time(0.0), [10, 20, 30])
+    np.testing.assert_allclose(layer.times, [0.0, 1 / 12])
+    # held for the month: month k covers k/12 up to (k+1)/12
+    january, february = [10, 20, 30], [20, 40, 60]
+    np.testing.assert_allclose(layer.get_value_at_time(0.0), january)
+    np.testing.assert_allclose(layer.get_value_at_time(0.999 / 12), january)
+    np.testing.assert_allclose(layer.get_value_at_time(1 / 12), february)  # exact
+    np.testing.assert_allclose(layer.get_value_at_time(1.99 / 12), february)
+    # outside the series: the first mean before it, the last after it
+    np.testing.assert_allclose(layer.get_value_at_time(-0.5), january)
+    np.testing.assert_allclose(layer.get_value_at_time(7.0), february)
 
     # the series in another zone order gives the same layer
     order = np.array([2, 0, 1])
@@ -172,12 +177,12 @@ def test_a_start_date_moves_the_time_axis_and_months_before_it_are_dropped(tmp_p
         series.times, series.variable("temp"), series.boxes, grid,
         start="2000-07-01", **kwargs,
     )  # fmt: skip
-    np.testing.assert_allclose(early.times, [6.5 / 12, 7.5 / 12])
+    np.testing.assert_allclose(early.times, [6 / 12, 7 / 12])
     late = zone_series_layer(
         series.times, series.variable("temp"), series.boxes, grid,
         start="2001-02-01", **kwargs,
     )  # fmt: skip
-    np.testing.assert_allclose(late.times, [0.5 / 12])
+    np.testing.assert_allclose(late.times, [0.0])
     np.testing.assert_allclose(late.values[0], [20.0, 40.0, 60.0])
     with pytest.raises(ValueError, match="no data on or after"):
         zone_series_layer(
@@ -251,7 +256,7 @@ def test_capacity_is_the_time_mean_of_the_response_by_group_name(tmp_path):
     )
     assert np.all(capacity[[0, 3, 4]] == 1.0)
     at_january = capacity_from_layers(
-        drivers, {"Zoo": {"temp": warm}}, group_names=names, when=0.5 / 12
+        drivers, {"Zoo": {"temp": warm}}, group_names=names, when=0.0
     )
     np.testing.assert_allclose(at_january[1], january)
     with pytest.raises(KeyError, match="Cod"):
@@ -297,3 +302,50 @@ def test_boxes_and_their_elements_run_alike_without_movement(
         summed[:, :, box_of[patch]] += by_element[:, :, patch]
     np.testing.assert_allclose(summed, by_box, rtol=1e-9, atol=1e-12)
     assert not np.allclose(by_box[-1, 3, 0] / 2.0, by_box[-1, 3, 2] / 6.0)  # it varies
+
+
+def test_every_month_boundary_of_a_run_reads_its_own_month():
+    """A run's clock is month / 12: that is the first instant of the month."""
+    from pypath.spatial import EnvironmentalLayer
+
+    layer = EnvironmentalLayer(
+        name="x",
+        units="",
+        values=np.arange(240.0).reshape(240, 1),
+        times=np.arange(240) / 12.0,
+        hold=True,
+    )
+    for month in range(240):
+        assert layer.get_value_at_time(month / 12)[0] == month
+        assert layer.get_value_at_time(month * (1 / 12))[0] == month
+
+
+def test_a_patch_of_mixed_types_takes_its_commonest_type(tmp_path):
+    grd = _zone_grd(tmp_path)  # 24 triangles: types 1, 2, 3 west to east, twice
+    # caller zones: A = the first ten triangles (types 1 x4, 2 x4, 3 x2)
+    zones = np.array([5] * 10 + [9] * 14)
+    grid = EcospaceGrid.from_shyfem_grd(grd, patches=zones)
+    assert grid.patch_ids.tolist() == [5, 9]
+    assert grid.cell_metadata["type"].tolist()[1] == 3  # 2 + 4 of type 3 in zone 9
+    assert grid.cell_metadata["type"].tolist()[0] in (1, 2)  # a tie of four each
+    by_type = EcospaceGrid.from_shyfem_grd(grd, patches="type")
+    assert by_type.cell_metadata["type"].tolist() == [1, 2, 3]
+
+
+def test_monthly_means_made_while_reading_give_the_same_layers(tmp_path):
+    path = _box_file(tmp_path)
+    grid = EcospaceGrid.from_shyfem_grd(_zone_grd(tmp_path), patches="type")
+    full = read_box_series(path)
+    monthly = read_box_series(path, monthly=True)
+    assert monthly.monthly and not full.monthly
+    assert monthly.times.tolist() == [
+        np.datetime64("2001-01-01T00:00:00").item(),
+        np.datetime64("2001-02-01T00:00:00").item(),
+    ]
+    assert monthly.values.shape == (2, 3, 3)
+    assert monthly.section_flow.shape == (2, 2, 3)
+    np.testing.assert_allclose(monthly.section_flow[1, 0], [50.0, 70.0, 20.0])
+    a, b = shyfem_box_layers(full, grid), shyfem_box_layers(monthly, grid)
+    for name in ("temp", "salt", "volume"):
+        np.testing.assert_allclose(b.layers[name].values, a.layers[name].values)
+        np.testing.assert_allclose(b.layers[name].times, a.layers[name].times)

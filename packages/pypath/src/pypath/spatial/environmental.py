@@ -40,6 +40,9 @@ class EnvironmentalLayer:
         Required if values is 2D
     interpolate : bool
         Whether to interpolate between timesteps (default: True)
+    hold : bool
+        Step lookup (default: False): the value at time t is that of the
+        last entry of ``times`` at or before t.
 
     Examples
     --------
@@ -66,6 +69,11 @@ class EnvironmentalLayer:
     values: np.ndarray
     times: Optional[np.ndarray] = None
     interpolate: bool = True
+    # Step lookup: the value at time t is that of the last ``times`` entry at
+    # or before t (the first entry before the series starts). For monthly
+    # means given at the start of each month: a month's value then holds
+    # from k/12 up to (k+1)/12. Takes precedence over ``interpolate``.
+    hold: bool = False
 
     def __post_init__(self):
         """Validate layer after initialization."""
@@ -118,6 +126,12 @@ class EnvironmentalLayer:
         if not self.is_time_varying:
             # Constant over time
             return self.values.copy()
+
+        if self.hold:
+            # The last entry at or before t; a hair of tolerance so that a
+            # time computed as k / 12 falls in month k
+            idx = int(np.searchsorted(self.times, t + 1e-9, side="right")) - 1
+            return self.values[max(idx, 0)].copy()
 
         # Time-varying - interpolate if requested
         if not self.interpolate:
