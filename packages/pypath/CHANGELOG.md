@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.20.0 (2026-11-21)
+
+### Bug Fixes
+
+- **spatial**: The rest state of water transport keeps the base map
+  ([`f7c06e8`](https://github.com/razinkele/PyPath/commit/f7c06e8e68830e5abc72f33d01304eaca8f4fe4a))
+
+### Features
+
+- **spatial**: Movement can follow a monthly capacity
+  ([`31fbacc`](https://github.com/razinkele/PyPath/commit/31fbacc2ad3d641096ee0f1e04f76831a0234855))
+
+
 ## v1.19.0 (2026-11-21)
 
 ### Bug Fixes
