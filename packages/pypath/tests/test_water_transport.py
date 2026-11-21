@@ -131,7 +131,7 @@ def _estuary(**kwargs):
 
 def test_with_throughflow_a_river_dilutes_and_the_sea_boundary_does_not():
     estuary = _estuary(throughflow=True)
-    assert estuary.open_boundaries == [-2]  # the boundary whose water only comes in
+    assert estuary.open_boundaries == [-2]  # the boundary with a net inflow
     volume = estuary.volume[0]
     a = estuary.rate_matrix(0, volume)
     # at one concentration: the river zone is diluted at river flow / volume,
@@ -458,3 +458,30 @@ def test_biomass_that_is_not_finite_is_passed_through():
     broken = np.array([1.0, np.nan, 2.0])
     out = transport.step_zones(broken, 0, transport.volume[0], 1 / 12)
     assert np.isnan(out[1]) and out[0] == 1.0 and out[2] == 2.0
+
+
+def test_a_river_with_some_backflow_still_dilutes():
+    """River: 32 in and 2 out. A tracer from uniform density must not grow."""
+    estuary = _estuary(throughflow=True)
+    estuary.boundary_in[:, 0], estuary.boundary_out[:, 0] = 32.0, 2.0
+    again = WaterTransport(
+        groups=[0],
+        throughflow=True,
+        zones=estuary.zones,
+        flow=estuary.flow,
+        volume=estuary.volume,
+        boundary_id=estuary.boundary_id,
+        boundary_zone=estuary.boundary_zone,
+        boundary_in=estuary.boundary_in,
+        boundary_out=estuary.boundary_out,
+    )
+    assert again.open_boundaries == [-2]
+    volume = again.volume[0]
+    a = again.rate_matrix(0, volume)
+    assert (a @ volume)[0] == pytest.approx(-30.0 / 1e8 * YEAR * volume[0])
+    totals = np.array([1.0, 1.0, 1.0])  # not the rest state (volumes 1 : 2 : 4)
+    start = totals.sum()
+    for month in range(24):
+        totals = again.step_zones(totals, month % 12, volume, 1 / 12)
+        assert totals.sum() <= start * (1 + 1e-12)
+    assert totals.sum() < 0.9 * start

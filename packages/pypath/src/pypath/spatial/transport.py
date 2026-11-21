@@ -19,13 +19,13 @@ Two ways to use the flows.
   map is closed: the carried biomass is mixed between the zones, its total
   is kept exactly, and the rest state below holds exactly.
 - With throughflow (``throughflow=True``). All the water moves. A boundary
-  whose water only comes in (a river) brings none of the group, so it
-  dilutes the zone and the group is flushed towards the sea: a loss the
-  Ecopath balance does not hold, large for slow pools such as detritus.
-  Water crossing a two-way boundary (the open sea), and water a zone stores
-  or releases as its volume changes, carries what the zone has.
-  ``open_boundaries`` names the diluting boundaries when the rule "only
-  comes in" is not the right one.
+  that brings in more water than it takes out over the series (a river) is
+  a diluting one: its net inflow brings none of the group, so the group is
+  flushed towards the sea: a loss the Ecopath balance does not hold, large
+  for slow pools such as detritus. Water going both ways through a
+  boundary (the open sea), and water a zone stores or releases as its
+  volume changes, carries what the zone has. ``open_boundaries`` names the
+  diluting boundaries when that rule is not the right one.
 
 Both directions of a section matter: with the net flow alone a tracer does
 not follow an estuary's exchange at all (salinity carried with a lagoon
@@ -92,8 +92,9 @@ class WaterTransport:
         False (default): the two-way exchange between zones only, which
         keeps the total. True: all the water moves and rivers dilute.
     open_boundaries : sequence of int, optional
-        With throughflow, the boundary ids whose inflow brings none of the
-        group. Default: the boundaries whose water only comes in.
+        With throughflow, the boundary ids whose net inflow brings none of
+        the group. Default: the boundaries that bring in more water than
+        they take out over the series.
     beyond : {"refuse", "repeat_year", "hold"}
         A run longer than the flows: refuse it, repeat the last twelve
         months, or hold the last month.
@@ -145,11 +146,10 @@ class WaterTransport:
                 raise ValueError(f"{name} must be [{m}, {nb}], got {value.shape}")
             setattr(self, name, value)
         if self.open_boundaries is None:
-            # a boundary whose water only comes in: a river
-            only_in = (self.boundary_out.sum(axis=0) == 0) & (
-                self.boundary_in.sum(axis=0) > 0
-            )
-            self.open_boundaries = sorted(set(self.boundary_id[only_in].tolist()))
+            # a boundary that brings more water in than it takes out over
+            # the series: a river (also one with some backflow)
+            net_in = self.boundary_in.sum(axis=0) > self.boundary_out.sum(axis=0)
+            self.open_boundaries = sorted(set(self.boundary_id[net_in].tolist()))
         else:
             self.open_boundaries = [int(b) for b in self.open_boundaries]
         unknown = set(self.open_boundaries) - set(self.boundary_id.tolist())
@@ -320,9 +320,12 @@ class WaterTransport:
         is_open = np.isin(self.boundary_id, list(self.open_boundaries))
         for b, zone in enumerate(self.boundary_zone):
             if is_open[b]:
-                a[zone, zone] -= (
-                    self.boundary_in[index, b] * share[zone] * _SECONDS_PER_YEAR
+                # its net inflow is new water; what goes both ways through
+                # it carries what the zone has
+                new_water = max(
+                    self.boundary_in[index, b] - self.boundary_out[index, b], 0.0
                 )
+                a[zone, zone] -= new_water * share[zone] * _SECONDS_PER_YEAR
         return a
 
     def step_zones(
