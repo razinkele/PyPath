@@ -11,6 +11,7 @@ from pypath_shiny.services.mesh_grids import (
     build_mesh_grid,
     estimated_run_seconds,
     mesh_crs,
+    read_uploaded_mesh,
     summarise_mesh,
 )
 
@@ -96,3 +97,22 @@ def test_the_page_offers_the_mesh_grid_type_and_builds_it_through_the_service():
     assert "build_mesh_grid(" in source and "summarise_mesh(" in source
     # every cell gets a label only on small grids
     assert "g.n_patches <= SPATIAL.large_grid_threshold" in source
+
+
+def test_an_uploaded_mesh_that_is_too_large_is_refused(tmp_path, monkeypatch):
+    from pypath_shiny.services import mesh_grids
+
+    path = _grd(tmp_path, 0.1, 21.0, 55.0)
+    assert read_uploaded_mesh(path).n_elements == 16
+    monkeypatch.setattr(mesh_grids, "MAX_MESH_ELEMENTS", 10)
+    with pytest.raises(ValueError, match="16 elements"):
+        read_uploaded_mesh(path)
+    monkeypatch.setattr(mesh_grids, "MAX_MESH_BYTES", 100)
+    with pytest.raises(ValueError, match="MB"):
+        read_uploaded_mesh(path)
+
+
+def test_the_page_reads_uploads_through_the_bounded_reader():
+    source = inspect.getsource(ecospace)
+    assert "read_uploaded_mesh(" in source and "read_grd(" not in source
+    assert "MemoryError" in source

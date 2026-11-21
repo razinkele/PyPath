@@ -164,6 +164,8 @@ class EcospaceGrid:
     ) -> EcospaceGrid:
         """Create a grid from a SHYFEM finite-element mesh (``.grd``).
 
+        ``pypath.spatial.mesh`` says how areas, borders and depth are made.
+
         Parameters
         ----------
         path : str, Path or pypath.io.shyfem.ShyfemMesh
@@ -178,8 +180,6 @@ class EcospaceGrid:
             Coordinate system to record on the grid.
         geometry : bool
             Also build the patch polygons (needs geopandas).
-
-        See ``pypath.spatial.mesh`` for how areas, borders and depth are made.
         """
         from pypath.spatial.mesh import grid_from_shyfem_grd
 

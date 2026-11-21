@@ -329,6 +329,8 @@ def grid_from_shyfem_grd(
 ) -> "EcospaceGrid":
     """Build an Ecospace grid from a SHYFEM ``.grd`` mesh.
 
+    Depth is each element's own value, or else the mean of its nodes'.
+
     Parameters
     ----------
     path : str, Path or ShyfemMesh
@@ -340,8 +342,6 @@ def grid_from_shyfem_grd(
     units, crs, geometry
         As in ``grid_from_mesh``. A ``.grd`` file names no coordinate
         system, so check ``units`` when the automatic choice could be wrong.
-
-    Depth is each element's own value, or else the mean of its nodes'.
     """
     from pypath.io.shyfem import ShyfemMesh, read_grd
 

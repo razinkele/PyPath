@@ -91,6 +91,21 @@ def test_read_grd_refuses_an_element_with_an_unknown_node(tmp_path):
         read_grd(_write(tmp_path, lines))
 
 
+def test_read_grd_refuses_an_element_with_an_absurd_node_count(tmp_path):
+    """The element table is as wide as the widest element: bound it."""
+    lines = [
+        "1 1 0 0 0",
+        "1 2 0 1 0",
+        "1 3 0 0 1",
+        "2 1 0 3 1 2 3",
+        "2 2 0 900000 1 2 3",
+    ]
+    with pytest.raises(ValueError, match="900000 nodes"):
+        read_grd(_write(tmp_path, lines))
+    with pytest.raises(ValueError, match="negative"):
+        read_grd(_write(tmp_path, lines[:4] + ["3 1 0 -5 1 2"]))
+
+
 def test_read_grd_refuses_a_file_without_elements(tmp_path):
     with pytest.raises(ValueError, match="no elements"):
         read_grd(_write(tmp_path, ["1 1 0 0 0"]))

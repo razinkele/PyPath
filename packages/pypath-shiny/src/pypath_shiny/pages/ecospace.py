@@ -22,7 +22,6 @@ import pandas as pd
 
 # pypath imports (path setup handled by app/__init__.py)
 from pypath.core.ecosim import RunCancelled
-from pypath.io.shyfem import read_grd
 from pypath.spatial import (
     EcospaceGrid,
     SpatialFishing,
@@ -67,6 +66,7 @@ from pypath_shiny.services.mesh_grids import (
     UNIT_LABELS,
     build_mesh_grid,
     estimated_run_seconds,
+    read_uploaded_mesh,
     summarise_mesh,
 )
 from pypath_shiny.services.notifications import (
@@ -1126,8 +1126,8 @@ def ecospace_server(
         if not file_info:
             return None
         try:
-            return read_grd(file_info[0]["datapath"])
-        except (ValueError, OSError) as e:
+            return read_uploaded_mesh(file_info[0]["datapath"])
+        except (ValueError, OSError, MemoryError) as e:
             logger.debug("Could not read the mesh: %s", e)
             _notify_legacy(f"Could not read the mesh: {e!s}", type="error", duration=6)
             return None

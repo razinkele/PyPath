@@ -26,7 +26,12 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ShyfemMesh", "read_grd"]
+__all__ = ["MAX_ELEMENT_NODES", "ShyfemMesh", "read_grd"]
+
+# SHYFEM's elements are triangles. A record claiming more nodes than this is
+# refused: the element table is a rectangle as wide as the widest element,
+# so one absurd count would make it enormous.
+MAX_ELEMENT_NODES = 8
 
 
 @dataclass
@@ -84,7 +89,15 @@ def _records(text: str):
         elif kind in ("2", "3"):
             if len(tokens) < 4:
                 continue
-            need = 4 + int(tokens[3])
+            count = int(tokens[3])
+            if kind == "2" and count > MAX_ELEMENT_NODES:
+                raise ValueError(
+                    f"line {start}: an element with {count} nodes "
+                    f"(at most {MAX_ELEMENT_NODES} are read)"
+                )
+            if count < 0:
+                raise ValueError(f"line {start}: a negative node count")
+            need = 4 + count
         else:
             raise ValueError(f"line {start}: unknown item type {kind!r}")
         if len(tokens) >= need:

@@ -17,12 +17,21 @@ from pypath.spatial import EcospaceGrid
 from pypath.spatial.mesh import mesh_units
 
 __all__ = [
+    "MAX_MESH_BYTES",
+    "MAX_MESH_ELEMENTS",
     "MeshSummary",
     "build_mesh_grid",
     "estimated_run_seconds",
     "mesh_crs",
+    "read_uploaded_mesh",
     "summarise_mesh",
 ]
+
+# Limits on an uploaded mesh. The largest SHYFEM grids in use have a few
+# hundred thousand elements and take some tens of MB as text; a spatial run
+# on more patches than this would not finish in the app anyway.
+MAX_MESH_BYTES = 64 * 1024 * 1024
+MAX_MESH_ELEMENTS = 500_000
 
 # Seconds per patch, month and group of a spatial run on the server, from a
 # 5-group model on 29 and on 2027 patches (about 1.2 ms per patch-month).
@@ -64,6 +73,29 @@ def mesh_crs(units: str, epsg: Optional[str]) -> Optional[str]:
     return f"EPSG:{int(text)}"
 
 
+def read_uploaded_mesh(path) -> ShyfemMesh:
+    """Read an uploaded ``.grd``, refusing one that is too large to use.
+
+    Raises ValueError for a file over ``MAX_MESH_BYTES``, a mesh over
+    ``MAX_MESH_ELEMENTS`` elements, or a file ``read_grd`` cannot read.
+    """
+    import os
+
+    size = os.path.getsize(path)
+    if size > MAX_MESH_BYTES:
+        raise ValueError(
+            f"the file is {size / 1e6:,.0f} MB; meshes of up to "
+            f"{MAX_MESH_BYTES / 1e6:,.0f} MB are read"
+        )
+    mesh = read_grd(path)
+    if mesh.n_elements > MAX_MESH_ELEMENTS:
+        raise ValueError(
+            f"the mesh has {mesh.n_elements:,} elements; up to "
+            f"{MAX_MESH_ELEMENTS:,} are read"
+        )
+    return mesh
+
+
 def summarise_mesh(mesh: ShyfemMesh, units: str = "auto") -> MeshSummary:
     """Counts, units, area and depth range of a mesh."""
     detected = mesh_units(mesh.xy)
@@ -102,7 +134,9 @@ def build_mesh_grid(
     km and no EPSG code is given.
     """
     mesh = (
-        path_or_mesh if isinstance(path_or_mesh, ShyfemMesh) else read_grd(path_or_mesh)
+        path_or_mesh
+        if isinstance(path_or_mesh, ShyfemMesh)
+        else read_uploaded_mesh(path_or_mesh)
     )
     used = mesh_units(mesh.xy) if units == "auto" else units
     return EcospaceGrid.from_shyfem_grd(
