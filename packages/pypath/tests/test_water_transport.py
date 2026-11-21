@@ -50,8 +50,26 @@ def _zone_grid(sizes=(1, 2, 3), ids=(10, 20, 30), side=2000.0):
 # --- the operator ---------------------------------------------------------
 
 
+def test_exchange_only_is_the_default_and_keeps_the_total_off_the_rest_state():
+    """A river of 30 m3/s runs 10 -> 20 -> 30: only the two-way water counts."""
+    setup = _ring()  # 50 forward, 20 back
+    setup["flow"][:, 0, 1] += 30.0
+    setup["flow"][:, 1, 2] += 30.0
+    transport = WaterTransport(groups=[0], **setup)
+    assert transport.throughflow is False
+    volume = transport.volume[0]
+    a = transport.rate_matrix(0, volume)
+    np.testing.assert_allclose(a.sum(axis=0), 0.0, atol=1e-9)
+    np.testing.assert_allclose(a @ volume, 0.0, atol=1e-6)
+    assert a[1, 0] == pytest.approx(20.0 / 1e8 * YEAR)  # min(80, 20)
+    totals = np.array([5.0, 1.0, 0.0])  # far from the rest state
+    for month in range(12):
+        totals = transport.step_zones(totals, month, volume, 1 / 12)
+        assert totals.sum() == pytest.approx(6.0, rel=1e-12)
+
+
 def test_the_rate_matrix_conserves_and_rests_at_the_volumes():
-    transport = WaterTransport(groups=[0], **_ring())
+    transport = WaterTransport(groups=[0], throughflow=True, **_ring())
     a = transport.rate_matrix(0, transport.volume[0])
     np.testing.assert_allclose(a.sum(axis=0), 0.0, atol=1e-9)  # nothing is lost
     np.testing.assert_allclose(a @ transport.volume[0], 0.0, atol=1e-6)  # at rest
@@ -60,8 +78,9 @@ def test_the_rate_matrix_conserves_and_rests_at_the_volumes():
     assert a[1, 0] == pytest.approx(50.0 / 1e8 * YEAR)
 
 
-def test_a_release_spreads_to_one_concentration_and_keeps_the_total():
-    transport = WaterTransport(groups=[0], **_ring())
+@pytest.mark.parametrize("throughflow", [False, True])
+def test_a_release_spreads_to_one_concentration_and_keeps_the_total(throughflow):
+    transport = WaterTransport(groups=[0], throughflow=throughflow, **_ring())
     totals = np.array([7.0, 0.0, 0.0])
     for _ in range(36):
         totals = transport.step_zones(totals, 0, transport.volume[0], 1 / 12)
@@ -71,7 +90,7 @@ def test_a_release_spreads_to_one_concentration_and_keeps_the_total():
 
 def test_one_implicit_month_is_stable_for_flows_that_flush_a_zone_in_hours():
     fast = _ring(q=5e4, back=4e4)  # 1e8 m3 flushed in about twenty minutes
-    transport = WaterTransport(groups=[0], **fast)
+    transport = WaterTransport(groups=[0], throughflow=True, **fast)
     totals = transport.step_zones(
         np.array([7.0, 0.0, 0.0]), 0, fast["volume"][0], 1 / 12
     )
@@ -80,8 +99,9 @@ def test_one_implicit_month_is_stable_for_flows_that_flush_a_zone_in_hours():
     np.testing.assert_allclose(totals / fast["volume"][0], 1e-8, rtol=5e-3)
 
 
-def test_weights_other_than_volume_set_the_rest_state():
-    transport = WaterTransport(groups=[0], **_ring())
+@pytest.mark.parametrize("throughflow", [False, True])
+def test_weights_other_than_volume_set_the_rest_state(throughflow):
+    transport = WaterTransport(groups=[0], throughflow=throughflow, **_ring())
     weights = np.array([3.0, 1.0, 2.0])
     a = transport.rate_matrix(0, weights)
     np.testing.assert_allclose(a @ weights, 0.0, atol=1e-9)
@@ -93,35 +113,59 @@ def test_weights_other_than_volume_set_the_rest_state():
     np.testing.assert_allclose(dead @ without, 0.0, atol=1e-9)  # still at rest
 
 
-def test_a_closed_boundary_keeps_the_rest_state_an_open_one_takes_biomass():
-    """A river of 30 m3/s into zone 10 that leaves to the sea from zone 30."""
+def _estuary(**kwargs):
+    """A river of 30 m3/s into zone 10; zone 30 exchanges with the sea."""
     setup = _ring()
     setup["flow"][:, 0, 1] += 30.0  # the river water runs 10 -> 20 -> 30
     setup["flow"][:, 1, 2] += 30.0
-    boundaries = dict(
+    return WaterTransport(
+        groups=[0],
         boundary_id=np.array([-2, -1]),
         boundary_zone=np.array([0, 2]),
         boundary_in=np.tile([30.0, 100.0], (12, 1)),
         boundary_out=np.tile([0.0, 130.0], (12, 1)),
+        **setup,
+        **kwargs,
     )
-    closed = WaterTransport(groups=[0], **setup, **boundaries)
-    volume = closed.volume[0]
-    np.testing.assert_allclose(closed.rate_matrix(0, volume) @ volume, 0.0, atol=1e-6)
-    # also when the zones' water does not quite balance (storage, rounding)
-    rough = WaterTransport(groups=[0], **setup, **boundaries)
-    rough.flow[:, 1, 2] *= 1.02
-    for weights in (volume, np.array([3.0, 1.0, 2.0])):
-        np.testing.assert_allclose(
-            rough.rate_matrix(0, weights) @ weights, 0.0, atol=1e-6
-        )
 
-    river = WaterTransport(groups=[0], open_boundaries=[-2], **setup, **boundaries)
-    a = river.rate_matrix(0, volume)
-    # the river brings nothing: zone 10 is diluted at river flow / volume
+
+def test_with_throughflow_a_river_dilutes_and_the_sea_boundary_does_not():
+    estuary = _estuary(throughflow=True)
+    assert estuary.open_boundaries == [-2]  # the boundary whose water only comes in
+    volume = estuary.volume[0]
+    a = estuary.rate_matrix(0, volume)
+    # at one concentration: the river zone is diluted at river flow / volume,
+    # the others, the sea zone included, are at rest
     assert (a @ volume)[0] == pytest.approx(-30.0 / 1e8 * YEAR * volume[0])
     assert (a @ volume)[1:] == pytest.approx([0.0, 0.0], abs=1e-6)
+    # a tracer is flushed out: less every month, never negative
+    totals, last = volume.copy(), volume.sum()
+    for month in range(12):
+        totals = estuary.step_zones(totals, month, volume, 1 / 12)
+        assert 0 < totals.sum() < last
+        last = totals.sum()
+
+
+def test_with_throughflow_the_rest_state_holds_when_no_boundary_dilutes():
+    whole = _estuary(throughflow=True, open_boundaries=[])
+    volume = whole.volume[0]
+    np.testing.assert_allclose(whole.rate_matrix(0, volume) @ volume, 0.0, atol=1e-6)
+    # also when the zones' water does not quite balance (storage, rounding)
+    whole.flow[:, 1, 2] *= 1.02
+    for weights in (volume, np.array([3.0, 1.0, 2.0])):
+        np.testing.assert_allclose(
+            whole.rate_matrix(0, weights) @ weights, 0.0, atol=1e-6
+        )
     with pytest.raises(ValueError, match="not boundary ids"):
-        WaterTransport(groups=[0], open_boundaries=[-9], **setup, **boundaries)
+        _estuary(throughflow=True, open_boundaries=[-9])
+
+
+def test_exchange_only_ignores_the_boundaries():
+    closed = _estuary()
+    volume = closed.volume[0]
+    a = closed.rate_matrix(0, volume)
+    np.testing.assert_allclose(a.sum(axis=0), 0.0, atol=1e-9)
+    np.testing.assert_allclose(a @ volume, 0.0, atol=1e-6)
 
 
 def test_bad_tables_are_refused():
@@ -178,7 +222,12 @@ def _series(n_months=3):
 
 
 def test_flows_volumes_and_boundaries_from_a_box_series():
-    transport = WaterTransport.from_shyfem_box_series(_series(), groups=[1])
+    transport = WaterTransport.from_shyfem_box_series(
+        _series(), groups=[1], throughflow=True, open_boundaries=[]
+    )
+    assert WaterTransport.from_shyfem_box_series(
+        _series(), groups=[1], throughflow=True
+    ).open_boundaries == [-2]  # the river
     assert transport.zones.tolist() == [1, 2]
     np.testing.assert_allclose(transport.flow[0], [[0.0, 40.0], [30.0, 0.0]])
     np.testing.assert_allclose(transport.volume[2], [1e8, 3e8])
@@ -349,3 +398,63 @@ def test_a_run_longer_than_the_flows_and_a_grid_outside_them_are_refused(
             ),
             years=range(1, 2),
         )
+
+
+def test_zones_the_grid_does_not_cover_are_outside_the_map(
+    integrated_scenario,
+):
+    """Zones 10 and 20 on the map, zone 30 of the flows outside it."""
+    scenario, _ = integrated_scenario
+    grid, _ = _zone_grid(sizes=(1, 2), ids=(10, 20))
+    years = range(1, 2)
+    plain = rsim_run_spatial(scenario, ecospace=_ecospace(scenario, grid), years=years)
+    for rest in ("volume", "capacity"):
+        transport = WaterTransport(
+            groups=[3], rest=rest, **_ring(12, q=2000.0, back=1500.0)
+        )
+        moved = rsim_run_spatial(
+            scenario, ecospace=_ecospace(scenario, grid, transport), years=years
+        )
+        det = 4
+        assert np.isfinite(moved.out_Biomass_spatial).all()
+    # rest="capacity", a uniform map: at rest, so the total is the plain run's
+    assert moved.out_Biomass_spatial[1, det].sum() == pytest.approx(
+        plain.out_Biomass_spatial[1, det].sum(), rel=1e-9
+    )
+    # at the capacity rest state (density by area: 1 : 2) nothing has moved
+    share = moved.out_Biomass_spatial[1, det] / moved.out_Biomass_spatial[1, det].sum()
+    np.testing.assert_allclose(share, [1 / 3, 2 / 3], atol=1e-12)
+    # by volume the two zones on the map end at 3 : 1, whatever zone 30 holds
+    volume = WaterTransport(
+        groups=[3], **_ring(12, q=2000.0, back=1500.0, volumes=(3e8, 1e8, 4e8))
+    )
+    out = rsim_run_spatial(
+        scenario, ecospace=_ecospace(scenario, grid, volume), years=years
+    ).out_Biomass_spatial
+    np.testing.assert_allclose(out[1, det] / out[1, det].sum(), [0.75, 0.25], rtol=0.05)
+    # exchange only: the map's total is kept on the way there
+    assert out[1, det].sum() == pytest.approx(plain.out_Biomass_spatial[1, det].sum())
+
+
+def test_stanza_and_ibm_groups_are_refused(integrated_scenario):
+    scenario, _ = integrated_scenario
+    grid, _ = _zone_grid()
+    ecospace = _ecospace(scenario, grid)
+    names = [str(n) for n in scenario.params.spname]
+    transport = WaterTransport(groups=[1, 2], **_ring(12))
+    assert transport.prepare(ecospace, 12) == [2, 3]
+    with pytest.raises(ValueError, match="multi-stanza group"):
+        transport.prepare(ecospace, 12, stanza_rows=[3], names=names)
+    with pytest.raises(ValueError, match="an IBM group") as error:
+        transport.prepare(ecospace, 12, ibm_rows=[2], names=names)
+    assert names[2] in str(error.value)
+    with pytest.raises(ValueError, match="outside 0.."):
+        WaterTransport(groups=[99], **_ring(12)).prepare(ecospace, 12)
+
+
+def test_biomass_that_is_not_finite_is_passed_through():
+    """A run that has already failed is not turned into a solver error."""
+    transport = WaterTransport(groups=[0], **_ring())
+    broken = np.array([1.0, np.nan, 2.0])
+    out = transport.step_zones(broken, 0, transport.volume[0], 1 / 12)
+    assert np.isnan(out[1]) and out[0] == 1.0 and out[2] == 2.0

@@ -6,11 +6,31 @@ moves the biomass of chosen groups with them during a spatial run::
 
     dB_i/dt = sum_j ( Q_ji B_j s_j  -  Q_ij B_i s_i )
 
-``Q_ij`` is the flow from zone i to zone j (both directions of a section are
-kept: with the net flow alone a tracer does not follow the exchange of an
-estuary) and ``s_i`` the share of zone i's biomass a unit of its water
-carries. The sum is taken implicitly over each month, which is stable for
-any flow: boxes are flushed in days, a run steps in months.
+``Q_ij`` is the flow from zone i to zone j and ``s_i`` the share of zone
+i's biomass a unit of its water carries. The sum is taken implicitly over
+each month, which is stable for any flow: boxes are flushed in days, a run
+steps in months.
+
+Two ways to use the flows.
+
+- Exchange only (the default, ``throughflow=False``). Each pair of zones
+  exchanges the water that goes both ways between them, min(Q_ij, Q_ji).
+  The net flow, the rivers' water on its way to the sea, is left out. The
+  map is closed: the carried biomass is mixed between the zones, its total
+  is kept exactly, and the rest state below holds exactly.
+- With throughflow (``throughflow=True``). All the water moves. A boundary
+  whose water only comes in (a river) brings none of the group, so it
+  dilutes the zone and the group is flushed towards the sea: a loss the
+  Ecopath balance does not hold, large for slow pools such as detritus.
+  Water crossing a two-way boundary (the open sea), and water a zone stores
+  or releases as its volume changes, carries what the zone has.
+  ``open_boundaries`` names the diluting boundaries when the rule "only
+  comes in" is not the right one.
+
+Both directions of a section matter: with the net flow alone a tracer does
+not follow an estuary's exchange at all (salinity carried with a lagoon
+model's flows: 2.3 psu off in the strait with net flows, 1.3 with both
+directions).
 
 Rest state. With ``rest="volume"`` a unit of water carries 1 / volume of
 the zone's biomass, so biomass at rest is in proportion to the zones'
@@ -18,18 +38,10 @@ volumes: one concentration everywhere. With ``rest="capacity"`` it is in
 proportion to area x habitat capacity, as Ecospace's diffusion leaves it,
 so a uniform map stays as it is.
 
-Boundaries. A zone whose inflow from the other zones differs from its
-outflow to them exchanges the difference with the outside (a river, the
-open sea) or with its own storage. By default that water carries what the
-zone has, in and out: the boundary is closed, the rest state holds exactly,
-and the map's total changes only where net water leaves or enters a zone
-that is not at rest. A boundary named in ``open_boundaries`` brings nothing
-in: a river that dilutes, which flushes the carried groups out to sea, a
-loss the Ecopath balance does not hold.
-
 Flows are known between zones only. On a grid with several patches in a
 zone (the elements of a mesh) the zone's total moves and each patch keeps
-its share of it.
+its share of it. A zone the grid has no patch in is outside the map and
+takes no part.
 """
 
 from __future__ import annotations
@@ -76,8 +88,12 @@ class WaterTransport:
         [n_months, n_boundaries].
     rest : {"volume", "capacity"}
         What biomass at rest is in proportion to (see the module text).
-    open_boundaries : sequence of int
-        Boundary ids that bring nothing in and take biomass out.
+    throughflow : bool
+        False (default): the two-way exchange between zones only, which
+        keeps the total. True: all the water moves and rivers dilute.
+    open_boundaries : sequence of int, optional
+        With throughflow, the boundary ids whose inflow brings none of the
+        group. Default: the boundaries whose water only comes in.
     beyond : {"refuse", "repeat_year", "hold"}
         A run longer than the flows: refuse it, repeat the last twelve
         months, or hold the last month.
@@ -92,7 +108,8 @@ class WaterTransport:
     boundary_in: Optional[np.ndarray] = None
     boundary_out: Optional[np.ndarray] = None
     rest: str = "volume"
-    open_boundaries: Sequence[int] = ()
+    throughflow: bool = False
+    open_boundaries: Optional[Sequence[int]] = None
     beyond: str = "refuse"
 
     def __post_init__(self):
@@ -127,9 +144,15 @@ class WaterTransport:
             if value.shape != (m, nb):
                 raise ValueError(f"{name} must be [{m}, {nb}], got {value.shape}")
             setattr(self, name, value)
-        unknown = set(int(b) for b in self.open_boundaries) - set(
-            self.boundary_id.tolist()
-        )
+        if self.open_boundaries is None:
+            # a boundary whose water only comes in: a river
+            only_in = (self.boundary_out.sum(axis=0) == 0) & (
+                self.boundary_in.sum(axis=0) > 0
+            )
+            self.open_boundaries = sorted(set(self.boundary_id[only_in].tolist()))
+        else:
+            self.open_boundaries = [int(b) for b in self.open_boundaries]
+        unknown = set(self.open_boundaries) - set(self.boundary_id.tolist())
         if unknown:
             raise ValueError(
                 f"open_boundaries {sorted(unknown)} are not boundary ids "
@@ -148,7 +171,8 @@ class WaterTransport:
         *,
         start=None,
         rest: str = "volume",
-        open_boundaries: Sequence[int] = (),
+        throughflow: bool = False,
+        open_boundaries: Optional[Sequence[int]] = None,
         beyond: str = "refuse",
     ) -> "WaterTransport":
         """Monthly flows and volumes from a SHYFEM box model's output.
@@ -164,7 +188,7 @@ class WaterTransport:
         start : str or datetime64, optional
             The date of time 0 of the run. Months before it are dropped.
             Default: the first month in the series.
-        rest, open_boundaries, beyond
+        rest, throughflow, open_boundaries, beyond
             As on the class. A section whose box number is negative is a
             boundary, with that number as its id.
         """
@@ -232,6 +256,7 @@ class WaterTransport:
             boundary_in=b_in,
             boundary_out=b_out,
             rest=rest,
+            throughflow=throughflow,
             open_boundaries=open_boundaries,
             beyond=beyond,
         )
@@ -278,17 +303,20 @@ class WaterTransport:
         share = np.where(live, per_volume / np.where(live, w, 1.0), 0.0)
         # water to or from a zone that holds none of the group carries none
         q = self.flow[index] * live[np.newaxis, :] * live[:, np.newaxis]
+        if not self.throughflow:
+            q = np.minimum(q, q.T)  # the water that goes both ways
         rate = q * share[:, np.newaxis] * _SECONDS_PER_YEAR  # [from, to]
         a = rate.T.copy()
         a[np.diag_indices_from(a)] -= rate.sum(axis=1)
+        if not self.throughflow:
+            return a
         # A zone whose inflow from the other zones differs from its outflow
         # to them exchanges the difference with the outside or with its own
         # storage (its volume changes over the month). That water carries
-        # what the zone has, in and out, so the weights stay a rest state
-        # exactly; this is also how a closed boundary acts.
+        # what the zone has, in and out ...
         surplus = q.sum(axis=0) - q.sum(axis=1)  # in from zones - out to zones
         a[np.diag_indices_from(a)] -= surplus * share * _SECONDS_PER_YEAR
-        # An open boundary's inflow brings nothing instead: it dilutes.
+        # ... except a diluting boundary's inflow, which brings nothing.
         is_open = np.isin(self.boundary_id, list(self.open_boundaries))
         for b, zone in enumerate(self.boundary_zone):
             if is_open[b]:
@@ -308,6 +336,10 @@ class WaterTransport:
         """
         from scipy.linalg import lu_factor, lu_solve
 
+        totals = np.asarray(totals, dtype=float)
+        if not np.all(np.isfinite(totals)):
+            # a run that has already failed: leave it as it is
+            return totals.copy()
         cache_key = None if key is None else (index, key, float(dt))
         solver = self._solvers.get(cache_key) if cache_key is not None else None
         if solver is None:
@@ -353,6 +385,7 @@ class WaterTransport:
                 "patches lie in"
             )
         self._patch_zone = order[where]
+        self._covered = np.bincount(self._patch_zone, minlength=len(self.zones)) > 0
         self._solvers = {}
         if self.beyond == "refuse" and n_run_months > self.n_months:
             raise ValueError(
@@ -402,8 +435,8 @@ class WaterTransport:
         areas = np.asarray(ecospace.grid.patch_areas, dtype=float)
         n = len(self.zones)
         if self.rest == "volume":
-            patch_w = areas
-            return self.volume[index], patch_w, ("volume", index)
+            # a zone the grid has no patch in is outside the map: weight 0
+            return self.volume[index] * self._covered, areas, ("volume", index)
         capacity = np.asarray(ecospace.habitat_capacity, dtype=float)[group]
         patch_w = areas * capacity
         return (
