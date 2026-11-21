@@ -1073,6 +1073,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#6-a-capacity-for-every-month" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. A capacity for every month
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#runs-longer-than-the-flows-and-other-sources" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1231,6 +1242,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#6-a-capacity-for-every-month" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. A capacity for every month
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#runs-longer-than-the-flows-and-other-sources" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1282,8 +1304,9 @@ itself, so every block runs as it stands.</p>
 <p class="admonition-title">What to expect</p>
 <ul>
 <li>The mesh becomes the map: one patch per box, or one per element.</li>
-<li>Fields become a habitat capacity map. It says <em>where</em> a group lives;
-  it does not change during a run.</li>
+<li>Fields become a habitat capacity map, which says <em>where</em> a group
+  lives. A capacity for every month can be added for chosen groups; it
+  also says <em>when</em>.</li>
 <li>Flows move the groups you choose. With the default settings water
   only mixes them between boxes, and on a map where the boxes are
   alike that changes nothing. With throughflow, rivers flush them
@@ -1328,13 +1351,17 @@ box number, and the box model's <code>boxes_2d.txt</code>.</p>
 <span class="p">(</span><span class="n">work</span> <span class="o">/</span> <span class="s2">"lagoon.grd"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">write_box_output</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">volume</span><span class="p">,</span> <span class="n">salt</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">)):</span>
-<span class="w">    </span><span class="sd">"""Two years of daily records: box means, then the section flows."""</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_box_output</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">volume</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Two years of daily records: box means, then the section flows.</span>
+
+<span class="sd">    Salinity rises from the river end to the sea; in box 3, the strait,</span>
+<span class="sd">    it also rises in summer (1 in winter, 5 in summer)."""</span>
     <span class="n">days</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">"2010-01-01"</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">731</span><span class="p">)</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"#      idbox file_type     nvers"</span><span class="p">,</span> <span class="s2">"#     473226         2         7"</span><span class="p">]</span>
     <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">day</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">days</span><span class="p">):</span>
         <span class="n">season</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">80</span><span class="p">)</span> <span class="o">/</span> <span class="mf">365.0</span><span class="p">)</span>
         <span class="n">temp</span> <span class="o">=</span> <span class="mf">10.0</span> <span class="o">-</span> <span class="mf">9.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">30</span><span class="p">)</span> <span class="o">/</span> <span class="mf">365.0</span><span class="p">)</span>
+        <span class="n">salt</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">3.0</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">30</span><span class="p">)</span> <span class="o">/</span> <span class="mf">365.0</span><span class="p">),</span> <span class="mf">7.0</span><span class="p">)</span>
         <span class="n">river</span> <span class="o">=</span> <span class="mf">60.0</span> <span class="o">*</span> <span class="n">season</span>
         <span class="n">out</span> <span class="o">+=</span> <span class="p">[</span>
             <span class="s2">"# time record"</span><span class="p">,</span>
@@ -1399,7 +1426,8 @@ first month.</p>
 <span class="n">layers</span> <span class="o">=</span> <span class="n">shyfem_box_layers</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">boxes</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">START</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="n">layers</span><span class="o">.</span><span class="n">layer_names</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"salinity by box:"</span><span class="p">,</span> <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"salt"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"salinity by box, January:"</span><span class="p">,</span> <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"salt"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"salinity by box, July:   "</span><span class="p">,</span> <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"salt"</span><span class="p">,</span> <span class="mi">6</span> <span class="o">/</span> <span class="mi">12</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
 <span class="nb">print</span><span class="p">(</span>
     <span class="s2">"temperature, January and July:"</span><span class="p">,</span>
     <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"temp"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
@@ -1427,6 +1455,8 @@ groups need salt: unsuitable below 0.5, fully suitable from 6.</p>
 <p>Ecospace uses the <em>pattern</em> of a group's capacity over the map, not its
 level. A field that is nearly the same in every box, as temperature often
 is, therefore does little as a static map; salinity does a lot.</p>
+<p>This map is one for the whole run: the mean over the months. Section 6
+gives a group a capacity for every month.</p>
 <h2 id="3-which-groups-the-water-can-carry">3. Which groups the water can carry<a class="headerlink" href="#3-which-groups-the-water-can-carry" title="Permanent link">&para;</a></h2>
 <p>Under the EwE rule, which EwE models get by default, plankton and often
 detritus are <em>fast</em> groups: every step sets their biomass to its local
@@ -1489,7 +1519,7 @@ does not follow an estuary's exchange.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">EcospaceParams</span><span class="p">,</span> <span class="n">rsim_run_spatial</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">transport</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">transport</span><span class="p">,</span> <span class="n">monthly</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">ecospace</span> <span class="o">=</span> <span class="n">EcospaceParams</span><span class="p">(</span>
         <span class="n">grid</span><span class="o">=</span><span class="n">boxes</span><span class="p">,</span>
         <span class="n">habitat_preference</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">boxes</span><span class="o">.</span><span class="n">n_patches</span><span class="p">)),</span>
@@ -1498,6 +1528,7 @@ does not follow an estuary's exchange.</p>
         <span class="n">advection_enabled</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span>
         <span class="n">gravity_strength</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rows</span><span class="p">),</span>
         <span class="n">water_transport</span><span class="o">=</span><span class="n">transport</span><span class="p">,</span>
+        <span class="n">monthly_capacity</span><span class="o">=</span><span class="n">monthly</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">rsim_run_spatial</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span> <span class="n">ecospace</span><span class="o">=</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">YEARS</span><span class="p">)</span>
 
@@ -1526,6 +1557,54 @@ does not follow an estuary's exchange.</p>
   the food web above the plankton responds to it. Slow pools are flushed
   hardest.</li>
 </ul>
+<h2 id="6-a-capacity-for-every-month">6. A capacity for every month<a class="headerlink" href="#6-a-capacity-for-every-month" title="Permanent link">&para;</a></h2>
+<p>The map of section 2 holds for the whole run. <code>MonthlyCapacity</code> gives the
+groups you name a capacity for each month instead, made from the same
+layers and the same kind of response. Here a marine copepod needs salt, and
+the strait is salt only in summer:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">MonthlyCapacity</span>
+
+<span class="n">copepod</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"Pseudocalanus sp."</span><span class="p">:</span> <span class="p">{</span><span class="s2">"salt"</span><span class="p">:</span> <span class="n">marine</span><span class="p">}}</span>
+<span class="n">group_names</span> <span class="o">=</span> <span class="n">names</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"-"</span><span class="p">]</span>
+
+<span class="c1"># the base map: the mean over the months, joined to the map of section 2</span>
+<span class="n">base</span> <span class="o">=</span> <span class="n">capacity_from_layers</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="n">copepod</span><span class="p">,</span> <span class="n">group_names</span><span class="o">=</span><span class="n">group_names</span><span class="p">)</span>
+<span class="n">row</span> <span class="o">=</span> <span class="n">names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">"Pseudocalanus sp."</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+<span class="n">capacity</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="n">base</span><span class="p">[</span><span class="n">row</span><span class="p">]</span>
+
+<span class="n">by_month</span> <span class="o">=</span> <span class="n">MonthlyCapacity</span><span class="o">.</span><span class="n">from_layers</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="n">copepod</span><span class="p">,</span> <span class="n">group_names</span><span class="o">=</span><span class="n">group_names</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"the copepod in the strait, by month:"</span><span class="p">,</span> <span class="n">by_month</span><span class="o">.</span><span class="n">values</span><span class="p">[:</span><span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+
+<span class="n">seasonal</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="n">exchange</span><span class="p">,</span> <span class="n">by_month</span><span class="p">)</span>  <span class="c1"># the whole chain in one run</span>
+<span class="n">steady</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="n">exchange</span><span class="p">)</span>
+
+<span class="n">strait</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">out</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"the mean map"</span><span class="p">,</span> <span class="n">steady</span><span class="p">),</span> <span class="p">(</span><span class="s2">"a map per month"</span><span class="p">,</span> <span class="n">seasonal</span><span class="p">)):</span>
+    <span class="n">biomass</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">out_Biomass_spatial</span><span class="p">[</span><span class="mi">13</span><span class="p">:,</span> <span class="n">row</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">strait</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">label</span><span class="si">:</span><span class="s2">16s</span><span class="si">}</span><span class="s2"> the copepod in the strait, year 2: "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">biomass</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">biomass</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>What the month's capacity does, and what the base map keeps:</p>
+<ul>
+<li>The run is calibrated once, on the base map (<code>habitat_capacity</code>). Each
+  month the group's capacity in a patch, over the peak of its base map, is
+  that patch's feeding efficiency. So here the <em>level</em> matters, where a
+  static map's does not.</li>
+<li>The base map still sets where the group starts and how it moves between
+  patches. Movement does not follow the month's map.</li>
+<li>Multi-stanza groups cannot take a monthly capacity; give them a static
+  map, as cod and sprat have here.</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Mind the scale</p>
+<p>The model's Ecopath balance stands for the conditions at the peak of the
+base map. A response far below 1 for months, such as a temperature
+optimum reached only in summer, starves the group for the rest of the
+year. Shape a response so that it is near 1 under the conditions the
+model describes.</p>
+</div>
 <h2 id="runs-longer-than-the-flows-and-other-sources">Runs longer than the flows, and other sources<a class="headerlink" href="#runs-longer-than-the-flows-and-other-sources" title="Permanent link">&para;</a></h2>
 <p>A run may cover months the flows do not, before their first month or after
 their last. <code>beyond</code> says what to do there: <code>"refuse"</code> (the default),
