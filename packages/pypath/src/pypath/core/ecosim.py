@@ -2771,15 +2771,27 @@ def substep_check(
     *,
     factor: int = 2,
     tolerance: float = 1e-3,
+    ecospace=None,
 ) -> SubstepCheck:
     """Does the run change when its RK4 sub-steps are multiplied?
 
     Runs the scenario as it is and with ``factor`` times its sub-steps
     (``RK4_STEPS``), and compares the biomass of every living and detritus
     group in every month. A run with too few sub-steps for an integrated
-    group's turnover differs widely or is not finite; one with enough
-    differs by little. The scenario is not changed. Check a scenario that
-    moves (changed fishing, forcing): one at rest shows nothing.
+    group's turnover differs widely or fails; one with enough differs by
+    little. The scenario is not changed. Check a scenario that moves
+    (changed fishing, forcing): one at rest shows nothing.
+
+    A run that fails counts as an infinite difference. ``rsim_run`` puts a
+    floor of 1e-10 where a month's biomass is not finite, so a group that
+    started above the floor and is found at it in either run is taken to
+    have failed there (a group that truly collapses that far is reported
+    the same way). The spatial run keeps non-finite values, which count
+    too.
+
+    With ``ecospace``, or for a scenario that carries one, both runs are
+    spatial runs (``rsim_run_spatial``) and every patch is compared: the
+    sub-steps a spatial run needs are checked on the spatial run.
 
     Parameters
     ----------
@@ -2792,6 +2804,9 @@ def substep_check(
     tolerance : float
         ``converged`` is True when the largest relative difference is at
         most this (default 1e-3).
+    ecospace : EcospaceParams, optional
+        Check the spatial run on these spatial parameters. Default: the
+        scenario's own ``ecospace``, if it has one; otherwise plain Ecosim.
     """
     if isinstance(factor, bool) or int(factor) != factor or factor < 2:
         raise ValueError(f"factor must be a whole number of 2 or more, not {factor!r}")
@@ -2800,16 +2815,33 @@ def substep_check(
     finer.params.RK4_STEPS = coarse * int(factor)
     names = [str(n).strip() for n in scenario.params.spname]
     n_bio = int(scenario.params.NUM_LIVING) + int(scenario.params.NUM_DEAD)
+    if ecospace is None:
+        ecospace = getattr(scenario, "ecospace", None)
+
+    def biomass(which):
+        """[months, groups] or, for a spatial run, [months, groups, patches]."""
+        if ecospace is None:
+            return np.asarray(rsim_run(which, years=years).out_Biomass)
+        from pypath.spatial.integration import rsim_run_spatial
+
+        out = rsim_run_spatial(which, ecospace=copy.deepcopy(ecospace), years=years)
+        return np.asarray(out.out_Biomass_spatial)
+
     with np.errstate(all="ignore"):
-        a = np.asarray(rsim_run(copy.deepcopy(scenario), years=years).out_Biomass)
-        b = np.asarray(rsim_run(finer, years=years).out_Biomass)
-    a, b = a[:, 1 : n_bio + 1], b[:, 1 : n_bio + 1]
-    bad = ~(np.isfinite(a) & np.isfinite(b))
+        a = biomass(copy.deepcopy(scenario))[:, 1 : n_bio + 1]
+        b = biomass(finer)[:, 1 : n_bio + 1]
+    # a failed month: not finite, or at the floor rsim_run puts in its place
+    floor = EPSILON * (1.0 + 1e-9)
+    started = (a[0] > 10.0 * EPSILON)[np.newaxis]
+    failed = ~(np.isfinite(a) & np.isfinite(b)) | (
+        started & ((a <= floor) | (b <= floor))
+    )
     with np.errstate(all="ignore"):
         diff = np.abs(a - b) / np.maximum(np.abs(b), 1e-300)
-    diff = np.where(bad, np.inf, diff)
-    month, col = np.unravel_index(int(np.argmax(diff)), diff.shape)
-    worst = float(diff[month, col])
+    diff = np.where(failed, np.inf, diff)
+    where = np.unravel_index(int(np.argmax(diff)), diff.shape)
+    month, col = int(where[0]), int(where[1])
+    worst = float(diff[where])
     return SubstepCheck(
         substeps=coarse,
         finer=coarse * int(factor),

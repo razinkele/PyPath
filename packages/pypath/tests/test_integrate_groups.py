@@ -211,3 +211,49 @@ def test_transport_tells_how_to_integrate_a_group_that_is_still_fast(
     message = str(error.value)
     assert "fast-equilibrium group" in message and name in message
     assert "integrate_groups" in message
+
+
+def test_two_runs_that_fail_alike_are_not_called_converged(spatial_scenario):
+    """rsim_run puts a floor where a month is not finite: both runs then agree."""
+    scenario, _ = spatial_scenario
+    live = slice(1, scenario.params.NUM_LIVING + scenario.params.NUM_DEAD + 1)
+    start = np.asarray(scenario.start_state.Biomass)[live]
+    # a scenario whose integration fails in the coarse and in the finer run
+    doomed = integrate_groups(_perturbed(scenario), _fast(scenario), substeps=1)
+    doomed.params.PBopt = np.asarray(doomed.params.PBopt, dtype=float) * 1e4
+    coarse = rsim_run(copy.deepcopy(doomed), years=YEARS).out_Biomass[:, live]
+    assert np.isfinite(coarse).all()  # the floor hides the failure
+    assert (coarse <= 1e-10 * 1.001).any() and (start > 1e-9).all()
+    result = substep_check(doomed, years=YEARS, tolerance=1e30)
+    assert result.max_difference == np.inf and not result.converged
+
+
+def test_a_spatial_scenario_is_checked_on_the_spatial_run(spatial_scenario):
+    scenario, _ = spatial_scenario
+    grid = _zone_grid()
+    capacity = np.ones((scenario.params.NUM_GROUPS + 1, grid.n_patches))
+    capacity[1] = [0.4, 1.0, 1.6]  # the zones differ: so do their dynamics
+    ready = integrate_groups(_perturbed(scenario), _fast(scenario), substeps=16)
+    ecospace = _ecospace(ready, grid)
+    ecospace.habitat_capacity = capacity
+    calls = []
+    from pypath.spatial import integration
+
+    real = integration.rsim_run_spatial
+
+    def counted(*args, **kwargs):
+        calls.append(kwargs["ecospace"].habitat_capacity[1].tolist())
+        return real(*args, **kwargs)
+
+    integration.rsim_run_spatial = counted
+    try:
+        spatial = substep_check(ready, years=YEARS, ecospace=ecospace)
+        ready.ecospace = ecospace  # carried by the scenario: the same check
+        carried = substep_check(ready, years=YEARS)
+    finally:
+        integration.rsim_run_spatial = real
+    assert calls == [[0.4, 1.0, 1.6]] * 4  # both legs, twice, on these patches
+    assert spatial.converged and spatial.max_difference < 1e-3
+    assert carried.max_difference == spatial.max_difference
+    few = integrate_groups(_perturbed(scenario), _fast(scenario), substeps=1)
+    assert not substep_check(few, years=YEARS, ecospace=ecospace).converged
