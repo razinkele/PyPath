@@ -57,6 +57,33 @@ coordinate transforms and shapefile integration via pyogrio.
     options:
       show_root_heading: true
 
+## Finite-Element Meshes
+
+Grids from a triangle mesh (SHYFEM's `.grd`): one patch per element, or one
+per zone of elements, with areas, borders and depth from the mesh. See the
+[worked example](../examples/hydrodynamic-link.md).
+
+::: pypath.spatial.mesh
+    options:
+      show_root_heading: true
+
+## Fields Given per Zone
+
+Box-model output as monthly layers on a grid, and a habitat capacity made
+from layers and response functions.
+
+::: pypath.spatial.zone_fields
+    options:
+      show_root_heading: true
+
+## Water Transport
+
+Monthly water flows between zones carrying chosen groups.
+
+::: pypath.spatial.transport
+    options:
+      show_root_heading: true
+
 ## Connectivity
 
 Patch-to-patch connectivity matrices (adjacency, distance weighting)
