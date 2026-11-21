@@ -596,3 +596,44 @@ def test_a_fast_group_can_be_integrated_and_carried_while_others_stay_fast(
             mixed, ecospace=_ecospace(mixed, grid, both), years=range(1, 2)
         )
     assert str(mixed.params.spname[other + 1]) in str(error.value)
+
+
+def test_exchange_evens_out_a_prey_that_its_grazer_leaves_uneven(
+    integrated_scenario,
+):
+    """Where it must act: the grazer's habitat differs between the zones.
+
+    Without transport the prey's density then differs from zone to zone.
+    Exchange only with rest="capacity" (the prey's own capacity is uniform)
+    mixes it: the spread across the zones shrinks.
+    """
+    scenario, _ = integrated_scenario
+    scenario = copy.deepcopy(scenario)
+    # the producer turns over 200 times a year: integrated, it needs sub-steps
+    scenario.params.RK4_STEPS = 16
+    grid, _ = _zone_grid()
+    n_rows = scenario.params.NUM_GROUPS + 1
+    capacity = np.ones((n_rows, grid.n_patches))
+    capacity[1] = [0.4, 1.0, 1.6]  # the grazer (Zoo)
+    years = range(1, 4)
+    prey = 1  # state row of the producer, group row 0
+
+    def density(transport):
+        out = rsim_run_spatial(
+            scenario,
+            ecospace=_ecospace(scenario, grid, transport, capacity=capacity),
+            years=years,
+        )
+        return out.out_Biomass_spatial[:, prey, :] / grid.patch_areas
+
+    def spread(d):
+        return d.max(axis=1) / d.min(axis=1) - 1.0
+
+    alone = density(None)
+    mixed = density(
+        WaterTransport(groups=[0], rest="capacity", **_ring(36, q=2000.0, back=1500.0))
+    )
+    assert np.isfinite(mixed).all()
+    assert spread(alone)[-1] > 0.02  # the grazer does leave the prey uneven
+    assert spread(mixed)[-1] < 0.25 * spread(alone)[-1]
+    assert np.all(spread(mixed)[1:] < spread(alone)[1:])
