@@ -252,6 +252,51 @@ def test_port_distance_is_measured_in_km_on_a_mesh_grid(tmp_path):
     assert effort[0] / effort[1] == pytest.approx(step / 0.1, rel=2e-3)
 
 
+def test_a_zone_inside_another_still_exchanges_with_it(tmp_path):
+    """Centre square in one zone, the eight around it in another: both
+    centroids are the middle of the mesh, and the border is 4 km long."""
+    ring = lambda ix, iy: 1 if (ix, iy) == (1, 1) else 2  # noqa: E731
+    path = _write(tmp_path, _square_mesh(3, 3, 1000.0, zone=ring))
+    grid = EcospaceGrid.from_shyfem_grd(path, patches="type")
+    np.testing.assert_allclose(grid.centroid_km[0], grid.centroid_km[1])
+    assert grid.get_edge_length(0, 1) == pytest.approx(4.0)
+    # centroid to the shared sides and on to the other centroid: 0.5 + 0.5 km
+    assert grid.edge_distances[(0, 1)] == pytest.approx(1.0)
+    biomass = np.array([9.0, 0.0])
+    for _ in range(600):
+        biomass = implicit_diffusion_step(
+            biomass, 5.0, grid, grid.adjacency_matrix, 1 / 12
+        )
+    assert biomass.sum() == pytest.approx(9.0)
+    np.testing.assert_allclose(biomass / grid.patch_areas, 1.0, rtol=1e-6)
+
+
+def test_distance_through_the_shared_side_is_the_centroid_distance_for_squares(
+    tmp_path,
+):
+    grid = EcospaceGrid.from_shyfem_grd(
+        _write(tmp_path, _square_mesh(3, 2, 2000.0)), patches="type"
+    )
+    for (i, j), distance in grid.edge_distances.items():
+        direct = np.linalg.norm(grid.centroid_km[i] - grid.centroid_km[j])
+        assert distance == pytest.approx(direct)
+        assert grid.edge_distances[(j, i)] == distance
+
+
+def test_polygons_follow_the_patch_order_when_zone_ids_are_not_sorted(tmp_path):
+    pytest.importorskip("geopandas")
+    path = _write(tmp_path, _square_mesh(2, 1, 1000.0))  # 4 triangles, west to east
+    grid = EcospaceGrid.from_shyfem_grd(
+        path, patches=np.array([40, 30, 20, 10]), geometry=True
+    )
+    assert grid.patch_ids.tolist() == [10, 20, 30, 40]
+    for i in range(4):
+        centre = grid.geometry.geometry.iloc[i].centroid
+        np.testing.assert_allclose([centre.x, centre.y], grid.patch_centroids[i])
+    assert grid.geometry["id"].tolist() == [10, 20, 30, 40]
+    assert grid.patch_centroids[0, 0] > grid.patch_centroids[3, 0]  # 10 is east
+
+
 def _uneven_mesh(tmp_path):
     """Squares grouped into four zones of 1, 2, 3 and 6 squares."""
     zone = {(0, 0): 1, (1, 0): 2, (2, 0): 2, (3, 0): 3, (0, 1): 3, (1, 1): 3}

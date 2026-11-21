@@ -148,7 +148,8 @@ def grid_from_mesh(
     EcospaceGrid
         ``patch_ids`` are the zone ids (or 0..n-1 per element),
         ``patch_centroids`` are in the units of ``xy`` (see ``crs``), ``centroid_km``
-        holds them in km for distances, and ``cell_metadata`` has ``zone``,
+        holds them in km, ``edge_distances`` the distance between neighbours
+        through their shared sides, and ``cell_metadata`` has ``zone``,
         ``n_elements`` and ``depth`` per patch.
     """
     import pandas as pd
@@ -219,9 +220,18 @@ def grid_from_mesh(
     first = np.flatnonzero(same)
     p, q = patch_of[owner_s[first]], patch_of[owner_s[first + 1]]
     length = np.linalg.norm(km[lo_s[first]] - km[hi_s[first]], axis=1)
+    midpoint = 0.5 * (km[lo_s[first]] + km[hi_s[first]])
     between = p != q
-    p, q, length = p[between], q[between], length[between]
+    p, q, length, midpoint = p[between], q[between], length[between], midpoint[between]
     i, j = np.minimum(p, q), np.maximum(p, q)
+    # the way from one centroid to the other through the shared side
+    through = np.linalg.norm(centroid_km[p] - midpoint, axis=1) + np.linalg.norm(
+        centroid_km[q] - midpoint, axis=1
+    )
+    path = scipy.sparse.coo_matrix(
+        (length * through, (i, j)), shape=(n_patches, n_patches)
+    ).tocsr()
+    path.sum_duplicates()
     border = scipy.sparse.coo_matrix(
         (length, (i, j)), shape=(n_patches, n_patches)
     ).tocsr()  # duplicate (i, j) entries are summed
@@ -229,6 +239,14 @@ def grid_from_mesh(
     rows, cols = border.nonzero()
     lengths = np.asarray(border[rows, cols]).reshape(-1)
     edge_lengths = {(int(r), int(c)): float(v) for r, c, v in zip(rows, cols, lengths)}
+    # Distance between two neighbours: centroid to the shared sides and on to
+    # the other centroid, weighted by the sides' lengths. For cells whose
+    # shared side lies between the centroids it is the centroid distance; it
+    # stays positive when two zones share a centroid (one inside the other).
+    through_mean = np.asarray(path[rows, cols]).reshape(-1) / lengths
+    edge_distances = {}
+    for r, c, v in zip(rows, cols, through_mean):
+        edge_distances[(int(r), int(c))] = edge_distances[(int(c), int(r))] = float(v)
     adjacency = scipy.sparse.csr_matrix(
         (np.ones(2 * len(rows)), (np.r_[rows, cols], np.r_[cols, rows])),
         shape=(n_patches, n_patches),
@@ -279,6 +297,7 @@ def grid_from_mesh(
         geometry=geo,
         cell_metadata=meta,
         centroid_km=centroid_km,
+        edge_distances=edge_distances,
     )
 
 
@@ -306,14 +325,12 @@ def _geometry(xy, elements, n_vert, patch_of, zone_ids, crs):
         raise ImportError(
             "geometry=True needs geopandas and shapely: pip install geopandas shapely"
         ) from exc
-    polygons = [Polygon(xy[e[:n]]) for e, n in zip(elements, n_vert)]
-    if len(zone_ids) == len(polygons):
-        shapes = polygons
-    else:
-        members = [[] for _ in zone_ids]
-        for polygon, patch in zip(polygons, patch_of):
-            members[patch].append(polygon)
-        shapes = [union_all(group) for group in members]
+    # each polygon goes to its own patch: the patches are in the order of the
+    # sorted zone ids, which need not be the elements' order
+    members = [[] for _ in zone_ids]
+    for e, n, patch in zip(elements, n_vert, patch_of):
+        members[patch].append(Polygon(xy[e[:n]]))
+    shapes = [group[0] if len(group) == 1 else union_all(group) for group in members]
     return gpd.GeoDataFrame(
         {"id": zone_ids}, geometry=shapes, crs=None if crs == "local" else crs
     )

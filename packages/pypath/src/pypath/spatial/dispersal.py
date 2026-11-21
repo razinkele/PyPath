@@ -123,13 +123,19 @@ def _get_upper_triangle_edges(adjacency: scipy.sparse.csr_matrix):
 def _edge_distances(grid, rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
     """Centroid distance of each edge in km.
 
-    From the grid's ``centroid_km`` when it has one; otherwise the Euclidean
-    distance of ``patch_centroids`` in degrees x 111.
+    From the grid's ``edge_distances`` when it has them, else from its
+    ``centroid_km``; otherwise the Euclidean distance of ``patch_centroids``
+    in degrees x 111.
 
     Computed edge by edge, with the arithmetic of ``cdist(..., "euclidean")``
     for two coordinates (bit for bit), instead of an all-pairs matrix (n^2
     memory: 3.2 GB for 20,000 patches).
     """
+    known = getattr(grid, "edge_distances", None)
+    if known is not None:  # a grid that knows its neighbours' distances
+        return np.array(
+            [known[(int(r), int(c))] for r, c in zip(rows, cols)], dtype=float
+        )
     plane = getattr(grid, "centroid_km", None)
     if plane is not None:  # a grid that knows its centroids in km
         delta = plane[rows] - plane[cols]

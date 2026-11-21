@@ -71,6 +71,10 @@ class EcospaceGrid:
     # Centroids on a plane in km [n_patches, 2]. When given, distances between
     # patches are taken from it instead of patch_centroids in degrees x 111.
     centroid_km: Optional[np.ndarray] = None
+    # Distance in km between neighbouring patches, keyed (i, j) both ways.
+    # When given, movement between neighbours uses it (a mesh grid measures
+    # through the shared sides, which stays positive for nested zones).
+    edge_distances: Optional[Dict[Tuple[int, int], float]] = None
 
     def __post_init__(self):
         """Validate grid data."""
