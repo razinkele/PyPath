@@ -173,6 +173,9 @@ from pypath.spatial.mpa import (
     mpa_spillover_index,
 )
 
+# Water flows between zones carrying biomass
+from pypath.spatial.transport import WaterTransport
+
 # Fields given per zone (box-model output) on the patches
 from pypath.spatial.zone_fields import (
     capacity_from_layers,
@@ -194,6 +197,7 @@ __all__ = [
     "create_1d_grid",
     "dispersal_rate_for_grid",
     "grid_from_mesh",
+    "WaterTransport",
     "capacity_from_layers",
     "patch_zones",
     "shyfem_box_layers",

@@ -431,6 +431,9 @@ class EcospaceParams:
     external_flux : Optional[ExternalFluxTimeseries]
         Externally provided flux (e.g., from ocean models)
         If provided for a group, overrides model-calculated dispersal
+    water_transport : Optional[WaterTransport]
+        Monthly water flows between zones (a hydrodynamic box model's) and
+        the groups they carry; see ``pypath.spatial.transport``
     environmental_drivers : Optional[object]
         Time-varying environmental drivers (EnvironmentalDrivers instance)
     new_multi_stanza : bool
@@ -462,6 +465,10 @@ class EcospaceParams:
     )
     new_multi_stanza: bool = True
     detritus_pass_on: bool = False
+    # Water flows between zones carrying chosen groups (WaterTransport of
+    # pypath.spatial.transport), applied implicitly once a month. Last, so that
+    # positional arguments keep their places.
+    water_transport: Optional[object] = None
 
     def __post_init__(self):
         """Validate spatial parameters."""

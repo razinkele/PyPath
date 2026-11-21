@@ -1274,6 +1274,21 @@ def _run_spatial(
                 capacity=movement_capacity(ecospace, row - 1),
             )
 
+    # Water flows carrying chosen groups (ecospace.water_transport): checked
+    # here, applied once a month after the local step and the diffusion.
+    water_transport = getattr(ecospace, "water_transport", None)
+    transport_rows = []
+    if water_transport is not None:
+        transport_rows = water_transport.prepare(
+            ecospace,
+            n_months,
+            fast_rows=np.flatnonzero(fast_mask),
+            stanza_rows=stanza_idx,
+            ibm_rows=list(params_dict.get("ibm_groups", {}) or {}),
+            names=list(getattr(scenario.params, "spname", [])),
+            n_groups=n_groups,
+        )
+
     if not implicit_movement:
         _warn_explicit_rates(
             moving_rows, rk4_steps, list(getattr(scenario.params, "spname", []))
@@ -1486,6 +1501,12 @@ def _run_spatial(
 
         # Prevent negative biomass
         current_biomass = np.maximum(current_biomass, 0.0)
+
+        # The month's water movement, for the groups it carries
+        for row in transport_rows:
+            current_biomass[row] = water_transport.move(
+                current_biomass[row], row - 1, month_idx - 1, DELTA_T, ecospace
+            )
 
         if stanza_state is not None:
             # Rpath SplitUpdate + SplitSetPred on the map-wide age structure,
