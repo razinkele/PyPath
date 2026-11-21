@@ -385,6 +385,34 @@ def grid_from_shyfem_grd(
         warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN rows stay NaN
         from_nodes = np.nanmean(node_mean, axis=1)
     depth = np.where(np.isfinite(mesh.element_depth), mesh.element_depth, from_nodes)
+    grid = _grid_with_types(mesh, zones, units, depth, crs, geometry)
+    return grid
+
+
+def _grid_with_types(mesh, zones, units, depth, crs, geometry) -> "EcospaceGrid":
+    """The grid, with each patch's element type in ``cell_metadata["type"]``.
+
+    The type is the box number in a SHYFEM box model: series given per box
+    find their patches by it (``pypath.spatial.zone_fields``). A patch whose
+    elements have several types gets the type covering most of its elements.
+    """
+    grid = _plain_grid(mesh, zones, units, depth, crs, geometry)
+    if zones is None:
+        grid.cell_metadata["type"] = mesh.element_type
+        return grid
+    _, patch_of = np.unique(zones, return_inverse=True)
+    # each patch's commonest type: count the (patch, type) pairs, then keep
+    # the pair with the highest count in every patch
+    kinds, type_of = np.unique(mesh.element_type, return_inverse=True)
+    pair, counts = np.unique(patch_of * len(kinds) + type_of, return_counts=True)
+    patch, kind = pair // len(kinds), pair % len(kinds)
+    order = np.lexsort((counts, patch))  # by patch, the highest count last
+    last = np.r_[patch[order][1:] != patch[order][:-1], True]
+    grid.cell_metadata["type"] = kinds[kind[order][last]]
+    return grid
+
+
+def _plain_grid(mesh, zones, units, depth, crs, geometry) -> "EcospaceGrid":
     return grid_from_mesh(
         mesh.xy,
         mesh.elements,

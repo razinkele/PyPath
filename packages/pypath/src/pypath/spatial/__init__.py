@@ -173,6 +173,14 @@ from pypath.spatial.mpa import (
     mpa_spillover_index,
 )
 
+# Fields given per zone (box-model output) on the patches
+from pypath.spatial.zone_fields import (
+    capacity_from_layers,
+    patch_zones,
+    shyfem_box_layers,
+    zone_series_layer,
+)
+
 __all__ = [
     # Core classes
     "EcospaceGrid",
@@ -186,6 +194,10 @@ __all__ = [
     "create_1d_grid",
     "dispersal_rate_for_grid",
     "grid_from_mesh",
+    "capacity_from_layers",
+    "patch_zones",
+    "shyfem_box_layers",
+    "zone_series_layer",
     "grid_from_shyfem_grd",
     "build_initial_state_vector",
     "run_coupled_simulation",
