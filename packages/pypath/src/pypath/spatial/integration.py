@@ -1123,9 +1123,28 @@ def _run_spatial(
     # search and vulnerability rates are EwE's AdjustSpaceParsNew, mapped onto
     # the kernel; each patch's feeding efficiency is its habitat capacity
     # (EatEff), and the nutrient pool keeps Ecosim's map-wide base.
+    # A capacity that changes by month (ecospace.monthly_capacity) needs the
+    # calibrated form also on a uniform base map, where the calibration
+    # leaves every parameter as it is.
+    monthly_capacity = getattr(ecospace, "monthly_capacity", None)
+    capacity_rows = []
+    if monthly_capacity is not None:
+        if not density_form:
+            raise ValueError(
+                "a monthly capacity cannot be used in a run with IBM groups"
+            )
+        capacity_rows = monthly_capacity.prepare(
+            ecospace,
+            n_months,
+            n_groups=n_groups,
+            stanza_rows=stanza_idx,
+            names=list(getattr(scenario.params, "spname", [])),
+        )
     _space_bratio = None
-    if density_form and start_capacity is not None:
+    if density_form and (start_capacity is not None or capacity_rows):
         _cap = _raw_capacity(ecospace, n_groups + 1, n_patches)
+        if _cap is None and capacity_rows:
+            _cap = np.ones((n_groups + 1, n_patches))
         if _cap is not None:
             _cal = ewe_space_calibration(
                 params_dict["B_BaseRef"],
@@ -1143,6 +1162,12 @@ def _run_spatial(
             }
             params_dict["_eat_eff_patches"] = np.maximum(_cap, 1e-6)
             _space_bratio = _cal.bratio
+    _eat_eff_base = _capacity_peak = None
+    if capacity_rows:
+        _eat_eff_base = params_dict["_eat_eff_patches"]
+        _raw = np.asarray(ecospace.habitat_capacity, dtype=float)
+        # the peak of each group's base map: EwE's one-time normalisation
+        _capacity_peak = _raw[[r - 1 for r in capacity_rows]].max(axis=1)
 
     # Pre-compute sparse link arrays for the consumption kernel
     from pypath.core.link_array import ActiveLinkArray
@@ -1388,6 +1413,15 @@ def _run_spatial(
                 n_patches, params.NUM_GEARS, month_idx
             )
             _mpa_cap_mult = mpa.get_capacity_multipliers(n_patches, month_idx)
+
+        if capacity_rows:
+            # the month's capacity as each patch's feeding efficiency; the
+            # other groups keep the base map's
+            _eff = _eat_eff_base.copy()
+            _eff[capacity_rows] = monthly_capacity.efficiency(
+                month_idx - 1, _capacity_peak
+            )
+            params_dict["_eat_eff_patches"] = _eff
 
         _month_kwargs = dict(
             mpa_effort_mask=_mpa_effort_mask,
