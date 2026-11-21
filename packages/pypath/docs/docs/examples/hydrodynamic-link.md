@@ -318,8 +318,16 @@ What the month's capacity does, and what the base map keeps:
   month the group's capacity in a patch, over the peak of its base map, is
   that patch's feeding efficiency. So here the *level* matters, where a
   static map's does not.
-- The base map still sets where the group starts and how it moves between
-  patches. Movement does not follow the month's map.
+- The base map still sets where the group starts and, unless you ask, how
+  it moves between patches: diffusion keeps pulling the group back to the
+  base pattern. With `movement=True` (`MonthlyCapacity.from_layers(...,
+  movement=True)`) movement reads the month's map, as it does in EwE: the
+  group leaves a patch that has turned poor, and water exchange with
+  `rest="capacity"` spreads it by the month's capacity. It matters most at
+  high dispersal rates. In a three-zone test with a dispersal rate of 5 per
+  year, a year after the map was mirrored the density ratio between the
+  outer zones was 1.42 with movement on the base map (which asks for 1.75)
+  and 0.66 with movement on the month's map (which asks for 0.57).
 - Multi-stanza groups cannot take a monthly capacity; give them a static
   map, as cod and sprat have here.
 

@@ -199,12 +199,17 @@ def _area_scaled_density(biomass_vector: np.ndarray, grid) -> np.ndarray:
     return biomass_vector / areas * areas.mean()
 
 
-def movement_capacity(ecospace, eco_idx: int):
+def movement_capacity(ecospace, eco_idx: int, month_rows=None):
     """A group's habitat capacity row for movement, or None.
 
     None when there is no habitat capacity, no row for the group, or the row
-    is the same everywhere: movement is then plain diffusion.
+    is the same everywhere: movement is then plain diffusion. ``month_rows``
+    holds the rows of the groups whose movement follows a monthly capacity
+    (``MonthlyCapacity.movement_rows``); the other groups read the base map.
     """
+    if month_rows and eco_idx in month_rows:
+        row = month_rows[eco_idx]
+        return None if _uniform(row) else row
     cap = getattr(ecospace, "habitat_capacity", None)
     if cap is None:
         return None
@@ -747,7 +752,9 @@ def calculate_spatial_flux(
                     ecospace.dispersal_rate[eco_idx],
                     grid,
                     adj,
-                    capacity=movement_capacity(ecospace, eco_idx),
+                    capacity=movement_capacity(
+                        ecospace, eco_idx, params.get("_movement_capacity")
+                    ),
                 )
 
             # Add habitat-directed movement if enabled

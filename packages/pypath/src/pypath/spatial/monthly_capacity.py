@@ -23,10 +23,16 @@ response fell to 7 % of its biomass each winter. Shape a response so that
 it is near 1 under the conditions the model describes, and lower only where
 the group really does worse.
 
-The base map still sets the start distribution, movement between patches,
-the rest state of ``WaterTransport`` with ``rest="capacity"``, and the
-stanza ratios. Movement does not yet follow the month's map (in EwE it
-does).
+The base map still sets the start distribution and the stanza ratios, and
+unless asked also movement between patches and the rest state of
+``WaterTransport`` with ``rest="capacity"``. With ``movement=True`` those
+two read the month's map, as movement does in EwE (which sets its movement
+rates again whenever the capacity has changed): a group then leaves a patch
+that has turned poor, at ``min(1, capacity there / capacity here)`` of its
+dispersal rate towards each neighbour, and water exchange spreads it in
+proportion to the month's capacity. Without it, movement keeps pulling the
+group back to the base pattern, which at a high dispersal rate undoes much
+of what the month's capacity does locally.
 
 Groups a run does not treat as one pool per patch are refused: multi-stanza
 groups and IBM groups. So is a monthly capacity on a uniform base map
@@ -76,12 +82,17 @@ class MonthlyCapacity:
         after: refuse the run; repeat the nearest twelve months, in step
         with the calendar; use the mean year, each calendar month's mean
         over all the years given; or hold the nearest month.
+    movement : bool
+        Whether these groups' movement between patches, and the rest state
+        of ``WaterTransport`` with ``rest="capacity"``, read the month's
+        map (as EwE's movement does) and not the base map. Off by default.
     """
 
     groups: Sequence[int]
     values: np.ndarray
     first_month: int = 0
     beyond: str = "refuse"
+    movement: bool = False
 
     def __post_init__(self):
         self.groups = [int(g) for g in self.groups]
@@ -119,6 +130,7 @@ class MonthlyCapacity:
         group_names: Optional[Sequence[str]] = None,
         combine: str = "multiplicative",
         beyond: str = "refuse",
+        movement: bool = False,
     ) -> "MonthlyCapacity":
         """Each month's capacity from monthly layers and response functions.
 
@@ -143,6 +155,8 @@ class MonthlyCapacity:
         combine : {"multiplicative", "minimum"}
             How a group's responses to several layers are combined.
         beyond : str
+            As on the class.
+        movement : bool
             As on the class.
 
         Raises
@@ -215,7 +229,13 @@ class MonthlyCapacity:
                     if combine == "multiplicative"
                     else np.min(parts, axis=0)
                 )
-        return cls(groups=rows, values=values, first_month=months[0], beyond=beyond)
+        return cls(
+            groups=rows,
+            values=values,
+            first_month=months[0],
+            beyond=beyond,
+            movement=movement,
+        )
 
     # -- time --------------------------------------------------------------
 
@@ -310,3 +330,15 @@ class MonthlyCapacity:
         return np.maximum(
             self.values[self.month_index(month)] / peak[:, np.newaxis], _MIN_CAPACITY
         )
+
+    def movement_rows(self, month: int, base_peak: np.ndarray) -> dict:
+        """The capacity that movement reads in a run's month, by group row.
+
+        Empty unless ``movement`` is set. Otherwise each group given maps to
+        its month's capacity per patch, floored as ``efficiency`` floors it
+        (EwE's movement reads the same floored map), so a patch at no
+        capacity is left slowly and not at an infinite rate.
+        """
+        if not self.movement:
+            return {}
+        return dict(zip(self.groups, self.efficiency(month, base_peak)))

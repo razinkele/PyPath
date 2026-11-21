@@ -436,7 +436,8 @@ class EcospaceParams:
         the groups they carry; see ``pypath.spatial.transport``
     monthly_capacity : Optional[MonthlyCapacity]
         A habitat capacity for every month for chosen groups, acting on the
-        local dynamics; see ``pypath.spatial.monthly_capacity``
+        local dynamics and, with its ``movement=True``, on movement between
+        patches; see ``pypath.spatial.monthly_capacity``
     environmental_drivers : Optional[object]
         Time-varying environmental drivers (EnvironmentalDrivers instance).
         A run does not evaluate them: make a capacity from them with

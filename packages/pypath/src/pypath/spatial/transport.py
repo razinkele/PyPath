@@ -623,35 +623,55 @@ class WaterTransport:
             rows.append(row)
         return rows
 
-    def _weights(self, ecospace: "EcospaceParams", group: int, index: int):
-        """Zone weights of a group for month row ``index``, and patch weights."""
+    def _weights(
+        self, ecospace: "EcospaceParams", group: int, index: int, capacity=None
+    ):
+        """Zone weights of a group for month row ``index``, and patch weights.
+
+        ``capacity`` is ``(key, row)``: a capacity per patch to use in place
+        of the group's base map, and a key that names it (its month).
+        """
         areas = np.asarray(ecospace.grid.patch_areas, dtype=float)
         n = len(self.zones)
         if self.rest == "volume":
             # a zone the grid has no patch in is outside the map: weight 0
             return self.volume[index] * self._covered, areas, ("volume", index)
-        capacity = np.asarray(ecospace.habitat_capacity, dtype=float)[group]
-        patch_w = areas * capacity
+        key = group
+        if capacity is not None:
+            key, row = (group, capacity[0]), np.asarray(capacity[1], dtype=float)
+        else:
+            row = np.asarray(ecospace.habitat_capacity, dtype=float)[group]
+        patch_w = areas * row
         return (
             np.bincount(self._patch_zone, weights=patch_w, minlength=n),
             patch_w,
-            group,
+            key,
         )
 
     def move(
-        self, biomass: np.ndarray, group: int, month: int, dt: float, ecospace
+        self,
+        biomass: np.ndarray,
+        group: int,
+        month: int,
+        dt: float,
+        ecospace,
+        capacity=None,
     ) -> np.ndarray:
         """A group's biomass per patch after a month of the water's flow.
 
         ``group`` is the group's row in ``EcospaceParams`` arrays, ``month``
         the run's month (0 is the first). The zones' totals move; inside a
         zone each patch keeps its share (a zone that was empty is filled in
-        proportion to its patches' weights).
+        proportion to its patches' weights). ``capacity`` is ``(key, row)``:
+        with ``rest="capacity"``, a capacity per patch that stands in for the
+        group's base map this month (a ``MonthlyCapacity`` with
+        ``movement=True``), and a key naming it, which must change when the
+        row does.
         """
         if self._patch_zone is None:
             raise RuntimeError("call prepare() before move()")
         index = self.month_index(month)
-        zone_w, patch_w, key = self._weights(ecospace, group, index)
+        zone_w, patch_w, key = self._weights(ecospace, group, index, capacity)
         biomass = np.asarray(biomass, dtype=float)
         n = len(self.zones)
         before = np.bincount(self._patch_zone, weights=biomass, minlength=n)
