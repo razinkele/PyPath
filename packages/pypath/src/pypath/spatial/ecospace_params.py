@@ -460,14 +460,15 @@ class EcospaceParams:
     advection_enabled: np.ndarray
     gravity_strength: np.ndarray
     external_flux: Optional[ExternalFluxTimeseries] = None
-    # Water flows between zones carrying chosen groups (WaterTransport of
-    # pypath.spatial.transport), applied implicitly once a month.
-    water_transport: Optional[object] = None
     environmental_drivers: Optional[object] = (
         None  # EnvironmentalDrivers when available
     )
     new_multi_stanza: bool = True
     detritus_pass_on: bool = False
+    # Water flows between zones carrying chosen groups (WaterTransport of
+    # pypath.spatial.transport), applied implicitly once a month. Last, so that
+    # positional arguments keep their places.
+    water_transport: Optional[object] = None
 
     def __post_init__(self):
         """Validate spatial parameters."""

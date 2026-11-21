@@ -1286,6 +1286,7 @@ def _run_spatial(
             stanza_rows=stanza_idx,
             ibm_rows=list(params_dict.get("ibm_groups", {}) or {}),
             names=list(getattr(scenario.params, "spname", [])),
+            n_groups=n_groups,
         )
 
     if not implicit_movement:

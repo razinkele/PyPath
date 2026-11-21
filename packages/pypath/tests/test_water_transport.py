@@ -485,3 +485,60 @@ def test_a_river_with_some_backflow_still_dilutes():
         totals = again.step_zones(totals, month % 12, volume, 1 / 12)
         assert totals.sum() <= start * (1 + 1e-12)
     assert totals.sum() < 0.9 * start
+
+
+def test_a_group_named_twice_is_carried_once(integrated_scenario):
+    scenario, _ = integrated_scenario
+    grid, _ = _zone_grid()
+    transport = WaterTransport(groups=[3, 1, 3], **_ring(12))
+    assert transport.groups == [3, 1]
+    assert transport.prepare(_ecospace(scenario, grid), 12) == [4, 2]
+
+
+def test_a_boundary_with_several_sections_is_judged_as_one():
+    """Boundary -1: 100 in through one section, 120 out through another."""
+    setup = _ring()
+    sea = WaterTransport(
+        groups=[0],
+        throughflow=True,
+        boundary_id=np.array([-1, -1, -2]),
+        boundary_zone=np.array([2, 1, 0]),
+        boundary_in=np.tile([100.0, 0.0, 20.0], (12, 1)),
+        boundary_out=np.tile([0.0, 120.0, 0.0], (12, 1)),
+        **setup,
+    )
+    assert sea.open_boundaries == [-2]  # the river only: -1 takes more than it brings
+    explicit = WaterTransport(
+        groups=[0],
+        throughflow=True,
+        open_boundaries=[-1],
+        boundary_id=np.array([-1, -1, -2]),
+        boundary_zone=np.array([2, 1, 0]),
+        boundary_in=np.tile([100.0, 0.0, 20.0], (12, 1)),
+        boundary_out=np.tile([0.0, 120.0, 0.0], (12, 1)),
+        **setup,
+    )
+    assert explicit.open_boundaries == [-1]
+
+
+def test_a_group_beyond_the_runs_groups_is_refused(integrated_scenario):
+    """EcospaceParams may carry more rows than the scenario has groups."""
+    scenario, _ = integrated_scenario
+    grid, _ = _zone_grid()
+    ecospace = _ecospace(scenario, grid)  # NUM_GROUPS + 1 rows
+    n = scenario.params.NUM_GROUPS
+    extra = WaterTransport(groups=[n], **_ring(12))
+    with pytest.raises(ValueError, match=f"outside 0..{n - 1}"):
+        extra.prepare(ecospace, 12, n_groups=n)
+    ecospace.water_transport = extra
+    with pytest.raises(ValueError, match=f"outside 0..{n - 1}"):
+        rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+
+
+def test_water_transport_is_the_last_field_of_ecospace_params():
+    """Positional arguments of EcospaceParams keep their places."""
+    import dataclasses
+
+    names = [f.name for f in dataclasses.fields(EcospaceParams)]
+    assert names[-1] == "water_transport"
+    assert names.index("external_flux") + 1 == names.index("environmental_drivers")

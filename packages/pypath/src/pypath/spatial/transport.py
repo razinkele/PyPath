@@ -135,7 +135,8 @@ class WaterTransport:
             raise ValueError(f"beyond must be one of {_BEYOND}, not {self.beyond!r}")
         if self.beyond == "repeat_year" and m < 12:
             raise ValueError("repeat_year needs at least twelve months of flows")
-        self.groups = [int(g) for g in self.groups]
+        # each group once: a group named twice would be moved twice a month
+        self.groups = list(dict.fromkeys(int(g) for g in self.groups))
         self.boundary_id = np.asarray(self.boundary_id, dtype=int)
         self.boundary_zone = np.asarray(self.boundary_zone, dtype=int)
         nb = len(self.boundary_id)
@@ -148,8 +149,13 @@ class WaterTransport:
         if self.open_boundaries is None:
             # a boundary that brings more water in than it takes out over
             # the series: a river (also one with some backflow)
-            net_in = self.boundary_in.sum(axis=0) > self.boundary_out.sum(axis=0)
-            self.open_boundaries = sorted(set(self.boundary_id[net_in].tolist()))
+            # (a boundary id may have several sections: they count together)
+            self.open_boundaries = sorted(
+                int(b)
+                for b in np.unique(self.boundary_id)
+                if self.boundary_in[:, self.boundary_id == b].sum()
+                > self.boundary_out[:, self.boundary_id == b].sum()
+            )
         else:
             self.open_boundaries = [int(b) for b in self.open_boundaries]
         unknown = set(self.open_boundaries) - set(self.boundary_id.tolist())
@@ -363,13 +369,15 @@ class WaterTransport:
         stanza_rows=(),
         ibm_rows=(),
         names: Optional[Sequence[str]] = None,
+        n_groups: Optional[int] = None,
     ) -> list:
         """Check the transport against a run; return the state rows carried.
 
         Raises ValueError for a patch whose zone has no flows, a run longer
-        than the flows (unless ``beyond`` allows it), and a carried group
-        that a run does not integrate as a pool of its own: a
-        fast-equilibrium group, a multi-stanza group or an IBM group.
+        than the flows (unless ``beyond`` allows it), a carried group that
+        is not one of the run's ``n_groups`` groups, and one that a run
+        does not integrate as a pool of its own: a fast-equilibrium group,
+        a multi-stanza group or an IBM group.
         """
         from pypath.spatial.zone_fields import patch_zones
 
@@ -395,7 +403,9 @@ class WaterTransport:
                 f"the run has {n_run_months} months, the water flows "
                 f'{self.n_months}; set beyond="repeat_year" or "hold" to run longer'
             )
-        n_groups = len(ecospace.dispersal_rate)
+        # the run's groups; EcospaceParams may carry rows beyond them
+        n_rows = len(ecospace.dispersal_rate)
+        n_groups = n_rows if n_groups is None else min(int(n_groups), n_rows)
 
         def label(row):
             return (
