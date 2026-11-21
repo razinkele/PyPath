@@ -62,6 +62,13 @@ from pypath_shiny.services.deckgl_maps import (
     patch_value_layers,
 )
 from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunControl, RunSlot
+from pypath_shiny.services.mesh_grids import (
+    UNIT_LABELS,
+    build_mesh_grid,
+    estimated_run_seconds,
+    read_uploaded_mesh,
+    summarise_mesh,
+)
 from pypath_shiny.services.notifications import (
     notify_error,
     notify_info,
@@ -573,6 +580,7 @@ def ecospace_ui():
                                 "regular_2d": "Regular 2D Grid",
                                 "1d_transect": "1D Transect (Linear)",
                                 "custom": "Custom Polygons (Upload Shapefile)",
+                                "shyfem": "SHYFEM mesh (.grd)",
                             },
                             selected="regular_2d",
                         ),
@@ -664,6 +672,42 @@ def ecospace_ui():
                                     class_="text-muted small",
                                 ),
                             ),
+                        ),
+                        ui.panel_conditional(
+                            "input.grid_type === 'shyfem'",
+                            ui.input_file(
+                                "mesh_file_upload",
+                                "Upload a SHYFEM grid",
+                                accept=[".grd"],
+                                multiple=False,
+                            ),
+                            ui.input_radio_buttons(
+                                "mesh_patches",
+                                "Patches",
+                                choices={
+                                    "type": "One per element type (the boxes of a box model)",
+                                    "element": "One per element",
+                                },
+                                selected="type",
+                            ),
+                            ui.input_select(
+                                "mesh_units",
+                                "Coordinates in the file",
+                                choices={
+                                    "auto": "Detect",
+                                    "degrees": "Degrees (longitude, latitude)",
+                                    "m": "Metres",
+                                    "km": "km",
+                                },
+                                selected="auto",
+                            ),
+                            ui.input_text(
+                                "mesh_epsg",
+                                "EPSG code (for metres or km)",
+                                value="",
+                                placeholder="e.g. 32634",
+                            ),
+                            ui.output_ui("mesh_summary"),
                         ),
                         ui.input_action_button(
                             "create_grid",
@@ -1075,6 +1119,74 @@ def ecospace_server(
             _notify_legacy(f"Error loading boundary: {e!s}", type="warning", duration=5)
             boundary_polygon.set(None)
 
+    @reactive.calc
+    def _uploaded_mesh():
+        """The uploaded .grd as a mesh, or None; a file that cannot be read is reported."""
+        file_info = input.mesh_file_upload()
+        if not file_info:
+            return None
+        try:
+            return read_uploaded_mesh(file_info[0]["datapath"])
+        except (ValueError, OSError, MemoryError) as e:
+            logger.debug("Could not read the mesh: %s", e)
+            _notify_legacy(f"Could not read the mesh: {e!s}", type="error", duration=6)
+            return None
+
+    @render.ui
+    def mesh_summary():
+        """What the uploaded mesh holds, to check before a grid is made."""
+        mesh = _uploaded_mesh()
+        if mesh is None:
+            return ui.p(
+                "A .grd file names no coordinate system: check the units "
+                "shown here after the upload.",
+                class_="text-muted small",
+            )
+        try:
+            info = summarise_mesh(mesh, input.mesh_units() or "auto")
+        except ValueError as e:
+            return ui.p(f"This mesh cannot be used: {e!s}", class_="text-danger small")
+        n_patches = (
+            info.n_elements if input.mesh_patches() == "element" else info.n_types
+        )
+        lines = [
+            f"{info.n_nodes:,} nodes, {info.n_elements:,} elements, "
+            f"{info.n_types:,} element types",
+            f"Coordinates read as {UNIT_LABELS[info.units]}"
+            + (" (detected)" if (input.mesh_units() or "auto") == "auto" else "")
+            + f": x {info.x_range[0]:,.4g} to {info.x_range[1]:,.4g}, "
+            f"y {info.y_range[0]:,.4g} to {info.y_range[1]:,.4g}",
+            f"Area {info.area_km2:,.1f} km²"
+            + (
+                f", depth {info.depth_min:.1f} to {info.depth_max:.1f} m (means per element type)"
+                if info.depth_min is not None
+                else ", no depth in the file"
+            ),
+            f"This choice makes {n_patches:,} patches.",
+        ]
+        notes = []
+        if info.units != "degrees":
+            notes.append(
+                ui.p(
+                    "Metres or km: enter the EPSG code so the map can place the mesh.",
+                    class_="text-info small mb-1",
+                )
+            )
+        if n_patches > SPATIAL.huge_grid_threshold:
+            minutes = estimated_run_seconds(n_patches, 20, 10) / 60.0
+            notes.append(
+                ui.p(
+                    f"A run on {n_patches:,} patches is slow: about "
+                    f"{minutes:,.0f} minutes for a 20-group model over 10 years.",
+                    class_="text-warning small mb-1",
+                )
+            )
+        return ui.div(
+            *[ui.p(line, class_="small mb-1") for line in lines],
+            *notes,
+            id="mesh_summary_text",
+        )
+
     # Create grid based on configuration
     @reactive.effect
     @reactive.event(input.create_grid)
@@ -1131,6 +1243,34 @@ def ecospace_server(
                     f"Created 1D transect with {n_patches} patches",
                     type="message",
                     duration=3,
+                )
+
+            elif grid_type == "shyfem":
+                mesh = _uploaded_mesh()
+                if mesh is None:
+                    _notify_legacy(
+                        "Upload a SHYFEM grid file (.grd) first.",
+                        type="warning",
+                        duration=4,
+                    )
+                    return
+                patches = input.mesh_patches() or "type"
+                new_grid = build_mesh_grid(
+                    mesh,
+                    patches=patches,
+                    units=input.mesh_units() or "auto",
+                    epsg=input.mesh_epsg(),
+                )
+                grid.set(new_grid)
+                # Results from a previous grid no longer match this geometry
+                _spatial_results.set(None)
+                _spatial_switching.set(None)
+                what = "elements" if patches == "element" else "element types"
+                _notify_legacy(
+                    f"Created a grid of {new_grid.n_patches} patches from the "
+                    f"mesh's {what} ({new_grid.patch_areas.sum():,.0f} km²)",
+                    type="message",
+                    duration=4,
                 )
 
             elif grid_type == "custom":
@@ -1975,7 +2115,8 @@ def ecospace_server(
                 vmax=1.0,
                 value_name="Habitat quality",
                 value_format=".2f",
-                labels=g.geometry is not None,
+                labels=g.geometry is not None
+                and g.n_patches <= SPATIAL.large_grid_threshold,
                 outline=[0, 100, 0, 220],
             ),
             widgets=[

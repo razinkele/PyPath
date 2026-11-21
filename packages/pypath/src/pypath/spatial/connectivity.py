@@ -132,6 +132,12 @@ def calculate_patch_distances(grid: "EcospaceGrid") -> np.ndarray:
     np.ndarray
         Distance matrix [n_patches, n_patches] in km
     """
+    plane = getattr(grid, "centroid_km", None)
+    if plane is not None:  # a grid that knows its centroids in km
+        from scipy.spatial.distance import cdist
+
+        return cdist(plane, plane, metric="euclidean")
+
     _n_patches = grid.n_patches
     centroids = grid.patch_centroids
 
@@ -210,6 +216,11 @@ def build_distance_matrix(
     np.ndarray
         Distance matrix [n_patches, n_patches] in km
     """
+    if getattr(grid, "centroid_km", None) is not None:
+        if method not in ("haversine", "euclidean"):
+            raise ValueError(f"Unknown distance method: {method}")
+        return calculate_patch_distances(grid)  # already in km on a plane
+
     _n_patches = grid.n_patches
     centroids = grid.patch_centroids
 
