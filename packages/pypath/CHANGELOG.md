@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.16.0 (2026-11-21)
+
+### Bug Fixes
+
+- **io**: A box record is kept only when complete; one month rule
+  ([`240bbad`](https://github.com/razinkele/PyPath/commit/240bbad1fb3df9404a9f3dc08dc8c39cde023069))
+
+### Features
+
+- **spatial**: Monthly layers are a step lookup; monthly means while reading
+  ([`5f532bb`](https://github.com/razinkele/PyPath/commit/5f532bbe3246a7fe33ebfeaf04bde2dd48467734))
+
+- **spatial**: SHYFEM box-model output as fields on Ecospace patches
+  ([`4ebf349`](https://github.com/razinkele/PyPath/commit/4ebf349409f0ebffd447c4862b78fdc0e4c47bbc))
+
+
 ## v1.15.0 (2026-11-21)
 
 ### Bug Fixes
