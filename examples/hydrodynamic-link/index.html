@@ -1,0 +1,1629 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python implementation of Ecopath with Ecosim (EwE) for food web modeling">
+      
+      
+      
+        <link rel="canonical" href="https://razinkele.github.io/PyPath/examples/hydrodynamic-link/">
+      
+      
+        <link rel="prev" href="../spatial/">
+      
+      
+        <link rel="next" href="../ibm/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Hydrodynamic Model Link - PyPath EwE Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ecospace-on-a-hydrodynamic-models-boxes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PyPath EwE Documentation" class="md-header__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PyPath EwE Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Hydrodynamic Model Link
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="teal"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PyPath EwE Documentation" class="md-nav__button md-logo" aria-label="PyPath EwE Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PyPath EwE Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/razinkele/PyPath" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    razinkele/PyPath
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Guides (legacy v0.5.3)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release Guides (legacy v0.5.3)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/phase1b_readme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/phase1b_integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Integration Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core (Ecopath/Ecosim)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    I/O
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial (Ecospace)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ibm-parameterization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IBM Parameterization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/autofix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Autofix & Crash Repair
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/performance-benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ewe-database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EwE Database Loading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../example-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Example Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spatial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatial Modeling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hydrodynamic Model Link
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hydrodynamic Model Link
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sample-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-mesh-as-the-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The mesh as the map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-box-fields-as-layers-and-a-capacity-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Box fields as layers and a capacity map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-which-groups-the-water-can-carry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Which groups the water can carry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-water-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Water flows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runs-longer-than-the-flows-and-other-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runs longer than the flows, and other sources
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#on-the-meshs-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On the mesh's elements
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ibm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual-Based Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#sample-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-mesh-as-the-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The mesh as the map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-box-fields-as-layers-and-a-capacity-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Box fields as layers and a capacity map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-which-groups-the-water-can-carry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Which groups the water can carry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-water-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Water flows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runs-longer-than-the-flows-and-other-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runs longer than the flows, and other sources
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#on-the-meshs-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On the mesh's elements
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ecospace-on-a-hydrodynamic-models-boxes">Ecospace on a Hydrodynamic Model's Boxes<a class="headerlink" href="#ecospace-on-a-hydrodynamic-models-boxes" title="Permanent link">&para;</a></h1>
+<p>A hydrodynamic box model (here in SHYFEM's formats) gives three things an
+Ecospace run can use: the <strong>mesh</strong> it computes on, the <strong>fields</strong> of each
+box (temperature, salinity), and the <strong>water flows</strong> between the boxes.
+This page takes them in that order, on small sample files it writes
+itself, so every block runs as it stands.</p>
+<div class="admonition note">
+<p class="admonition-title">What to expect</p>
+<ul>
+<li>The mesh becomes the map: one patch per box, or one per element.</li>
+<li>Fields become a habitat capacity map. It says <em>where</em> a group lives;
+  it does not change during a run.</li>
+<li>Flows move the groups you choose. With the default settings water
+  only mixes them between boxes, and on a map where the boxes are
+  alike that changes nothing. With throughflow, rivers flush them
+  towards the sea: a loss the Ecopath balance does not hold.</li>
+</ul>
+</div>
+<h2 id="sample-files">Sample files<a class="headerlink" href="#sample-files" title="Permanent link">&para;</a></h2>
+<p>Use your own files in their place: a <code>.grd</code> mesh whose element type is the
+box number, and the box model's <code>boxes_2d.txt</code>.</p>
+<details class="example">
+<summary>A mesh of four boxes and two years of box output</summary>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">work</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">())</span>
+
+<span class="c1"># A channel of 8 x 2 squares, two triangles each. Boxes 1 to 4 run from</span>
+<span class="c1"># the river end to the sea; the element type is the box number.</span>
+<span class="n">box_of_column</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+<span class="n">depth_of_box</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mf">6.0</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mf">15.0</span><span class="p">}</span>
+<span class="n">lines</span><span class="p">,</span> <span class="n">node</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">iy</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">ix</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">9</span><span class="p">):</span>
+        <span class="n">node</span><span class="p">[(</span><span class="n">ix</span><span class="p">,</span> <span class="n">iy</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="n">depth_of_box</span><span class="p">[</span><span class="n">box_of_column</span><span class="p">[</span><span class="nb">min</span><span class="p">(</span><span class="n">ix</span><span class="p">,</span> <span class="mi">7</span><span class="p">)]]</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"1 </span><span class="si">{</span><span class="n">node</span><span class="p">[(</span><span class="n">ix</span><span class="p">,</span><span class="w"> </span><span class="n">iy</span><span class="p">)]</span><span class="si">}</span><span class="s2"> 0 </span><span class="si">{</span><span class="mf">21.0</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">0.03</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">ix</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="mf">55.30</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">0.03</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">iy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">depth</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+<span class="n">number</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">iy</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">ix</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">node</span><span class="p">[(</span><span class="n">ix</span><span class="p">,</span> <span class="n">iy</span><span class="p">)],</span> <span class="n">node</span><span class="p">[(</span><span class="n">ix</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">iy</span><span class="p">)]</span>
+        <span class="n">c</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">node</span><span class="p">[(</span><span class="n">ix</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">iy</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)],</span> <span class="n">node</span><span class="p">[(</span><span class="n">ix</span><span class="p">,</span> <span class="n">iy</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">tri</span> <span class="ow">in</span> <span class="p">((</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">),</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">d</span><span class="p">)):</span>
+            <span class="n">number</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"2 </span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">box_of_column</span><span class="p">[</span><span class="n">ix</span><span class="p">]</span><span class="si">}</span><span class="s2"> 3 </span><span class="si">{</span><span class="n">tri</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">tri</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">tri</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+<span class="p">(</span><span class="n">work</span> <span class="o">/</span> <span class="s2">"lagoon.grd"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">write_box_output</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">volume</span><span class="p">,</span> <span class="n">salt</span><span class="o">=</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">)):</span>
+<span class="w">    </span><span class="sd">"""Two years of daily records: box means, then the section flows."""</span>
+    <span class="n">days</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">"2010-01-01"</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">731</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"#      idbox file_type     nvers"</span><span class="p">,</span> <span class="s2">"#     473226         2         7"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">day</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">days</span><span class="p">):</span>
+        <span class="n">season</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">80</span><span class="p">)</span> <span class="o">/</span> <span class="mf">365.0</span><span class="p">)</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="mf">10.0</span> <span class="o">-</span> <span class="mf">9.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">30</span><span class="p">)</span> <span class="o">/</span> <span class="mf">365.0</span><span class="p">)</span>
+        <span class="n">river</span> <span class="o">=</span> <span class="mf">60.0</span> <span class="o">*</span> <span class="n">season</span>
+        <span class="n">out</span> <span class="o">+=</span> <span class="p">[</span>
+            <span class="s2">"# time record"</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"   </span><span class="si">{</span><span class="mf">86400.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">      </span><span class="si">{</span><span class="n">day</span><span class="si">}</span><span class="s2">::00:00:00"</span><span class="p">,</span>
+            <span class="s2">"#      boxes       nvars"</span><span class="p">,</span>
+            <span class="s2">"          4           3"</span><span class="p">,</span>
+            <span class="s2">"# box      temp      salt        volume"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="n">out</span> <span class="o">+=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">"   </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">temp</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">salt</span><span class="p">[</span><span class="n">b</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">volume</span><span class="p">[</span><span class="n">b</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.6E</span><span class="si">}</span><span class="s2">"</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">out</span> <span class="o">+=</span> <span class="p">[</span>
+            <span class="s2">"#   sections"</span><span class="p">,</span>
+            <span class="s2">"          5"</span><span class="p">,</span>
+            <span class="s2">"# section  from    to         total      positive      negative"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="c1"># between boxes: the river's water one way, an exchange both ways</span>
+        <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="n">frm</span><span class="p">,</span> <span class="n">to</span><span class="p">,</span> <span class="n">back</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mf">150.0</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mf">250.0</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mf">400.0</span><span class="p">)),</span> <span class="mi">1</span>
+        <span class="p">):</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"   </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">frm</span><span class="si">}</span><span class="s2">   </span><span class="si">{</span><span class="n">to</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">river</span><span class="si">:</span><span class="s2">.4E</span><span class="si">}</span><span class="s2">  "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">river</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">back</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">season</span><span class="si">:</span><span class="s2">.4E</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">back</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">season</span><span class="si">:</span><span class="s2">.4E</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   4  -2   1  </span><span class="si">{</span><span class="n">river</span><span class="si">:</span><span class="s2">.4E</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">river</span><span class="si">:</span><span class="s2">.4E</span><span class="si">}</span><span class="s2">  0.0000E+00"</span><span class="p">)</span>  <span class="c1"># river</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"   5   4  -1  </span><span class="si">{</span><span class="n">river</span><span class="si">:</span><span class="s2">.4E</span><span class="si">}</span><span class="s2">  </span><span class="si">{</span><span class="n">river</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">2000.0</span><span class="si">:</span><span class="s2">.4E</span><span class="si">}</span><span class="s2">  2.0000E+03"</span><span class="p">)</span>
+    <span class="n">path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+</details>
+<h2 id="1-the-mesh-as-the-map">1. The mesh as the map<a class="headerlink" href="#1-the-mesh-as-the-map" title="Permanent link">&para;</a></h2>
+<p><code>EcospaceGrid.from_shyfem_grd</code> reads the mesh. <code>patches="type"</code> gives one
+patch per box, <code>patches="element"</code> one per triangle. Areas, borders and
+depths come from the mesh; a file in degrees is measured on the sphere.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">EcospaceGrid</span>
+
+<span class="n">boxes</span> <span class="o">=</span> <span class="n">EcospaceGrid</span><span class="o">.</span><span class="n">from_shyfem_grd</span><span class="p">(</span><span class="n">work</span> <span class="o">/</span> <span class="s2">"lagoon.grd"</span><span class="p">,</span> <span class="n">patches</span><span class="o">=</span><span class="s2">"type"</span><span class="p">)</span>
+<span class="n">elements</span> <span class="o">=</span> <span class="n">EcospaceGrid</span><span class="o">.</span><span class="n">from_shyfem_grd</span><span class="p">(</span><span class="n">work</span> <span class="o">/</span> <span class="s2">"lagoon.grd"</span><span class="p">,</span> <span class="n">patches</span><span class="o">=</span><span class="s2">"element"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">boxes</span><span class="o">.</span><span class="n">n_patches</span><span class="p">,</span> <span class="s2">"boxes of"</span><span class="p">,</span> <span class="n">boxes</span><span class="o">.</span><span class="n">patch_areas</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="s2">"km2"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"depth (m):"</span><span class="p">,</span> <span class="n">boxes</span><span class="o">.</span><span class="n">cell_metadata</span><span class="p">[</span><span class="s2">"depth"</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">elements</span><span class="o">.</span><span class="n">n_patches</span><span class="p">,</span> <span class="s2">"elements"</span><span class="p">)</span>
+</code></pre></div>
+<p>A <code>.grd</code> file names no coordinate system. For a mesh in metres pass
+<code>units="m"</code> and, to place it on a map, <code>crs="EPSG:..."</code>.</p>
+<p>The sample box output needs the boxes' volumes, so it is written now:</p>
+<div class="highlight"><pre><span></span><code><span class="n">volume</span> <span class="o">=</span> <span class="n">boxes</span><span class="o">.</span><span class="n">patch_areas</span> <span class="o">*</span> <span class="mf">1e6</span> <span class="o">*</span> <span class="n">boxes</span><span class="o">.</span><span class="n">cell_metadata</span><span class="p">[</span><span class="s2">"depth"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+<span class="n">write_box_output</span><span class="p">(</span><span class="n">work</span> <span class="o">/</span> <span class="s2">"boxes_2d.txt"</span><span class="p">,</span> <span class="n">volume</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="2-box-fields-as-layers-and-a-capacity-map">2. Box fields as layers and a capacity map<a class="headerlink" href="#2-box-fields-as-layers-and-a-capacity-map" title="Permanent link">&para;</a></h2>
+<p><code>read_box_series</code> reads the box model's output; <code>monthly=True</code> keeps only
+the monthly means, which is what a run of many years needs.
+<code>shyfem_box_layers</code> puts them on a grid: each patch takes its box's value,
+so the same series serves the box grid and the element grid.</p>
+<p>One start date serves everything from here on: it is the date of the run's
+first month.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.shyfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_box_series</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">shyfem_box_layers</span>
+
+<span class="n">START</span> <span class="o">=</span> <span class="s2">"2010-01-01"</span>
+<span class="n">series</span> <span class="o">=</span> <span class="n">read_box_series</span><span class="p">(</span><span class="n">work</span> <span class="o">/</span> <span class="s2">"boxes_2d.txt"</span><span class="p">,</span> <span class="n">monthly</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">layers</span> <span class="o">=</span> <span class="n">shyfem_box_layers</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">boxes</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">START</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">layers</span><span class="o">.</span><span class="n">layer_names</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"salinity by box:"</span><span class="p">,</span> <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"salt"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">"temperature, January and July:"</span><span class="p">,</span>
+    <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"temp"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"temp"</span><span class="p">,</span> <span class="mi">6</span> <span class="o">/</span> <span class="mi">12</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>A capacity map is made from layers and response functions. Here two marine
+groups need salt: unsuitable below 0.5, fully suitable from 6.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.examples</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_ecosim_scenario</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">capacity_from_layers</span><span class="p">,</span> <span class="n">create_linear_response</span>
+
+<span class="n">YEARS</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">example_ecosim_scenario</span><span class="p">(</span><span class="s2">"Central_Baltic"</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">YEARS</span><span class="p">)</span>
+<span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">spname</span><span class="p">]</span>
+<span class="n">n_rows</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">NUM_GROUPS</span> <span class="o">+</span> <span class="mi">1</span>  <span class="c1"># the arrays' rows; 0 is the first group</span>
+
+<span class="n">marine</span> <span class="o">=</span> <span class="n">create_linear_response</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>
+<span class="n">capacity</span> <span class="o">=</span> <span class="n">capacity_from_layers</span><span class="p">(</span>
+    <span class="n">layers</span><span class="p">,</span>
+    <span class="p">{</span><span class="s2">"Ad. Cod"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"salt"</span><span class="p">:</span> <span class="n">marine</span><span class="p">},</span> <span class="s2">"Ad. Sprat"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"salt"</span><span class="p">:</span> <span class="n">marine</span><span class="p">}},</span>
+    <span class="n">group_names</span><span class="o">=</span><span class="n">names</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"-"</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"cod capacity by box:"</span><span class="p">,</span> <span class="n">capacity</span><span class="p">[</span><span class="n">names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">"Ad. Cod"</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+</code></pre></div>
+<p>Ecospace uses the <em>pattern</em> of a group's capacity over the map, not its
+level. A field that is nearly the same in every box, as temperature often
+is, therefore does little as a static map; salinity does a lot.</p>
+<h2 id="3-which-groups-the-water-can-carry">3. Which groups the water can carry<a class="headerlink" href="#3-which-groups-the-water-can-carry" title="Permanent link">&para;</a></h2>
+<p>Under the EwE rule, which EwE models get by default, plankton and often
+detritus are <em>fast</em> groups: every step sets their biomass to its local
+equilibrium, so nothing can move them. <code>integrate_groups</code> returns a copy of
+the scenario in which the groups you name are integrated instead.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="n">integrate_groups</span><span class="p">,</span> <span class="n">substep_check</span>
+
+<span class="n">fast</span> <span class="o">=</span> <span class="p">[</span><span class="n">names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">NoIntegrate</span><span class="p">)[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"fast groups:"</span><span class="p">,</span> <span class="n">fast</span><span class="p">)</span>
+
+<span class="n">ready</span> <span class="o">=</span> <span class="n">integrate_groups</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">fast</span><span class="p">,</span> <span class="n">substeps</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">check</span> <span class="o">=</span> <span class="n">substep_check</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">YEARS</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">check</span><span class="p">)</span>
+</code></pre></div>
+<p>An integrated group needs sub-steps for its turnover, and the number cannot
+be read off its P/B: <code>substep_check</code> runs the scenario at its sub-steps and
+at twice as many and reports the largest difference. Raise <code>substeps</code> until
+it converges. A pool that turns over thousands of times a year (detritus,
+in some models) is better left fast: leave it out of the list.</p>
+<h2 id="4-water-flows">4. Water flows<a class="headerlink" href="#4-water-flows" title="Permanent link">&para;</a></h2>
+<p><code>WaterTransport</code> holds the monthly flows between the boxes and the groups
+they carry. It is applied once a month, after the local dynamics.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">WaterTransport</span>
+
+<span class="n">carried</span> <span class="o">=</span> <span class="p">[</span><span class="n">names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">fast</span><span class="p">]</span>  <span class="c1"># rows: 0 is the first group</span>
+
+<span class="n">exchange</span> <span class="o">=</span> <span class="n">WaterTransport</span><span class="o">.</span><span class="n">from_shyfem_box_series</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">carried</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">START</span><span class="p">)</span>
+<span class="n">throughflow</span> <span class="o">=</span> <span class="n">WaterTransport</span><span class="o">.</span><span class="n">from_shyfem_box_series</span><span class="p">(</span>
+    <span class="n">series</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">carried</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">START</span><span class="p">,</span> <span class="n">throughflow</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"diluting boundaries:"</span><span class="p">,</span> <span class="n">throughflow</span><span class="o">.</span><span class="n">open_boundaries</span><span class="p">)</span>
+</code></pre></div>
+<p>There are two ways to use the flows:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>What moves</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exchange only (default)</td>
+<td>the water that goes both ways between two boxes</td>
+<td>mixes the carried groups; their total is kept</td>
+</tr>
+<tr>
+<td><code>throughflow=True</code></td>
+<td>all the water; a river brings none of the group</td>
+<td>flushes the carried groups towards the sea</td>
+</tr>
+</tbody>
+</table>
+<p>Both directions of every section are kept. With net flows alone a tracer
+does not follow an estuary's exchange.</p>
+<h2 id="5-the-runs">5. The runs<a class="headerlink" href="#5-the-runs" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">EcospaceParams</span><span class="p">,</span> <span class="n">rsim_run_spatial</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">transport</span><span class="p">):</span>
+    <span class="n">ecospace</span> <span class="o">=</span> <span class="n">EcospaceParams</span><span class="p">(</span>
+        <span class="n">grid</span><span class="o">=</span><span class="n">boxes</span><span class="p">,</span>
+        <span class="n">habitat_preference</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">boxes</span><span class="o">.</span><span class="n">n_patches</span><span class="p">)),</span>
+        <span class="n">habitat_capacity</span><span class="o">=</span><span class="n">capacity</span><span class="p">,</span>
+        <span class="n">dispersal_rate</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rows</span><span class="p">),</span>
+        <span class="n">advection_enabled</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span>
+        <span class="n">gravity_strength</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_rows</span><span class="p">),</span>
+        <span class="n">water_transport</span><span class="o">=</span><span class="n">transport</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">rsim_run_spatial</span><span class="p">(</span><span class="n">ready</span><span class="p">,</span> <span class="n">ecospace</span><span class="o">=</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">YEARS</span><span class="p">)</span>
+
+
+<span class="n">still</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">mixed</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="n">exchange</span><span class="p">)</span>
+<span class="n">flushed</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="n">throughflow</span><span class="p">)</span>
+
+<span class="n">phyto</span> <span class="o">=</span> <span class="n">names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s2">"spring phytoplankton"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">out</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"no transport"</span><span class="p">,</span> <span class="n">still</span><span class="p">),</span> <span class="p">(</span><span class="s2">"exchange"</span><span class="p">,</span> <span class="n">mixed</span><span class="p">),</span> <span class="p">(</span><span class="s2">"throughflow"</span><span class="p">,</span> <span class="n">flushed</span><span class="p">)):</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">out_Biomass_spatial</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">phyto</span><span class="p">]</span> <span class="o">/</span> <span class="n">boxes</span><span class="o">.</span><span class="n">patch_areas</span>
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">label</span><span class="si">:</span><span class="s2">13s</span><span class="si">}</span><span class="s2"> total </span><span class="si">{</span><span class="n">out</span><span class="o">.</span><span class="n">out_Biomass</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">phyto</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">   "</span>
+        <span class="sa">f</span><span class="s2">"density by box / mean </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">density</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">density</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>What the three lines show:</p>
+<ul>
+<li><strong>No transport.</strong> The boxes differ a little, because cod and sprat live
+  only where the water is salt and their prey follows.</li>
+<li><strong>Exchange.</strong> The water evens the plankton out between the boxes; its
+  total barely moves. On a map where every box is alike, exchange changes
+  nothing at all.</li>
+<li><strong>Throughflow.</strong> The river end is diluted and the plankton's total falls.
+  This is a flushing loss the model's Ecopath balance does not contain, so
+  the food web above the plankton responds to it. Slow pools are flushed
+  hardest.</li>
+</ul>
+<h2 id="runs-longer-than-the-flows-and-other-sources">Runs longer than the flows, and other sources<a class="headerlink" href="#runs-longer-than-the-flows-and-other-sources" title="Permanent link">&para;</a></h2>
+<p>A run may cover months the flows do not, before their first month or after
+their last. <code>beyond</code> says what to do there: <code>"refuse"</code> (the default),
+<code>"repeat_year"</code>, <code>"hold"</code>, or <code>"mean_year"</code>, each calendar month's mean over
+all the years of the flows.</p>
+<div class="highlight"><pre><span></span><code><span class="n">longer</span> <span class="o">=</span> <span class="n">WaterTransport</span><span class="o">.</span><span class="n">from_shyfem_box_series</span><span class="p">(</span>
+    <span class="n">series</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="n">carried</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="s2">"2005-01-01"</span><span class="p">,</span> <span class="n">beyond</span><span class="o">=</span><span class="s2">"mean_year"</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"the flows begin in month"</span><span class="p">,</span> <span class="n">longer</span><span class="o">.</span><span class="n">first_month</span><span class="p">,</span> <span class="s2">"of that run"</span><span class="p">)</span>
+</code></pre></div>
+<p>Flows need not come from SHYFEM's box output.
+<code>WaterTransport.from_link_flows</code> takes any series of one-way flows between
+zones, daily or finer, and <code>pypath.io.aquabc.read_aquabc_flows</code> reads them
+from an AQUABC input folder:</p>
+<div class="highlight"><pre><span></span><code><span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">"2010-01-01"</span><span class="p">,</span> <span class="s2">"s"</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">365</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"D"</span><span class="p">)</span>
+<span class="n">links</span> <span class="o">=</span> <span class="n">WaterTransport</span><span class="o">.</span><span class="n">from_link_flows</span><span class="p">(</span>
+    <span class="n">times</span><span class="p">,</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">([</span><span class="mf">210.0</span><span class="p">,</span> <span class="mf">150.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">],</span> <span class="p">(</span><span class="mi">365</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>  <span class="c1"># m3/s through each link</span>
+    <span class="n">upstream</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">],</span>  <span class="c1"># a zone below 1 is the outside</span>
+    <span class="n">downstream</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="n">volume</span><span class="o">=</span><span class="p">[</span><span class="mf">8e7</span><span class="p">,</span> <span class="mf">9e7</span><span class="p">],</span>
+    <span class="n">groups</span><span class="o">=</span><span class="n">carried</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">links</span><span class="o">.</span><span class="n">zones</span><span class="p">,</span> <span class="n">links</span><span class="o">.</span><span class="n">boundary_id</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="on-the-meshs-elements">On the mesh's elements<a class="headerlink" href="#on-the-meshs-elements" title="Permanent link">&para;</a></h2>
+<p>The same series and flows serve the element grid: each element takes its
+box's field, and the water moves each box's total while the elements keep
+their shares. Diffusion needs one adjustment, because its rate is an
+exchange rate between neighbouring patches and so depends on their size:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">dispersal_rate_for_grid</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"a rate of 1 on the boxes is"</span><span class="p">,</span> <span class="n">dispersal_rate_for_grid</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">boxes</span><span class="p">,</span> <span class="n">elements</span><span class="p">))</span>
+</code></pre></div>
+<p>See the <a href="../../api/spatial/">Spatial</a> and <a href="../../api/io/">I/O</a> references for
+every option.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
