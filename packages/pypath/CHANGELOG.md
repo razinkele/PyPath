@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.19.0 (2026-11-21)
+
+### Bug Fixes
+
+- **spatial**: Refuse a monthly capacity on a uniform base map with an MPA bonus
+  ([`e005176`](https://github.com/razinkele/PyPath/commit/e005176440051fdfdc9ff8b4f04cf7644fcba7eb))
+
+### Features
+
+- **spatial**: A habitat capacity for every month
+  ([`d4ece0b`](https://github.com/razinkele/PyPath/commit/d4ece0be55468e57ecccffddf589fc077a782dd6))
+
+
 ## v1.18.0 (2026-11-21)
 
 ### Bug Fixes
