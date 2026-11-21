@@ -36,7 +36,11 @@ Rest state. With ``rest="volume"`` a unit of water carries 1 / volume of
 the zone's biomass, so biomass at rest is in proportion to the zones'
 volumes: one concentration everywhere. With ``rest="capacity"`` it is in
 proportion to area x habitat capacity, as Ecospace's diffusion leaves it,
-so a uniform map stays as it is.
+so a uniform map stays as it is; a zone's biomass then leaves at (its
+depth / the map's mean depth) of the water's rate. The default is
+"capacity" for exchange only, where a month mixes the zones almost fully
+either way and a uniform map then stays Ecosim, and "volume" with
+throughflow, where the water's own rate sets the flushing.
 
 Flows are known between zones only. On a grid with several patches in a
 zone (the elements of a mesh) the zone's total moves and each patch keeps
@@ -86,8 +90,9 @@ class WaterTransport:
     boundary_in, boundary_out : np.ndarray
         Flow into and out of the zone through it, m3/s
         [n_months, n_boundaries].
-    rest : {"volume", "capacity"}
+    rest : {"volume", "capacity"}, optional
         What biomass at rest is in proportion to (see the module text).
+        Default: "capacity" for exchange only, "volume" with throughflow.
     throughflow : bool
         False (default): the two-way exchange between zones only, which
         keeps the total. True: all the water moves and rivers dilute.
@@ -108,12 +113,14 @@ class WaterTransport:
     boundary_zone: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int))
     boundary_in: Optional[np.ndarray] = None
     boundary_out: Optional[np.ndarray] = None
-    rest: str = "volume"
+    rest: Optional[str] = None
     throughflow: bool = False
     open_boundaries: Optional[Sequence[int]] = None
     beyond: str = "refuse"
 
     def __post_init__(self):
+        if self.rest is None:
+            self.rest = "volume" if self.throughflow else "capacity"
         self.zones = np.asarray(self.zones)
         self.flow = np.asarray(self.flow, dtype=float)
         self.volume = np.asarray(self.volume, dtype=float)
@@ -176,7 +183,7 @@ class WaterTransport:
         groups: Sequence[int],
         *,
         start=None,
-        rest: str = "volume",
+        rest: Optional[str] = None,
         throughflow: bool = False,
         open_boundaries: Optional[Sequence[int]] = None,
         beyond: str = "refuse",

@@ -426,7 +426,9 @@ def test_zones_the_grid_does_not_cover_are_outside_the_map(
     np.testing.assert_allclose(share, [1 / 3, 2 / 3], atol=1e-12)
     # by volume the two zones on the map end at 3 : 1, whatever zone 30 holds
     volume = WaterTransport(
-        groups=[3], **_ring(12, q=2000.0, back=1500.0, volumes=(3e8, 1e8, 4e8))
+        groups=[3],
+        rest="volume",
+        **_ring(12, q=2000.0, back=1500.0, volumes=(3e8, 1e8, 4e8)),
     )
     out = rsim_run_spatial(
         scenario, ecospace=_ecospace(scenario, grid, volume), years=years
@@ -637,3 +639,36 @@ def test_exchange_evens_out_a_prey_that_its_grazer_leaves_uneven(
     assert spread(alone)[-1] > 0.02  # the grazer does leave the prey uneven
     assert spread(mixed)[-1] < 0.25 * spread(alone)[-1]
     assert np.all(spread(mixed)[1:] < spread(alone)[1:])
+
+
+def test_the_rest_state_follows_the_mode_unless_it_is_named():
+    """Exchange only rests at the capacity, throughflow at the volumes."""
+    assert WaterTransport(groups=[0], **_ring()).rest == "capacity"
+    assert WaterTransport(groups=[0], throughflow=True, **_ring()).rest == "volume"
+    assert WaterTransport(groups=[0], rest="volume", **_ring()).rest == "volume"
+    named = WaterTransport(groups=[0], rest="capacity", throughflow=True, **_ring())
+    assert named.rest == "capacity"
+    series = _series()
+    assert WaterTransport.from_shyfem_box_series(series, [0]).rest == "capacity"
+    assert (
+        WaterTransport.from_shyfem_box_series(series, [0], throughflow=True).rest
+        == "volume"
+    )
+
+
+def test_by_default_a_uniform_map_is_left_as_it_is(integrated_scenario):
+    """Exchange only with its default rest state: the run without transport."""
+    scenario, _ = integrated_scenario
+    grid, _ = _zone_grid()
+    years = range(1, 2)
+    plain = rsim_run_spatial(scenario, ecospace=_ecospace(scenario, grid), years=years)
+    moved = rsim_run_spatial(
+        scenario,
+        ecospace=_ecospace(
+            scenario, grid, WaterTransport(groups=[0, 1, 3], **_ring(12))
+        ),
+        years=years,
+    )
+    np.testing.assert_allclose(
+        moved.out_Biomass_spatial, plain.out_Biomass_spatial, rtol=1e-10, atol=1e-13
+    )
