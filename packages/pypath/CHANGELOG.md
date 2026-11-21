@@ -6,6 +6,34 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.17.0 (2026-11-21)
+
+### Bug Fixes
+
+- **ecosim**: Substep_check counts a floored month as a failure and checks spatial runs
+  ([`df8dab0`](https://github.com/razinkele/PyPath/commit/df8dab04647c070998f87a4832f6d2a6dfda8e52))
+
+- **spatial**: A river with backflow still dilutes
+  ([`58f61b0`](https://github.com/razinkele/PyPath/commit/58f61b0989c575f9a13ce16ee0dd1c0ebbeba701))
+
+- **spatial**: Review of the water transport
+  ([`8c7e689`](https://github.com/razinkele/PyPath/commit/8c7e689f9acd5aa03fc9d38fab83f83836dd027f))
+
+### Features
+
+- **ecosim**: Integrate chosen fast groups; check the sub-steps
+  ([`7b9a279`](https://github.com/razinkele/PyPath/commit/7b9a27988bb786466298aaac139d9d71b2dae1b3))
+
+- **spatial**: Exchange-only transport by default; throughflow with diluting rivers
+  ([`422e13e`](https://github.com/razinkele/PyPath/commit/422e13ef1c9b2e12f739e7664bb76c2bc8e1c961))
+
+- **spatial**: The rest state follows the mode unless it is named
+  ([`bf14643`](https://github.com/razinkele/PyPath/commit/bf1464362cca4eb2135c0e0db4f3f007bda186ec))
+
+- **spatial**: Water flows between zones carrying biomass
+  ([`cb1338f`](https://github.com/razinkele/PyPath/commit/cb1338f5ab303190265c91dc8160c0533246eb27))
+
+
 ## v1.16.0 (2026-11-21)
 
 ### Bug Fixes
