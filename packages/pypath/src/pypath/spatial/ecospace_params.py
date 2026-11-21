@@ -434,6 +434,9 @@ class EcospaceParams:
     water_transport : Optional[WaterTransport]
         Monthly water flows between zones (a hydrodynamic box model's) and
         the groups they carry; see ``pypath.spatial.transport``
+    monthly_capacity : Optional[MonthlyCapacity]
+        A habitat capacity for every month for chosen groups, acting on the
+        local dynamics; see ``pypath.spatial.monthly_capacity``
     environmental_drivers : Optional[object]
         Time-varying environmental drivers (EnvironmentalDrivers instance)
     new_multi_stanza : bool
@@ -469,6 +472,10 @@ class EcospaceParams:
     # pypath.spatial.transport), applied implicitly once a month. Last, so that
     # positional arguments keep their places.
     water_transport: Optional[object] = None
+    # A capacity per month for chosen groups (MonthlyCapacity of
+    # pypath.spatial.monthly_capacity): the month's feeding efficiency per
+    # patch; habitat_capacity stays the base map.
+    monthly_capacity: Optional[object] = None
 
     def __post_init__(self):
         """Validate spatial parameters."""
