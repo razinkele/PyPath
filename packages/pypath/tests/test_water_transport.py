@@ -542,3 +542,57 @@ def test_water_transport_is_the_last_field_of_ecospace_params():
     names = [f.name for f in dataclasses.fields(EcospaceParams)]
     assert names[-1] == "water_transport"
     assert names.index("external_flux") + 1 == names.index("environmental_drivers")
+
+
+def test_with_diffusion_too_the_capacity_rest_state_changes_nothing(
+    integrated_scenario,
+):
+    """Dispersal above 0, a uniform map, exchange only, rest="capacity"."""
+    scenario, _ = integrated_scenario
+    grid, _ = _zone_grid()
+    years = range(1, 3)
+    plain = rsim_run_spatial(
+        scenario, ecospace=_ecospace(scenario, grid, dispersal=5.0), years=years
+    )
+    transport = WaterTransport(groups=[0, 1, 3], rest="capacity", **_ring(24))
+    moved = rsim_run_spatial(
+        scenario,
+        ecospace=_ecospace(scenario, grid, transport, dispersal=5.0),
+        years=years,
+    )
+    np.testing.assert_allclose(
+        moved.out_Biomass_spatial, plain.out_Biomass_spatial, rtol=1e-10, atol=1e-13
+    )
+
+
+def test_a_fast_group_can_be_integrated_and_carried_while_others_stay_fast(
+    spatial_scenario,
+):
+    """Under the EwE rule: integrate one fast group and carry it."""
+    scenario, _ = spatial_scenario
+    grid, _ = _zone_grid()
+    flags = np.asarray(scenario.params.NoIntegrate).copy()
+    fast = int(np.flatnonzero(flags[1:] > 0)[0])  # a group row
+    other = 1 if fast != 1 else 2
+
+    integrated = copy.deepcopy(scenario)
+    changed = flags.copy()
+    changed[fast + 1] = 0
+    integrated.params.NoIntegrate = changed
+    carried = WaterTransport(groups=[fast], rest="capacity", **_ring(12))
+    out = rsim_run_spatial(
+        integrated, ecospace=_ecospace(integrated, grid, carried), years=range(1, 2)
+    )
+    assert np.isfinite(out.out_Biomass_spatial).all()
+
+    # another group made fast is refused, the integrated one still accepted
+    mixed = copy.deepcopy(integrated)
+    more = changed.copy()
+    more[other + 1] = 1
+    mixed.params.NoIntegrate = more
+    both = WaterTransport(groups=[fast, other], **_ring(12))
+    with pytest.raises(ValueError, match="fast-equilibrium group") as error:
+        rsim_run_spatial(
+            mixed, ecospace=_ecospace(mixed, grid, both), years=range(1, 2)
+        )
+    assert str(mixed.params.spname[other + 1]) in str(error.value)
