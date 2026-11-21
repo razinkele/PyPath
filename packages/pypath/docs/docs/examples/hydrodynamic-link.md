@@ -8,8 +8,9 @@ itself, so every block runs as it stands.
 
 !!! note "What to expect"
     - The mesh becomes the map: one patch per box, or one per element.
-    - Fields become a habitat capacity map. It says *where* a group lives;
-      it does not change during a run.
+    - Fields become a habitat capacity map, which says *where* a group
+      lives. A capacity for every month can be added for chosen groups; it
+      also says *when*.
     - Flows move the groups you choose. With the default settings water
       only mixes them between boxes, and on a map where the boxes are
       alike that changes nothing. With throughflow, rivers flush them
@@ -56,13 +57,17 @@ box number, and the box model's `boxes_2d.txt`.
     (work / "lagoon.grd").write_text("\n".join(lines) + "\n")
 
 
-    def write_box_output(path, volume, salt=(0.1, 0.6, 3.0, 7.0)):
-        """Two years of daily records: box means, then the section flows."""
+    def write_box_output(path, volume):
+        """Two years of daily records: box means, then the section flows.
+
+        Salinity rises from the river end to the sea; in box 3, the strait,
+        it also rises in summer (1 in winter, 5 in summer)."""
         days = np.datetime64("2010-01-01") + np.arange(1, 731)
         out = ["#      idbox file_type     nvers", "#     473226         2         7"]
         for n, day in enumerate(days):
             season = 1.0 + 0.5 * np.sin(2 * np.pi * (n - 80) / 365.0)
             temp = 10.0 - 9.0 * np.cos(2 * np.pi * (n - 30) / 365.0)
+            salt = (0.1, 0.6, 3.0 - 2.0 * np.cos(2 * np.pi * (n - 30) / 365.0), 7.0)
             river = 60.0 * season
             out += [
                 "# time record",
@@ -139,7 +144,8 @@ series = read_box_series(work / "boxes_2d.txt", monthly=True)
 layers = shyfem_box_layers(series, boxes, start=START)
 
 print(layers.layer_names)
-print("salinity by box:", layers.get_layer_at_time("salt", 0.0))
+print("salinity by box, January:", layers.get_layer_at_time("salt", 0.0).round(1))
+print("salinity by box, July:   ", layers.get_layer_at_time("salt", 6 / 12).round(1))
 print(
     "temperature, January and July:",
     layers.get_layer_at_time("temp", 0.0)[0].round(1),
@@ -171,6 +177,9 @@ print("cod capacity by box:", capacity[names.index("Ad. Cod") - 1].round(2))
 Ecospace uses the *pattern* of a group's capacity over the map, not its
 level. A field that is nearly the same in every box, as temperature often
 is, therefore does little as a static map; salinity does a lot.
+
+This map is one for the whole run: the mean over the months. Section 6
+gives a group a capacity for every month.
 
 ## 3. Which groups the water can carry
 
@@ -231,7 +240,7 @@ does not follow an estuary's exchange.
 from pypath.spatial import EcospaceParams, rsim_run_spatial
 
 
-def run(transport):
+def run(transport, monthly=None):
     ecospace = EcospaceParams(
         grid=boxes,
         habitat_preference=np.ones((n_rows, boxes.n_patches)),
@@ -240,6 +249,7 @@ def run(transport):
         advection_enabled=np.zeros(n_rows, dtype=bool),
         gravity_strength=np.zeros(n_rows),
         water_transport=transport,
+        monthly_capacity=monthly,
     )
     return rsim_run_spatial(ready, ecospace=ecospace, years=YEARS)
 
@@ -268,6 +278,57 @@ What the three lines show:
   This is a flushing loss the model's Ecopath balance does not contain, so
   the food web above the plankton responds to it. Slow pools are flushed
   hardest.
+
+## 6. A capacity for every month
+
+The map of section 2 holds for the whole run. `MonthlyCapacity` gives the
+groups you name a capacity for each month instead, made from the same
+layers and the same kind of response. Here a marine copepod needs salt, and
+the strait is salt only in summer:
+
+```python
+from pypath.spatial import MonthlyCapacity
+
+copepod = {"Pseudocalanus sp.": {"salt": marine}}
+group_names = names[1:] + ["-"]
+
+# the base map: the mean over the months, joined to the map of section 2
+base = capacity_from_layers(layers, copepod, group_names=group_names)
+row = names.index("Pseudocalanus sp.") - 1
+capacity[row] = base[row]
+
+by_month = MonthlyCapacity.from_layers(layers, copepod, group_names=group_names)
+print("the copepod in the strait, by month:", by_month.values[:12, 0, 2].round(2))
+
+seasonal = run(exchange, by_month)  # the whole chain in one run
+steady = run(exchange)
+
+strait = 2
+for label, out in (("the mean map", steady), ("a map per month", seasonal)):
+    biomass = out.out_Biomass_spatial[13:, row + 1, strait]
+    print(
+        f"{label:16s} the copepod in the strait, year 2: "
+        f"{biomass.min():.4f} to {biomass.max():.4f}"
+    )
+```
+
+What the month's capacity does, and what the base map keeps:
+
+- The run is calibrated once, on the base map (`habitat_capacity`). Each
+  month the group's capacity in a patch, over the peak of its base map, is
+  that patch's feeding efficiency. So here the *level* matters, where a
+  static map's does not.
+- The base map still sets where the group starts and how it moves between
+  patches. Movement does not follow the month's map.
+- Multi-stanza groups cannot take a monthly capacity; give them a static
+  map, as cod and sprat have here.
+
+!!! warning "Mind the scale"
+    The model's Ecopath balance stands for the conditions at the peak of the
+    base map. A response far below 1 for months, such as a temperature
+    optimum reached only in summer, starves the group for the rest of the
+    year. Shape a response so that it is near 1 under the conditions the
+    model describes.
 
 ## Runs longer than the flows, and other sources
 

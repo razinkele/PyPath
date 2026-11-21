@@ -76,6 +76,15 @@ from layers and response functions.
     options:
       show_root_heading: true
 
+## Capacity by Month
+
+A habitat capacity for every month of a run for chosen groups, as the
+month's feeding efficiency per patch; the base map keeps the calibration.
+
+::: pypath.spatial.monthly_capacity
+    options:
+      show_root_heading: true
+
 ## Water Transport
 
 Monthly water flows between zones carrying chosen groups.

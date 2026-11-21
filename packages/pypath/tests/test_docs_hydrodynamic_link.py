@@ -50,9 +50,10 @@ def page():
 def test_the_grids_and_layers_are_what_the_page_says(page):
     assert page["boxes"].n_patches == 4 and page["elements"].n_patches == 32
     assert page["layers"].layer_names == ["temp", "salt", "volume"]
-    np.testing.assert_allclose(
-        page["layers"].get_layer_at_time("salt", 0.0), [0.1, 0.6, 3.0, 7.0]
-    )
+    january = page["layers"].get_layer_at_time("salt", 0.0)
+    july = page["layers"].get_layer_at_time("salt", 6 / 12)
+    np.testing.assert_allclose(january[[0, 1, 3]], [0.1, 0.6, 7.0])
+    assert january[2] < 1.5 and july[2] > 4.5  # the strait: salt in summer
     cod = page["capacity"][page["names"].index("Ad. Cod") - 1]
     assert cod[0] == 0.0 and cod[-1] == 1.0 and np.all(np.diff(cod) >= 0)
 
@@ -98,3 +99,25 @@ def test_the_other_sources_and_the_longer_run(page):
     assert page["longer"].first_month == 60 and page["longer"].beyond == "mean_year"
     assert page["links"].zones.tolist() == [1, 2]
     assert page["links"].boundary_id.tolist() == [-2]
+
+
+def test_the_monthly_capacity_runs_with_everything_else_and_acts_in_season(page):
+    """The whole chain in one run: mesh, layers, integrated groups, water, months."""
+    by_month, seasonal, steady = page["by_month"], page["seasonal"], page["steady"]
+    row, strait = page["row"], page["strait"]
+    assert by_month.groups == [row] and by_month.n_months == 24
+    in_strait = by_month.values[:12, 0, strait]
+    assert in_strait.min() < 0.2 and in_strait.max() > 0.75
+    np.testing.assert_allclose(page["capacity"][row], page["base"][row])
+    for out in (seasonal, steady):
+        assert np.isfinite(out.out_Biomass_spatial).all()
+
+    def swing(out):
+        series = out.out_Biomass_spatial[13:, row + 1, strait]
+        return series.max() / series.min()
+
+    # with a map per month the copepod in the strait swings with the season
+    assert swing(seasonal) > 1.2 * swing(steady)
+    # elsewhere the months are as the base map, and the run barely differs
+    sea = seasonal.out_Biomass_spatial[-1, row + 1, 3]
+    assert sea == pytest.approx(steady.out_Biomass_spatial[-1, row + 1, 3], rel=0.05)
