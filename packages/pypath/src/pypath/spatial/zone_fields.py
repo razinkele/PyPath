@@ -234,7 +234,9 @@ def capacity_from_layers(
     the layers it is given one for; a group without responses has capacity 1
     everywhere. The result is what ``EcospaceParams.habitat_capacity`` takes:
     it does not change during a run. Ecospace uses the pattern of a group's
-    capacity over the map, not its level.
+    capacity over the map, not its level. For a capacity that changes from
+    month to month, see ``pypath.spatial.monthly_capacity.MonthlyCapacity``,
+    whose base map this function also makes.
 
     Parameters
     ----------

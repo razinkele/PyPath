@@ -438,7 +438,10 @@ class EcospaceParams:
         A habitat capacity for every month for chosen groups, acting on the
         local dynamics; see ``pypath.spatial.monthly_capacity``
     environmental_drivers : Optional[object]
-        Time-varying environmental drivers (EnvironmentalDrivers instance)
+        Time-varying environmental drivers (EnvironmentalDrivers instance).
+        A run does not evaluate them: make a capacity from them with
+        ``capacity_from_layers`` (one map) or ``MonthlyCapacity.from_layers``
+        (a map per month)
     new_multi_stanza : bool
         Distribute multi-stanza groups as EwE's NewMultiStanza model
         (Ecospace ModelType 2, EwE's default for a new scenario): each life
