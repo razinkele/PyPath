@@ -202,6 +202,7 @@ class WaterTransport:
         groups: Sequence[int],
         *,
         zones=None,
+        sections=None,
         start=None,
         stamped_at_end: bool = False,
         rest: Optional[str] = None,
@@ -233,6 +234,12 @@ class WaterTransport:
             The groups carried, as rows of ``EcospaceParams`` arrays.
         zones : array of int, optional
             The zone ids. Default: the ids of the links' ends, ascending.
+        sections : array of int, optional
+            The section each link crosses [n_links]. The links of one
+            section to the outside are its two directions, and what goes
+            both ways through it is the same water; a diluting boundary
+            dilutes by each section's own net inflow. Default: the links
+            between one boundary id and one zone count as one section.
         start : str or datetime64, optional
             The date of time 0 of the run. Months of flows before it are
             dropped; if the flows begin after it, ``first_month`` says by
@@ -248,9 +255,10 @@ class WaterTransport:
         Raises
         ------
         ValueError
-            For flows that are negative, a link between unknown zones or
-            from the outside to the outside, months missing inside the
-            series, and no data on or after ``start``.
+            For flows that are negative or not finite in any record, a
+            link between unknown zones or from the outside to the outside,
+            months missing inside the series, and no data on or after
+            ``start``.
         """
         times = np.asarray(times).astype("datetime64[s]")
         flows = np.asarray(flows, dtype=float)
@@ -263,6 +271,17 @@ class WaterTransport:
             )
         if len(downstream) != len(upstream):
             raise ValueError("upstream and downstream need one zone per link")
+        # every record, not the monthly means: -2 and 4 would average to 1
+        if not np.all(np.isfinite(flows)):
+            raise ValueError("flows must be finite in every record")
+        if np.any(flows < 0):
+            raise ValueError(
+                "flows must not be negative in any record: a link runs one way"
+            )
+        if sections is not None:
+            sections = np.asarray(sections)
+            if sections.shape != upstream.shape:
+                raise ValueError("sections needs one value per link")
         if np.any((upstream < 1) & (downstream < 1)):
             raise ValueError("a link cannot run from the outside to the outside")
         if zones is None:
@@ -290,7 +309,8 @@ class WaterTransport:
             if start is None
             else int(np.datetime64(start, "s").astype("datetime64[M]").astype(int))
         )
-        months = np.unique(month[month >= first])
+        every = np.unique(month)  # all the months supplied
+        months = every[every >= first]
         if len(months) == 0:
             raise ValueError(f"the flows have no data on or after {start}")
         if np.any(np.diff(months) != 1):
@@ -299,44 +319,50 @@ class WaterTransport:
                 "last; some are missing"
             )
 
-        inside = (upstream > 0) & (downstream > 0)
-        b_links = np.flatnonzero(~inside)
-        # one boundary entry per (id, zone) pair, in order of appearance
-        pairs = []
-        for k in b_links:
-            pair = (
-                (int(upstream[k]), position[int(downstream[k])])
-                if upstream[k] < 1
-                else (int(downstream[k]), position[int(upstream[k])])
+        inside = np.flatnonzero((upstream > 0) & (downstream > 0))
+        i_from = np.array([position[int(z)] for z in upstream[inside]], dtype=int)
+        i_to = np.array([position[int(z)] for z in downstream[inside]], dtype=int)
+        # a boundary entry per (id, zone, section), in order of appearance
+        column: dict = {}
+        b_links, b_col, b_comes_in = [], [], []
+        for k in np.flatnonzero((upstream < 1) | (downstream < 1)):
+            comes_in = bool(upstream[k] < 1)
+            key = (
+                int(upstream[k] if comes_in else downstream[k]),
+                position[int(downstream[k] if comes_in else upstream[k])],
+                None if sections is None else sections[k].item(),
             )
-            if pair not in pairs:
-                pairs.append(pair)
-        flow = np.zeros((len(months), n, n))
-        vol = np.empty((len(months), n))
-        b_in = np.zeros((len(months), len(pairs)))
-        b_out = np.zeros_like(b_in)
-        for row, m in enumerate(months):
-            rows = month == m
-            mean = flows[rows].mean(axis=0)
-            vol[row] = volume if volume.ndim == 1 else volume[rows].mean(axis=0)
-            for k in np.flatnonzero(inside):
-                flow[row, position[int(upstream[k])], position[int(downstream[k])]] += (
-                    mean[k]
-                )
-            for k in b_links:
-                if upstream[k] < 1:  # comes in
-                    pair = (int(upstream[k]), position[int(downstream[k])])
-                    b_in[row, pairs.index(pair)] += mean[k]
-                else:  # goes out
-                    pair = (int(downstream[k]), position[int(upstream[k])])
-                    b_out[row, pairs.index(pair)] += mean[k]
-        return cls(
+            b_links.append(int(k))
+            b_col.append(column.setdefault(key, len(column)))
+            b_comes_in.append(comes_in)
+        b_links = np.array(b_links, dtype=int)
+        b_col = np.array(b_col, dtype=int)
+        b_comes_in = np.array(b_comes_in, dtype=bool)
+
+        def tables(which):
+            """Monthly flow, volume and boundary tables of the months given."""
+            flow = np.zeros((len(which), n, n))
+            vol = np.empty((len(which), n))
+            b_in = np.zeros((len(which), len(column)))
+            b_out = np.zeros_like(b_in)
+            for row, m in enumerate(which):
+                rows = month == m
+                mean = flows[rows].mean(axis=0)
+                vol[row] = volume if volume.ndim == 1 else volume[rows].mean(axis=0)
+                np.add.at(flow[row], (i_from, i_to), mean[inside])
+                np.add.at(b_in[row], b_col[b_comes_in], mean[b_links[b_comes_in]])
+                np.add.at(b_out[row], b_col[~b_comes_in], mean[b_links[~b_comes_in]])
+            return flow, vol, b_in, b_out
+
+        flow, vol, b_in, b_out = tables(months)
+        keys = list(column)
+        made = cls(
             zones=zones,
             flow=flow,
             volume=vol,
             groups=groups,
-            boundary_id=np.array([p[0] for p in pairs], dtype=int),
-            boundary_zone=np.array([p[1] for p in pairs], dtype=int),
+            boundary_id=np.array([key[0] for key in keys], dtype=int),
+            boundary_zone=np.array([key[1] for key in keys], dtype=int),
             boundary_in=b_in,
             boundary_out=b_out,
             rest=rest,
@@ -345,6 +371,18 @@ class WaterTransport:
             beyond=beyond,
             first_month=int(months[0] - first),
         )
+        if beyond == "mean_year" and len(every) > len(months):
+            # the mean year is that of all the years supplied, also those
+            # before the start date, by calendar month
+            full = tables(every)
+            calendar = (every - months[0]) % 12
+            for name, table in zip(
+                ("flow", "volume", "boundary_in", "boundary_out"), full
+            ):
+                getattr(made, name)[len(months) :] = np.stack(
+                    [table[calendar == c].mean(axis=0) for c in range(12)]
+                )
+        return made
 
     @classmethod
     def from_shyfem_box_series(
@@ -391,6 +429,8 @@ class WaterTransport:
             series.variable("volume"),
             groups,
             zones=np.asarray(series.boxes),
+            # a section's positive and negative parts are its two directions
+            sections=np.tile(np.arange(len(frm)), 2),
             start=start,
             stamped_at_end=not series.monthly,
             rest=rest,

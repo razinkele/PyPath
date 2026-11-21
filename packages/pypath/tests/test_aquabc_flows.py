@@ -115,10 +115,16 @@ def test_the_folder_gives_a_transport_whose_boxes_balance(tmp_path):
     )  # fmt: skip
     assert transport.n_months == 2 and transport.open_boundaries == [-2]
     np.testing.assert_allclose(transport.flow[0], [[0.0, 40.0], [30.0, 0.0]])
-    # each box: in from the other and the outside = out to them
-    inflow = transport.flow[0].sum(axis=0) + [10.0, 5.0]
-    outflow = transport.flow[0].sum(axis=1) + [0.0, 15.0]
+    # each box: in from the other and the outside = out to them, with the
+    # boundary flows the transport itself holds
+    assert transport.boundary_id.tolist() == [-2, -1]
+    inflow = transport.flow[0].sum(axis=0)
+    outflow = transport.flow[0].sum(axis=1)
+    np.add.at(inflow, transport.boundary_zone, transport.boundary_in[0])
+    np.add.at(outflow, transport.boundary_zone, transport.boundary_out[0])
     np.testing.assert_allclose(inflow, outflow)
+    assert transport.boundary_in[0].sum() == 15.0  # the river's 10, the sea's 5
+    assert transport.boundary_out[0].sum() == 15.0
 
 
 def test_bad_link_tables_are_refused(tmp_path):
@@ -156,3 +162,59 @@ def test_a_bathymetry_whose_area_changes_with_depth(tmp_path):
         3.0e7 + 0.5 * (4.0e7 + 4.0e7 + 2.0e7 * 1.0 / 1.5)
     )
     assert flows.area[0] == pytest.approx(4.0e7 + 2.0e7 * 1.0 / 1.5)
+
+
+def test_a_bathymetry_with_fewer_layers_than_announced_is_refused(tmp_path):
+    """Part of a bathymetry would still give a positive, wrong volume."""
+    folder = _folder(tmp_path)
+    path = folder / "BATHYMETRY_2.txt"
+    path.write_text("\n".join(path.read_text().splitlines()[:-3]) + "\n")
+    with pytest.raises(ValueError, match="16 layers announced, 13 read"):
+        read_aquabc_flows(folder, start="2012-01-01")
+    path.write_text("BATHYMETRY 2\n  1  0.5  -6.0  6.0e7  6.0e7  8000.0\n")
+    with pytest.raises(ValueError, match="no layer count"):
+        read_aquabc_flows(folder, start="2012-01-01")
+
+
+def test_a_set_without_links_and_one_too_large_are_refused(tmp_path, monkeypatch):
+    from pypath.io import aquabc
+
+    folder = _folder(tmp_path)
+    inputs = folder / "PELAGIC_INPUTS.txt"
+    text = inputs.read_text().splitlines()
+    at = text.index("# NUM_PELAGIC_ADVECTIVE_LINKS")
+    kept = text[: at + 1] + ["                  0"] + text[at + 2 :]
+    inputs.write_text(
+        "\n".join(
+            kept[
+                : kept.index(
+                    "# ********************* ADVECTIVE LINKS *********************"
+                )
+                + 2
+            ]
+        )
+        + "\n"
+    )
+    with pytest.raises(ValueError, match="no advective links"):
+        read_aquabc_flows(folder, start="2012-01-01")
+    # many links on few columns: the table of link flows is the large one
+    folder = _folder(tmp_path)  # written again, whole
+    text = inputs.read_text().splitlines()
+    at = text.index("# NUM_PELAGIC_ADVECTIVE_LINKS")
+    text[at + 1] = "                  10"
+    text += [f"   {k}   1   2   1   3" for k in range(6, 11)]  # five more 1 -> 2
+    inputs.write_text("\n".join(text) + "\n")
+    assert read_aquabc_flows(folder, start="2012-01-01").flows.shape == (60, 10)
+    monkeypatch.setattr(aquabc, "_MAX_VALUES", 400)  # the series (360) still fits
+    with pytest.raises(ValueError, match="10 links on 60 records"):
+        read_aquabc_flows(folder, start="2012-01-01")
+
+
+def test_flows_that_are_not_finite_are_refused(tmp_path):
+    folder = _folder(tmp_path)
+    path = folder / "FLOW_TS.txt"
+    lines = path.read_text().splitlines()
+    lines[-1] = lines[-1].replace("10.000000", "nan")
+    path.write_text("\n".join(lines) + "\n")
+    with pytest.raises(ValueError, match="not finite"):
+        read_aquabc_flows(folder, start="2012-01-01")

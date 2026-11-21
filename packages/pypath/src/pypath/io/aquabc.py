@@ -134,13 +134,27 @@ def _count(lines: list, text: str, path: Path, limit: int) -> int:
 def _box_volume(path: Path, surface: float, bottom: float):
     """Surface area (m2) and volume (m3) between two elevations of a bathymetry."""
     rows = []
-    for line in path.read_text(errors="replace").splitlines():
+    declared = None
+    lines = path.read_text(errors="replace").splitlines()
+    for at, line in enumerate(lines):
         parts = line.split()
+        if declared is None and line.strip().upper().startswith("NUM_LAY"):
+            try:  # the count stands on the next line
+                declared = int(lines[at + 1].split()[0])
+            except (IndexError, ValueError) as exc:
+                raise ValueError(f"{path}: no layer count") from exc
         if len(parts) >= 5:
             try:
                 rows.append([float(v) for v in parts[1:5]])
             except ValueError:
                 continue  # the column header
+    if declared is None:
+        raise ValueError(f"{path}: no layer count (NUM_LAYES)")
+    if len(rows) != declared or not np.all(np.isfinite(rows)):
+        raise ValueError(
+            f"{path}: {declared} layers announced, {len(rows)} read; a box's "
+            "volume cannot be taken from part of its bathymetry"
+        )
     if not rows:
         raise ValueError(f"{path}: no layers")
     upper, lower, a_up, a_low = np.array(rows).T
@@ -185,6 +199,8 @@ def read_aquabc_flows(
     lines = inputs.read_text(errors="replace").splitlines()
     n_boxes = _count(lines, "NUM_PELAGIC_BOXES", inputs, _MAX_BOXES)
     n_links = _count(lines, "NUM_PELAGIC_ADVECTIVE_LINKS", inputs, _MAX_LINKS)
+    if n_links == 0:
+        raise ValueError(f"{inputs}: the set has no advective links")
     if _count(lines, "NUM_FLOW_TS", inputs, 1000) != 1:
         raise ValueError(f"{inputs}: only an input set with one flow series is read")
 
@@ -220,6 +236,13 @@ def read_aquabc_flows(
             f"{inputs}: a link uses column {int(column.max())} of the flow "
             f"series, which has {values.shape[1]}"
         )
+    if values.shape[0] * n_links > _MAX_VALUES:
+        raise ValueError(
+            f"{inputs}: {n_links} links on {values.shape[0]} records is more "
+            "than is read"
+        )
+    if not np.all(np.isfinite(values)):
+        raise ValueError(f"{folder / flow_file}: flows that are not finite")
     flows = values[:, column - 1]  # each link's own column, by the table
     if np.any(flows < 0):
         raise ValueError(f"{folder / flow_file}: negative flows; links run one way")

@@ -731,8 +731,18 @@ def test_links_with_the_same_ends_add_up_and_bad_links_are_refused():
         WaterTransport.from_link_flows(
             times, flows, up, down, volume[:1], groups=[0], zones=[1]
         )
-    with pytest.raises(ValueError, match="not negative"):
+    with pytest.raises(ValueError, match="must not be negative in any record"):
         WaterTransport.from_link_flows(times, -flows, up, down, volume, groups=[0])
+    # -2 and 4 in one month would average to a harmless 1
+    mixed = flows.copy()
+    mixed[0, 0], mixed[1, 0] = -2.0, 4.0
+    with pytest.raises(ValueError, match="must not be negative in any record"):
+        WaterTransport.from_link_flows(times, mixed, up, down, volume, groups=[0])
+    # a river that is not finite must not quietly stop diluting
+    broken = flows.copy()
+    broken[5, 2] = np.nan
+    with pytest.raises(ValueError, match="finite in every record"):
+        WaterTransport.from_link_flows(times, broken, up, down, volume, groups=[0])
     with pytest.raises(ValueError, match="volume must be"):
         WaterTransport.from_link_flows(times, flows, up, down, np.ones(3), groups=[0])
     # January and March, February missing
@@ -849,3 +859,107 @@ def test_a_run_before_the_flows_is_refused_or_filled(integrated_scenario):
         run("refuse")
     for beyond in ("mean_year", "repeat_year", "hold"):
         assert np.isfinite(run(beyond).out_Biomass_spatial).all()
+
+
+def test_the_mean_year_uses_the_years_before_the_start_date_too():
+    """January is 40 in 2012 and 120 in 2013; a run from 2013 wants their mean."""
+    times, flows, up, down = _daily_links()
+    flows = flows.copy()
+    flows[times >= np.datetime64("2013-01-01")] *= 3.0
+    volume = np.array([1e8, 3e8])
+    late = WaterTransport.from_link_flows(
+        times,
+        flows,
+        up,
+        down,
+        volume,
+        groups=[0],
+        start="2013-01-01",
+        beyond="mean_year",
+    )
+    assert late.n_months == 12 and late.first_month == 0
+    np.testing.assert_allclose(late.flow[0], [[0.0, 120.0], [90.0, 0.0]])  # 2013 itself
+    january = late.month_index(12)  # January 2014: outside the flows
+    assert january == 12
+    np.testing.assert_allclose(late.flow[january], [[0.0, 80.0], [60.0, 0.0]])
+    np.testing.assert_allclose(late.boundary_in[late.month_index(18)], [40.0, 20.0])
+    # with a start in mid-year the calendar still lines up
+    mid = WaterTransport.from_link_flows(
+        times,
+        flows,
+        up,
+        down,
+        volume,
+        groups=[0],
+        start="2012-07-01",
+        beyond="mean_year",
+    )
+    assert mid.n_months == 18
+    july_2014 = mid.month_index(24)  # 24 months after July 2012
+    np.testing.assert_allclose(mid.flow[july_2014], [[0.0, 160.0], [120.0, 0.0]])
+
+
+def test_two_shyfem_sections_of_one_boundary_dilute_each_by_its_own_net():
+    """Boundary -2 meets box 1 twice: 10 m3/s in through one section, 4 out
+    through the other. New water comes in at 10, not at the net 6."""
+    series = _series(3)
+    series.section_from = np.array([1, -2, -1, -2])
+    series.section_to = np.array([2, 1, 2, 1])
+    extra = np.zeros((3, 1, 3))
+    extra[:, 0] = [-4.0, 0.0, 4.0]  # the second section of -2: 4 out of box 1
+    series.section_flow = np.concatenate([series.section_flow, extra], axis=1)
+    transport = WaterTransport.from_shyfem_box_series(series, [0], throughflow=True)
+    assert transport.boundary_id.tolist() == [-2, -1, -2]
+    assert transport.boundary_zone.tolist() == [0, 1, 0]
+    np.testing.assert_allclose(transport.boundary_in[0], [10.0, 5.0, 0.0])
+    np.testing.assert_allclose(transport.boundary_out[0], [0.0, 15.0, 4.0])
+    assert transport.open_boundaries == [-2]  # 10 in against 4 out
+    volume = transport.volume[0]
+    plain = WaterTransport.from_shyfem_box_series(
+        series, [0], throughflow=True, open_boundaries=[]
+    )
+    dilution = (
+        transport.rate_matrix(0, volume)[0, 0] - plain.rate_matrix(0, volume)[0, 0]
+    )
+    assert dilution == pytest.approx(-10.0 / volume[0] * YEAR)
+    # generic links without sections: the two count as one, and dilute by the net
+    frm, to = series.section_from, series.section_to
+    merged = WaterTransport.from_link_flows(
+        series.times,
+        np.concatenate(
+            [series.section_flow[:, :, 1], series.section_flow[:, :, 2]], axis=1
+        ),
+        np.concatenate([frm, to]),
+        np.concatenate([to, frm]),
+        series.variable("volume"),
+        [0],
+        zones=series.boxes,
+        throughflow=True,
+    )
+    assert merged.boundary_id.tolist() == [-2, -1]
+    np.testing.assert_allclose(merged.boundary_in[0], [10.0, 5.0])
+    np.testing.assert_allclose(merged.boundary_out[0], [4.0, 15.0])
+
+
+def test_many_boundaries_are_indexed_once():
+    """Two thousand river mouths: the constructor does not search a list per month."""
+    import time
+
+    n = 2000
+    times = np.datetime64("2012-01-01", "s") + np.arange(366) * np.timedelta64(1, "D")
+    upstream = -np.arange(1, n + 1)
+    downstream = np.arange(1, n + 1)
+    flows = np.ones((366, n))
+    began = time.perf_counter()
+    transport = WaterTransport.from_link_flows(
+        times,
+        flows,
+        upstream,
+        downstream,
+        np.ones(n) * 1e6,
+        groups=[0],
+        throughflow=True,
+    )
+    assert time.perf_counter() - began < 10.0
+    assert transport.boundary_id.tolist() == upstream.tolist()
+    np.testing.assert_allclose(transport.boundary_in[3], 1.0)
