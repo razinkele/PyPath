@@ -29,7 +29,10 @@ stanza ratios. Movement does not yet follow the month's map (in EwE it
 does).
 
 Groups a run does not treat as one pool per patch are refused: multi-stanza
-groups and IBM groups.
+groups and IBM groups. So is a monthly capacity on a uniform base map
+together with an MPA capacity bonus, which acts differently on a uniform map
+than in the calibrated form a monthly capacity brings in; with a base map
+that varies between patches the two combine exactly.
 """
 
 from __future__ import annotations

@@ -270,6 +270,40 @@ def test_refusals(spatial_scenario):
         monthly.prepare(ecospace, MONTHS, n_groups=n, ibm_rows=[2])
 
 
+def test_an_mpa_bonus_combines_with_a_varying_base_map_and_not_a_uniform_one(
+    spatial_scenario,
+):
+    """On a uniform map the bonus acts in another form: the pair is refused."""
+    scenario, _ = spatial_scenario
+    grid, _, _ = _grid()
+    reserve = MPAZone(
+        1, "reserve", patches=[0], start_month=6, excluded_fleets=[], capacity_bonus=1.5
+    )
+    mpa = MPAConfig(zones=[reserve])
+
+    def run(base, monthly, zones=mpa):
+        return rsim_run_spatial(
+            scenario,
+            ecospace=_ecospace(scenario, grid, base, monthly),
+            years=YEARS,
+            mpa=zones,
+        ).out_Biomass_spatial
+
+    base = _base(scenario, grid)
+    same = MonthlyCapacity([1], np.tile(base[[1]], (MONTHS, 1, 1)))
+    np.testing.assert_allclose(run(base, same), run(base, None), rtol=1e-12, atol=1e-14)
+    ones = MonthlyCapacity([1], np.ones((MONTHS, 1, 3)))
+    with pytest.raises(
+        ValueError, match="cannot be combined with an MPA capacity bonus"
+    ):
+        run(None, ones)
+    # a zone without a bonus is no obstacle
+    closed = MPAConfig(zones=[MPAZone(2, "closed", patches=[0], excluded_fleets=[])])
+    np.testing.assert_allclose(
+        run(None, ones, closed), run(None, None, closed), rtol=1e-9, atol=1e-12
+    )
+
+
 # --- from layers ----------------------------------------------------------
 
 

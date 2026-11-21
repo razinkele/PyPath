@@ -1144,6 +1144,22 @@ def _run_spatial(
     if density_form and (start_capacity is not None or capacity_rows):
         _cap = _raw_capacity(ecospace, n_groups + 1, n_patches)
         if _cap is None and capacity_rows:
+            # An MPA capacity bonus acts differently in the two forms (on a
+            # uniform map it reshapes the pattern, in the calibrated form
+            # it is a feeding efficiency), so bringing the calibrated form
+            # in would change what the bonus does.
+            if mpa is not None and any(
+                float(getattr(zone, "capacity_bonus", 1.0)) != 1.0
+                for zone in getattr(mpa, "zones", [])
+            ):
+                raise ValueError(
+                    "a monthly capacity on a uniform base map cannot be combined "
+                    "with an MPA capacity bonus: the bonus would act differently "
+                    "than without the monthly capacity. Give habitat_capacity a "
+                    "map that varies between patches (for instance the time "
+                    "mean of the monthly capacity), or put the bonus into the "
+                    "monthly capacity"
+                )
             _cap = np.ones((n_groups + 1, n_patches))
         if _cap is not None:
             _cal = ewe_space_calibration(
