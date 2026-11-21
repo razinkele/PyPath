@@ -40,12 +40,14 @@ from pypath.core.ecosim import (  # noqa: E402
     RsimState,
     RunCancelled,
     default_fast_group_rule,
+    integrate_groups,
     rsim_fishing,
     rsim_forcing,
     rsim_params,
     rsim_run,
     rsim_scenario,
     rsim_state,
+    substep_check,
 )
 from pypath.core.ecosim_deriv import (  # noqa: E402
     deriv_vector,
@@ -162,6 +164,8 @@ __all__ = [
     "rsim_forcing",
     "rsim_fishing",
     "rsim_scenario",
+    "integrate_groups",
+    "substep_check",
     "default_fast_group_rule",
     "rsim_run",
     "RunCancelled",

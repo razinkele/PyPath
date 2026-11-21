@@ -2667,6 +2667,159 @@ def _forcing_interpolant(
     return ForcingInterpolant(monthly, kind=kind)
 
 
+def _group_state_rows(params, groups) -> list:
+    """State rows (1-based, as ``spname``) of groups named or given by row."""
+    names = [str(n).strip() for n in params.spname]
+    n_bio = int(params.NUM_LIVING) + int(params.NUM_DEAD)
+    rows = []
+    for group in groups:
+        if isinstance(group, str):
+            if group.strip() not in names[1:]:
+                raise KeyError(f"no group named {group!r} in the scenario")
+            row = names.index(group.strip(), 1)
+        else:
+            row = int(group) + 1
+            if not 1 <= row <= n_bio:
+                raise KeyError(
+                    f"group row {int(group)} is outside 0..{n_bio - 1} "
+                    "(0 is the first group)"
+                )
+        rows.append(row)
+    return rows
+
+
+def integrate_groups(scenario: "RsimScenario", groups, substeps=None) -> "RsimScenario":
+    """A copy of a scenario in which the named fast groups are integrated.
+
+    Under the EwE rule a group whose turnover is fast (plankton, often
+    detritus) is not integrated: every step sets its biomass to its local
+    equilibrium (``NoIntegrate``). Such a group cannot be moved between the
+    patches of a spatial run, by diffusion or by water
+    (``pypath.spatial.WaterTransport``). This clears the flag of the groups
+    named, which are then integrated like the others; the rest of the EwE
+    rule stays, and the other fast groups stay fast.
+
+    An integrated group needs sub-steps in proportion to its turnover, and
+    the number cannot be read off its P/B alone: use ``substep_check``. In a
+    25-group lagoon model zooplankton needed 1 sub-step a month, zooplankton
+    with phytoplankton 4, and detritus, turning over 3,400 times a year,
+    128; a pool that fast is better left as it is. With enough sub-steps the
+    run differs from the default by what separates an equilibrium from its
+    integration (1e-4 to 1e-3 of the biomass in the models tried).
+
+    Every sub-step also brings the groups left fast halfway to their
+    equilibrium, so with more sub-steps they follow it more closely.
+
+    Parameters
+    ----------
+    scenario : RsimScenario
+        From ``rsim_scenario`` or ``ecosim_scenario_from_ewemdb``. It is
+        not changed.
+    groups : sequence of str or int
+        The groups to integrate: names, or rows where 0 is the first group
+        (the numbering of ``EcospaceParams`` arrays and of
+        ``WaterTransport.groups``). A group that is integrated already is
+        left as it is; so is every group under the Rpath rule.
+    substeps : int, optional
+        RK4 sub-steps per month for the copy (``RK4_STEPS``). Default:
+        unchanged, which under the EwE rule is 1.
+
+    Returns
+    -------
+    RsimScenario
+        A deep copy with the flags, and the sub-steps if given, changed.
+    """
+    if substeps is not None and (
+        isinstance(substeps, bool) or int(substeps) != substeps or substeps < 1
+    ):
+        raise ValueError(
+            f"substeps must be a whole number of 1 or more, not {substeps!r}"
+        )
+    out = copy.deepcopy(scenario)
+    rows = _group_state_rows(out.params, groups)
+    if getattr(out.params, "RK4_FAST_EQUILIBRIUM", True):
+        flags = np.array(out.params.NoIntegrate, copy=True)
+        flags[rows] = 0
+        out.params.NoIntegrate = flags
+    # under the Rpath rule RK4 integrates every group: nothing to clear
+    if substeps is not None:
+        out.params.RK4_STEPS = int(substeps)
+    return out
+
+
+@dataclass
+class SubstepCheck:
+    """What ``substep_check`` found.
+
+    ``max_difference`` is the largest relative difference of any group's
+    biomass in any month between the run at ``substeps`` and the run at
+    ``finer`` sub-steps (infinite if either is not finite), at ``group`` in
+    ``month``. ``converged`` says whether it is within the tolerance asked.
+    """
+
+    substeps: int
+    finer: int
+    max_difference: float
+    group: str
+    month: int
+    converged: bool
+
+
+def substep_check(
+    scenario: "RsimScenario",
+    years: Optional[range] = None,
+    *,
+    factor: int = 2,
+    tolerance: float = 1e-3,
+) -> SubstepCheck:
+    """Does the run change when its RK4 sub-steps are multiplied?
+
+    Runs the scenario as it is and with ``factor`` times its sub-steps
+    (``RK4_STEPS``), and compares the biomass of every living and detritus
+    group in every month. A run with too few sub-steps for an integrated
+    group's turnover differs widely or is not finite; one with enough
+    differs by little. The scenario is not changed. Check a scenario that
+    moves (changed fishing, forcing): one at rest shows nothing.
+
+    Parameters
+    ----------
+    scenario : RsimScenario
+        The scenario to check, e.g. from ``integrate_groups``.
+    years : range, optional
+        As for ``rsim_run``.
+    factor : int
+        The finer run has ``factor`` times the sub-steps (default 2).
+    tolerance : float
+        ``converged`` is True when the largest relative difference is at
+        most this (default 1e-3).
+    """
+    if isinstance(factor, bool) or int(factor) != factor or factor < 2:
+        raise ValueError(f"factor must be a whole number of 2 or more, not {factor!r}")
+    coarse = int(getattr(scenario.params, "RK4_STEPS", 4) or 1)
+    finer = copy.deepcopy(scenario)
+    finer.params.RK4_STEPS = coarse * int(factor)
+    names = [str(n).strip() for n in scenario.params.spname]
+    n_bio = int(scenario.params.NUM_LIVING) + int(scenario.params.NUM_DEAD)
+    with np.errstate(all="ignore"):
+        a = np.asarray(rsim_run(copy.deepcopy(scenario), years=years).out_Biomass)
+        b = np.asarray(rsim_run(finer, years=years).out_Biomass)
+    a, b = a[:, 1 : n_bio + 1], b[:, 1 : n_bio + 1]
+    bad = ~(np.isfinite(a) & np.isfinite(b))
+    with np.errstate(all="ignore"):
+        diff = np.abs(a - b) / np.maximum(np.abs(b), 1e-300)
+    diff = np.where(bad, np.inf, diff)
+    month, col = np.unravel_index(int(np.argmax(diff)), diff.shape)
+    worst = float(diff[month, col])
+    return SubstepCheck(
+        substeps=coarse,
+        finer=coarse * int(factor),
+        max_difference=worst,
+        group=names[col + 1],
+        month=int(month),
+        converged=bool(worst <= tolerance),
+    )
+
+
 def rsim_run(
     scenario: RsimScenario,
     method: str = "RK4",

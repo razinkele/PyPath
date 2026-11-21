@@ -362,7 +362,7 @@ def test_groups_a_run_does_not_integrate_are_refused(spatial_scenario):
         )
     assert "fast-equilibrium group" in str(error.value)
     assert names[fast + 1] in str(error.value)
-    assert 'fast_group_rule="rpath"' in str(error.value)
+    assert "integrate_groups" in str(error.value)
 
 
 def test_a_run_longer_than_the_flows_and_a_grid_outside_them_are_refused(
