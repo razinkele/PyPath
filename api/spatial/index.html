@@ -7555,6 +7555,18 @@ the groups they carry; see <code>pypath.spatial.transport</code></p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="pypath.spatial.ecospace_params.EcospaceParams.monthly_capacity">monthly_capacity</span></code></td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="pypath.spatial.monthly_capacity.MonthlyCapacity">MonthlyCapacity</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A habitat capacity for every month for chosen groups, acting on the
+local dynamics; see <code>pypath.spatial.monthly_capacity</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="pypath.spatial.ecospace_params.EcospaceParams.environmental_drivers">environmental_drivers</span></code></td>
             <td>
                   <code><span title="typing.Optional">Optional</span>[<span title="object">object</span>]</code>
@@ -7740,7 +7752,14 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 <span class="normal">525</span>
 <span class="normal">526</span>
 <span class="normal">527</span>
-<span class="normal">528</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">528</span>
+<span class="normal">529</span>
+<span class="normal">530</span>
+<span class="normal">531</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EcospaceParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Spatial parameters for ECOSPACE simulation.</span>
 
@@ -7779,6 +7798,9 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 <span class="sd">    water_transport : Optional[WaterTransport]</span>
 <span class="sd">        Monthly water flows between zones (a hydrodynamic box model's) and</span>
 <span class="sd">        the groups they carry; see ``pypath.spatial.transport``</span>
+<span class="sd">    monthly_capacity : Optional[MonthlyCapacity]</span>
+<span class="sd">        A habitat capacity for every month for chosen groups, acting on the</span>
+<span class="sd">        local dynamics; see ``pypath.spatial.monthly_capacity``</span>
 <span class="sd">    environmental_drivers : Optional[object]</span>
 <span class="sd">        Time-varying environmental drivers (EnvironmentalDrivers instance)</span>
 <span class="sd">    new_multi_stanza : bool</span>
@@ -7814,6 +7836,10 @@ Ecosim for a model whose detritus pools pass to each other.</p>
     <span class="c1"># pypath.spatial.transport), applied implicitly once a month. Last, so that</span>
     <span class="c1"># positional arguments keep their places.</span>
     <span class="n">water_transport</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># A capacity per month for chosen groups (MonthlyCapacity of</span>
+    <span class="c1"># pypath.spatial.monthly_capacity): the month's feeding efficiency per</span>
+    <span class="c1"># patch; habitat_capacity stays the base map.</span>
+    <span class="n">monthly_capacity</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""Validate spatial parameters."""</span>
@@ -7905,14 +7931,7 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">473</span>
-<span class="normal">474</span>
-<span class="normal">475</span>
-<span class="normal">476</span>
-<span class="normal">477</span>
-<span class="normal">478</span>
-<span class="normal">479</span>
-<span class="normal">480</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">480</span>
 <span class="normal">481</span>
 <span class="normal">482</span>
 <span class="normal">483</span>
@@ -7960,7 +7979,14 @@ Ecosim for a model whose detritus pools pass to each other.</p>
 <span class="normal">525</span>
 <span class="normal">526</span>
 <span class="normal">527</span>
-<span class="normal">528</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="normal">528</span>
+<span class="normal">529</span>
+<span class="normal">530</span>
+<span class="normal">531</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Validate spatial parameters."""</span>
     <span class="n">n_patches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">n_patches</span>
 
@@ -9010,14 +9036,7 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">531</span>
-<span class="normal">532</span>
-<span class="normal">533</span>
-<span class="normal">534</span>
-<span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">538</span>
 <span class="normal">539</span>
 <span class="normal">540</span>
 <span class="normal">541</span>
@@ -9052,7 +9071,14 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 <span class="normal">570</span>
 <span class="normal">571</span>
 <span class="normal">572</span>
-<span class="normal">573</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SpatialState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Extended state for spatial simulation.</span>
 
@@ -9152,15 +9178,15 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">550</span>
-<span class="normal">551</span>
-<span class="normal">552</span>
-<span class="normal">553</span>
-<span class="normal">554</span>
-<span class="normal">555</span>
-<span class="normal">556</span>
-<span class="normal">557</span>
-<span class="normal">558</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">collapse_to_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">557</span>
+<span class="normal">558</span>
+<span class="normal">559</span>
+<span class="normal">560</span>
+<span class="normal">561</span>
+<span class="normal">562</span>
+<span class="normal">563</span>
+<span class="normal">564</span>
+<span class="normal">565</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">collapse_to_total</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Sum biomass across patches for compatibility.</span>
 
 <span class="sd">    Returns</span>
@@ -9247,20 +9273,20 @@ Index 0 = "Outside" (detritus, patch-invariant)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/ecospace_params.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">560</span>
-<span class="normal">561</span>
-<span class="normal">562</span>
-<span class="normal">563</span>
-<span class="normal">564</span>
-<span class="normal">565</span>
-<span class="normal">566</span>
-<span class="normal">567</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">567</span>
 <span class="normal">568</span>
 <span class="normal">569</span>
 <span class="normal">570</span>
 <span class="normal">571</span>
 <span class="normal">572</span>
-<span class="normal">573</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_patch_biomass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patch_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_patch_biomass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patch_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Get biomass in a specific patch.</span>
 
 <span class="sd">    Parameters</span>
