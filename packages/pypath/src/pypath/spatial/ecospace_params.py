@@ -68,6 +68,9 @@ class EcospaceGrid:
     cell_metadata: Optional["pd.DataFrame"] = (
         None  # row/col/depth/habitat_type_id per patch
     )
+    # Centroids on a plane in km [n_patches, 2]. When given, distances between
+    # patches are taken from it instead of patch_centroids in degrees x 111.
+    centroid_km: Optional[np.ndarray] = None
 
     def __post_init__(self):
         """Validate grid data."""
@@ -92,6 +95,13 @@ class EcospaceGrid:
         # Check that all areas are positive
         if np.any(self.patch_areas <= 0):
             raise ValueError("All patch areas must be positive")
+
+        if self.centroid_km is not None:
+            self.centroid_km = np.asarray(self.centroid_km, dtype=float)
+            if self.centroid_km.shape != (self.n_patches, 2):
+                raise ValueError(
+                    f"centroid_km shape {self.centroid_km.shape} != ({self.n_patches}, 2)"
+                )
 
         # Check that adjacency matrix is symmetric (sparse-safe)
         # Avoid densifying large adjacency matrices which can OOM; instead
@@ -141,6 +151,41 @@ class EcospaceGrid:
         from pypath.spatial.gis_utils import load_spatial_grid
 
         return load_spatial_grid(filepath, id_field, area_field, crs)
+
+    @classmethod
+    def from_shyfem_grd(
+        cls,
+        path,
+        patches="element",
+        *,
+        units: str = "auto",
+        crs: Optional[str] = None,
+        geometry: bool = False,
+    ) -> EcospaceGrid:
+        """Create a grid from a SHYFEM finite-element mesh (``.grd``).
+
+        Parameters
+        ----------
+        path : str, Path or pypath.io.shyfem.ShyfemMesh
+            The ``.grd`` file or a mesh already read.
+        patches : {"element", "type"} or np.ndarray
+            One patch per element, one per element type (the box number of
+            a SHYFEM box model), or a zone id per element.
+        units : {"auto", "degrees", "m", "km"}
+            Units of the file's coordinates; "auto" takes degrees when every
+            coordinate can be a longitude and latitude.
+        crs : str, optional
+            Coordinate system to record on the grid.
+        geometry : bool
+            Also build the patch polygons (needs geopandas).
+
+        See ``pypath.spatial.mesh`` for how areas, borders and depth are made.
+        """
+        from pypath.spatial.mesh import grid_from_shyfem_grd
+
+        return grid_from_shyfem_grd(
+            path, patches, units=units, crs=crs, geometry=geometry
+        )
 
     @classmethod
     def from_regular_grid(

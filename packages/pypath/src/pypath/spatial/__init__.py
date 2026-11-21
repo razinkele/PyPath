@@ -148,6 +148,9 @@ from pypath.spatial.larval_dispersal import (
     larval_connectivity_matrix,
     settle_larvae,
 )
+
+# Finite-element meshes
+from pypath.spatial.mesh import grid_from_mesh, grid_from_shyfem_grd
 from pypath.spatial.movement import (
     MovementKernel,
     aggregation_index,
@@ -177,6 +180,8 @@ __all__ = [
     "load_spatial_grid",
     "create_regular_grid",
     "create_1d_grid",
+    "grid_from_mesh",
+    "grid_from_shyfem_grd",
     "build_initial_state_vector",
     "run_coupled_simulation",
     # Connectivity
