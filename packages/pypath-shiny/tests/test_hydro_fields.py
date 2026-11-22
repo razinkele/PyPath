@@ -274,7 +274,10 @@ def test_the_substep_comparison_names_the_worst_group_and_fails_on_bad_values(
     b[3, row, 1] = 1.02
     moderate = compare_substeps(Out(a), Out(b), scenario, 4)
     assert moderate.level == "moderate" and not moderate.converged
-    assert "solved at equilibrium" in moderate.message
+    # a cause is named only when the run has groups at equilibrium
+    named = "solved at equilibrium" in moderate.message
+    assert named == moderate.equilibrium_groups
+    assert named or "Raise the sub-steps if this matters" in moderate.message
     b[3, row, 1] = np.nan
     failed = compare_substeps(Out(a), Out(b), scenario, 4)
     assert failed.max_difference == np.inf and "failed" in failed.message
@@ -304,8 +307,15 @@ def test_groups_solved_at_equilibrium_are_not_compared(scenario):
     b = a.copy()
     b[2, 1, 0] = 3.0
     assert compare_substeps(Out(a), Out(b), scen, 4).converged
+    b[2, 2, 0] = 1.02  # a group that is integrated, next to the fast one
+    beside = compare_substeps(Out(a), Out(b), scen, 4)
+    assert beside.level == "moderate" and "solved at equilibrium" in beside.message
     scen.params.NoIntegrate = np.zeros_like(flags)
-    assert compare_substeps(Out(a), Out(b), scen, 4).level == "failed"
+    alone = compare_substeps(Out(a), Out(b), scen, 4)
+    assert alone.level == "failed" and not alone.equilibrium_groups
+    b[2, 1, 0] = 1.0
+    plain = compare_substeps(Out(a), Out(b), scen, 4)
+    assert plain.level == "moderate" and "equilibrium" not in plain.message
 
 
 def test_the_bounds_are_kept_on_the_server(series, scenario, monkeypatch):
@@ -374,3 +384,22 @@ def test_the_checked_run_reports_progress_over_both_runs_and_can_be_stopped(
         run_spatial_checked(
             scenario, ecospace, None, control=StopsInTheSecondRun(), check_substeps=True
         )
+
+
+def test_a_grid_whose_patches_have_names_is_reported_not_refused(series, grid):
+    """A polygon grid may keep ids such as "east": no box holds them."""
+    import copy
+
+    named = copy.copy(grid)
+    named.cell_metadata = None
+    named.patch_ids = np.array(["east", "mid", "west"], dtype=object)
+    info = summarise_boxes(series, named)
+    assert info.missing_zones == ["east", "mid", "west"] and not info.fits_grid
+    assert "zones east, mid, west" in info.problems[0]
+    assert np.isnan(field_on_patches(series, named, "salt", 0)).all()
+    mixed = copy.copy(named)
+    mixed.patch_ids = np.array([1.0, "2", "x"], dtype=object)
+    assert summarise_boxes(series, mixed).missing_zones == ["x"]
+    np.testing.assert_allclose(
+        field_on_patches(series, mixed, "salt", 0)[:2], [1.0, 2.0]
+    )

@@ -146,8 +146,11 @@ def summarise_boxes(series: ShyfemBoxSeries, grid=None) -> BoxSummary:
             "shown, but water transport needs both."
         )
     if grid is not None:
-        zones = np.unique(patch_zones(grid))
-        missing = sorted(int(z) for z in np.setdiff1d(zones, series.boxes))
+        zones, boxes = _zone_numbers(patch_zones(grid)), set(series.boxes.tolist())
+        # a zone that is not a whole number (a polygon grid may name its
+        # patches) is in no box
+        missing = sorted({z for z in zones if z not in boxes}, key=str)
+        zones = set(zones)
         summary.missing_zones = missing
         summary.n_patches = int(grid.n_patches)
         summary.n_zones = int(len(zones))
@@ -162,6 +165,19 @@ def summarise_boxes(series: ShyfemBoxSeries, grid=None) -> BoxSummary:
     return summary
 
 
+def _zone_numbers(zones) -> list:
+    """Each zone id as an int where it is a whole number, else as it is."""
+    out = []
+    for z in np.asarray(zones).tolist():
+        try:
+            number = float(z)
+        except (TypeError, ValueError):
+            out.append(z)
+            continue
+        out.append(int(number) if number == int(number) else z)
+    return out
+
+
 def field_on_patches(
     series: ShyfemBoxSeries, grid, variable: str, month: int
 ) -> np.ndarray:
@@ -170,11 +186,12 @@ def field_on_patches(
     A patch in a zone the file has no box for is NaN.
     """
     values = series.variable(variable)[int(month)]
-    zones = patch_zones(grid)
-    where = np.searchsorted(series.boxes, zones)
-    where = np.clip(where, 0, len(series.boxes) - 1)
-    found = series.boxes[where] == zones
-    return np.where(found, values[where], np.nan)
+    index = {int(b): k for k, b in enumerate(series.boxes.tolist())}
+    where = [
+        index.get(z) if isinstance(z, int) else None
+        for z in _zone_numbers(patch_zones(grid))
+    ]
+    return np.array([np.nan if k is None else values[k] for k in where], dtype=float)
 
 
 def field_range(series: ShyfemBoxSeries, variable: str) -> tuple:
@@ -327,6 +344,9 @@ class SubstepResult:
     group: str
     month: int
     converged: bool
+    # whether the run solved any group at equilibrium (a possible cause of
+    # a moderate difference)
+    equilibrium_groups: bool = False
 
     @property
     def level(self) -> str:
@@ -348,10 +368,14 @@ class SubstepResult:
             return (
                 f"Sub-step check: doubling the {self.substeps} sub-steps a "
                 f"month changes {self.group} by up to {self.max_difference:.1%} "
-                f"(month {self.month}). Differences of this size come from the "
-                "groups solved at equilibrium, which follow it more closely "
-                "with more sub-steps; a run without water transport shows "
-                "them too."
+                f"(month {self.month})."
+                + (
+                    " Groups solved at equilibrium follow it more closely with "
+                    "more sub-steps, which can move the groups that feed on "
+                    "them by this much."
+                    if self.equilibrium_groups
+                    else " Raise the sub-steps if this matters for your question."
+                )
             )
         size = (
             "the finer run failed"
@@ -397,9 +421,11 @@ def compare_substeps(
     diff = np.where(small, 0.0, diff)
     diff = np.where(np.isfinite(a) & np.isfinite(b), diff, np.inf)
     flags = getattr(params, "NoIntegrate", None)
+    any_fast = False
     if getattr(params, "RK4_FAST_EQUILIBRIUM", True) and flags is not None:
         fast = np.asarray(flags)[1 : n_bio + 1] > 0
         diff[:, fast] = 0.0
+        any_fast = bool(fast.any())
     where = np.unravel_index(int(np.argmax(diff)), diff.shape)
     worst = float(diff[where])
     return SubstepResult(
@@ -409,4 +435,5 @@ def compare_substeps(
         group=names[int(where[1]) + 1],
         month=int(where[0]),
         converged=bool(worst <= tolerance),
+        equilibrium_groups=any_fast,
     )
