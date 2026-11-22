@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.18.0 (2026-11-22)
+
+### Bug Fixes
+
+- **shiny**: Box output on a grid with named patches, and a plain moderate message
+  ([`a9464be`](https://github.com/razinkele/PyPath/commit/a9464bebe284111b09d310c1570170704e3c5235))
+
+- **shiny**: The sub-step check compares integrated groups, and server-side bounds
+  ([`295fead`](https://github.com/razinkele/PyPath/commit/295feaddf40256486400f6881d315675463ddadb))
+
+### Features
+
+- **shiny**: A SHYFEM box model's fields and water transport on the Ecospace page
+  ([`8a05c8f`](https://github.com/razinkele/PyPath/commit/8a05c8f216cb9d70e72db786704fe94949d9936e))
+
+
 ## v1.17.0 (2026-11-21)
 
 ### Bug Fixes
