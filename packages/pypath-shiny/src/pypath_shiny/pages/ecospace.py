@@ -67,6 +67,7 @@ from pypath_shiny.services.hydro_fields import (
     BEYOND_CHOICES,
     DEFAULT_SUBSTEPS,
     FIELD_LABELS,
+    MAX_SUBSTEPS,
     build_transport,
     field_on_patches,
     field_range,
@@ -800,12 +801,13 @@ def ecospace_ui():
                             "Sub-steps a month (when a fast group is carried)",
                             value=DEFAULT_SUBSTEPS,
                             min=1,
-                            max=64,
+                            max=MAX_SUBSTEPS,
                             step=1,
                         ),
                         ui.input_checkbox(
                             "transport_check",
-                            "Check the sub-steps (the run takes three times as long)",
+                            "Check the sub-steps when a fast group is carried "
+                            "(the run takes three times as long)",
                             value=True,
                         ),
                         ui.input_select(
@@ -2121,7 +2123,9 @@ def ecospace_server(
                         ", ".join(integrated)
                         + f" integrated at {substeps} sub-steps a month."
                     )
-                check_substeps = bool(input.transport_check())
+                # the check is about the integrated groups: without one
+                # the sub-steps are the scenario's own and nothing is asked
+                check_substeps = bool(integrated) and bool(input.transport_check())
 
             # The worker integrates a copy: the page's scenario stays usable
             # (and editable) while the run computes.
@@ -2171,11 +2175,12 @@ def ecospace_server(
         _spatial_switching.set(outcome.switching)
         lines = [("text-muted", note) for note in outcome.notes]
         if outcome.substeps is not None:
-            passed = outcome.substeps.converged
-            lines.append(
-                ("text-success" if passed else "text-danger", outcome.substeps.message)
+            level = outcome.substeps.level
+            css = {"passed": "text-success", "moderate": "text-muted"}.get(
+                level, "text-danger"
             )
-            if not passed:
+            lines.append((css, outcome.substeps.message))
+            if level == "failed":
                 _notify_legacy(outcome.substeps.message, type="warning", duration=12)
         _spatial_notes.set(tuple(lines))
 

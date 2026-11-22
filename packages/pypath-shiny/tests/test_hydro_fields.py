@@ -260,18 +260,117 @@ def test_the_substep_comparison_names_the_worst_group_and_fails_on_bad_values(
         def __init__(self, biomass):
             self.out_Biomass_spatial = biomass
 
-    n = scenario.params.NUM_GROUPS + 1
+    params = scenario.params
+    slow = next(c for c in transport_groups(scenario) if not c.fast)
+    row = slow.row + 1
+    n = params.NUM_GROUPS + 1
     a = np.ones((5, n, 2))
     b = a.copy()
-    b[3, 2, 1] = 1.25
+    b[3, row, 1] = 1.25
     result = compare_substeps(Out(a), Out(b), scenario, 4)
-    assert not result.converged and result.max_difference == pytest.approx(0.2)
-    assert (result.month, result.group) == (3, str(scenario.params.spname[2]).strip())
+    assert result.level == "failed" and result.max_difference == pytest.approx(0.2)
+    assert (result.month, result.group) == (3, slow.name)
     assert "20.0%" in result.message and "8 sub-steps" in result.message
-    b[3, 2, 1] = np.nan
+    b[3, row, 1] = 1.02
+    moderate = compare_substeps(Out(a), Out(b), scenario, 4)
+    assert moderate.level == "moderate" and not moderate.converged
+    assert "solved at equilibrium" in moderate.message
+    b[3, row, 1] = np.nan
     failed = compare_substeps(Out(a), Out(b), scenario, 4)
     assert failed.max_difference == np.inf and "failed" in failed.message
     # only the groups are compared, not the Outside row
     c = a.copy()
     c[:, 0] = 99.0
-    assert compare_substeps(Out(a), Out(c), scenario, 4).converged
+    assert compare_substeps(Out(a), Out(c), scenario, 4).level == "passed"
+    # nor values a millionth of the group's largest: a group dying out
+    d, e = a.copy(), a.copy()
+    d[4, row, 0], e[4, row, 0] = 1e-20, 1e-40
+    assert compare_substeps(Out(d), Out(e), scenario, 4).converged
+
+
+def test_groups_solved_at_equilibrium_are_not_compared(scenario):
+    import copy
+
+    class Out:
+        def __init__(self, biomass):
+            self.out_Biomass_spatial = biomass
+
+    scen = copy.deepcopy(scenario)
+    scen.params.RK4_FAST_EQUILIBRIUM = True
+    flags = np.zeros(scen.params.NUM_GROUPS + 1)
+    flags[1] = 1  # the first group is fast
+    scen.params.NoIntegrate = flags
+    a = np.ones((5, scen.params.NUM_GROUPS + 1, 2))
+    b = a.copy()
+    b[2, 1, 0] = 3.0
+    assert compare_substeps(Out(a), Out(b), scen, 4).converged
+    scen.params.NoIntegrate = np.zeros_like(flags)
+    assert compare_substeps(Out(a), Out(b), scen, 4).level == "failed"
+
+
+def test_the_bounds_are_kept_on_the_server(series, scenario, monkeypatch):
+    choices = transport_groups(scenario)
+    fast = [c for c in choices if c.eligible and c.fast]
+    if fast:
+        for bad in (0, hydro_fields.MAX_SUBSTEPS + 1):
+            with pytest.raises(ValueError, match="between 1 and"):
+                transport_scenario(scenario, choices, [fast[0].row], substeps=bad)
+    monkeypatch.setattr(hydro_fields, "MAX_TRANSPORT_BOXES", 2)
+    with pytest.raises(ValueError, match="water transport takes up to 2 boxes"):
+        build_transport(series, [0])
+    monkeypatch.undo()
+    monkeypatch.setattr(hydro_fields, "MAX_TRANSPORT_CELLS", 100)
+    with pytest.raises(ValueError, match="flow table"):
+        build_transport(series, [0])
+
+
+def test_the_checked_run_reports_progress_over_both_runs_and_can_be_stopped(
+    series, grid, scenario
+):
+    from pypath.core.ecosim import RunCancelled
+
+    from pypath_shiny.services.background_runs import run_spatial, run_spatial_checked
+    from pypath_shiny.services.ecosim_solver import RunControl
+
+    n = scenario.params.NUM_GROUPS
+    ecospace = EcospaceParams(
+        grid=grid,
+        habitat_preference=np.ones((n, 3)),
+        habitat_capacity=np.ones((n, 3)),
+        dispersal_rate=np.zeros(n),
+        advection_enabled=np.zeros(n, dtype=bool),
+        gravity_strength=np.zeros(n),
+    )
+    plain = run_spatial(scenario, ecospace, None)
+    out, none = run_spatial_checked(scenario, ecospace, None)
+    assert none is None
+    np.testing.assert_array_equal(out.out_Biomass_spatial, plain.out_Biomass_spatial)
+
+    seen = []
+
+    class Recording(RunControl):
+        def on_month(self, month, n_months):
+            seen.append((month, n_months))
+            return super().on_month(month, n_months)
+
+    out, result = run_spatial_checked(
+        scenario, ecospace, None, control=Recording(), check_substeps=True
+    )
+    # the run returned is the one at the scenario's own sub-steps
+    np.testing.assert_array_equal(out.out_Biomass_spatial, plain.out_Biomass_spatial)
+    assert result.finer == 2 * result.substeps and result.level == "passed"
+    months = [m for m, _ in seen]
+    total = {t for _, t in seen}
+    assert months == sorted(months) and len(total) == 1
+    assert months[-1] == total.pop()  # ends at (3n, 3n)
+
+    class StopsInTheSecondRun(RunControl):
+        def on_month(self, month, n_months):
+            if month > n_months // 3 + 2:
+                self.request_stop()
+            return super().on_month(month, n_months)
+
+    with pytest.raises(RunCancelled):
+        run_spatial_checked(
+            scenario, ecospace, None, control=StopsInTheSecondRun(), check_substeps=True
+        )

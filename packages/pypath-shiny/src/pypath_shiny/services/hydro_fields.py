@@ -24,6 +24,9 @@ __all__ = [
     "DEFAULT_SUBSTEPS",
     "MAX_BOX_BYTES",
     "MAX_BOXES",
+    "MAX_SUBSTEPS",
+    "MAX_TRANSPORT_BOXES",
+    "MAX_TRANSPORT_CELLS",
     "BoxSummary",
     "GroupChoice",
     "SubstepResult",
@@ -43,9 +46,16 @@ __all__ = [
 MAX_BOX_BYTES = 64 * 1024 * 1024
 MAX_BOXES = 5_000
 
+# The water transport keeps a flow table of months x boxes x boxes: bound
+# it apart from the boxes a field map can show.
+MAX_TRANSPORT_BOXES = 500
+MAX_TRANSPORT_CELLS = 50_000_000
+
 # RK4 sub-steps a month when fast groups are integrated to be carried: a
-# lagoon model's zooplankton with phytoplankton needed 4.
+# lagoon model's zooplankton with phytoplankton needed 4. The run time grows
+# in proportion, so the number is bounded here, not only in the browser.
 DEFAULT_SUBSTEPS = 4
+MAX_SUBSTEPS = 64
 
 BEYOND_CHOICES = {
     "repeat_year": "Repeat the last twelve months",
@@ -253,6 +263,13 @@ def build_transport(
         raise ValueError(f"beyond must be one of {sorted(BEYOND_CHOICES)}")
     if beyond in ("repeat_year", "mean_year") and len(series.times) < 12:
         beyond = "hold"
+    n_boxes, n_months = len(series.boxes), len(series.times) + 12  # + a mean year
+    if n_boxes > MAX_TRANSPORT_BOXES or n_months * n_boxes**2 > MAX_TRANSPORT_CELLS:
+        raise ValueError(
+            f"the file has {n_boxes:,} boxes over {len(series.times):,} months; "
+            f"water transport takes up to {MAX_TRANSPORT_BOXES} boxes and a "
+            f"flow table of {MAX_TRANSPORT_CELLS:,} cells (months x boxes x boxes)"
+        )
     return WaterTransport.from_shyfem_box_series(
         series,
         [int(r) for r in rows],
@@ -279,15 +296,30 @@ def transport_scenario(scenario, choices: Sequence[GroupChoice], rows, substeps=
     if not fast:
         return scenario, []
     steps = DEFAULT_SUBSTEPS if substeps is None else int(substeps)
+    if not 1 <= steps <= MAX_SUBSTEPS:
+        raise ValueError(
+            f"sub-steps a month must be between 1 and {MAX_SUBSTEPS}, not {steps}"
+        )
     return (
         integrate_groups(scenario, [c.row for c in fast], substeps=steps),
         [c.name for c in fast],
     )
 
 
+# Above this a difference means the sub-steps are too few for an integrated
+# group (such runs oscillate or fail, and differ widely). Between the
+# tolerance and this, the run is usable: groups at equilibrium follow their
+# equilibrium more closely with more sub-steps, and their predators with them.
+FAILED_DIFFERENCE = 0.05
+
+
 @dataclass
 class SubstepResult:
-    """How much a run changed when its sub-steps were doubled."""
+    """How much a run changed when its sub-steps were doubled.
+
+    ``level`` is "passed" (within the tolerance), "moderate" (up to
+    ``FAILED_DIFFERENCE``) or "failed".
+    """
 
     substeps: int
     finer: int
@@ -297,12 +329,29 @@ class SubstepResult:
     converged: bool
 
     @property
-    def message(self) -> str:
+    def level(self) -> str:
         if self.converged:
+            return "passed"
+        if self.max_difference <= FAILED_DIFFERENCE:
+            return "moderate"
+        return "failed"
+
+    @property
+    def message(self) -> str:
+        if self.level == "passed":
             return (
                 f"Sub-step check passed: doubling the {self.substeps} sub-steps "
-                f"a month changes no biomass by more than "
+                f"a month changes no integrated group's biomass by more than "
                 f"{self.max_difference:.1e} of its value."
+            )
+        if self.level == "moderate":
+            return (
+                f"Sub-step check: doubling the {self.substeps} sub-steps a "
+                f"month changes {self.group} by up to {self.max_difference:.1%} "
+                f"(month {self.month}). Differences of this size come from the "
+                "groups solved at equilibrium, which follow it more closely "
+                "with more sub-steps; a run without water transport shows "
+                "them too."
             )
         size = (
             "the finer run failed"
@@ -321,10 +370,18 @@ def compare_substeps(
 ) -> SubstepResult:
     """Compare two spatial runs that differ only in their sub-steps.
 
-    The largest relative difference of any living or detritus group's
-    biomass in any patch and month; a value that is not finite in either
-    run counts as an infinite difference (as ``pypath.core.ecosim
-    .substep_check`` counts it).
+    The largest relative difference of an integrated group's biomass in any
+    patch and month; a value that is not finite in either run counts as an
+    infinite difference.
+
+    Groups the scenario solves at equilibrium are not compared. Every
+    sub-step brings such a group halfway to its equilibrium, so with more
+    sub-steps it follows the equilibrium more closely by the rule itself:
+    on a habitat gradient a fast group's biomass in a poor patch differed
+    by 64 % between 4 and 8 sub-steps in a run with nothing integrated.
+    (``pypath.core.ecosim.substep_check`` compares every group.) Values
+    below a millionth of the group's largest are not compared either: a
+    group dying out in a patch reaches different tiny numbers.
     """
     params = scenario.params
     n_bio = int(params.NUM_LIVING) + int(params.NUM_DEAD)
@@ -333,7 +390,16 @@ def compare_substeps(
     b = np.asarray(finer.out_Biomass_spatial)[:, 1 : n_bio + 1]
     with np.errstate(all="ignore"):
         diff = np.abs(a - b) / np.maximum(np.abs(b), 1e-300)
+        peak = np.nanmax(np.where(np.isfinite(b), np.abs(b), 0.0), axis=(0, 2))
+    small = (np.abs(a) < 1e-6 * peak[np.newaxis, :, np.newaxis]) & (
+        np.abs(b) < 1e-6 * peak[np.newaxis, :, np.newaxis]
+    )
+    diff = np.where(small, 0.0, diff)
     diff = np.where(np.isfinite(a) & np.isfinite(b), diff, np.inf)
+    flags = getattr(params, "NoIntegrate", None)
+    if getattr(params, "RK4_FAST_EQUILIBRIUM", True) and flags is not None:
+        fast = np.asarray(flags)[1 : n_bio + 1] > 0
+        diff[:, fast] = 0.0
     where = np.unravel_index(int(np.argmax(diff)), diff.shape)
     worst = float(diff[where])
     return SubstepResult(

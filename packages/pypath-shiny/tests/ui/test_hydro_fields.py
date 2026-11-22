@@ -9,7 +9,8 @@ CI ignores ``tests/ui``. Run by hand (about a minute):
 
     pytest packages/pypath-shiny/tests/ui/test_hydro_fields.py -v
 
-Set ``PYPATH_UI_SHOTS`` to a folder to keep screenshots of the two views.
+Set ``PYPATH_UI_SHOTS`` to a folder to keep screenshots of the two views,
+and ``PYPATH_UI_BIGBOX`` to a large 29-box file to upload it as well.
 """
 
 from __future__ import annotations
@@ -103,8 +104,18 @@ def test_box_output_shows_fields_and_carries_a_group(server, browser, tmp_path):
     )
     done = _text(page, "#spatial_transport_text")
     assert "Water carried " + carried.split(" (fast")[0] in done, done
-    assert "Sub-step check" in done, done
+    # on the page's default habitat gradient the groups at equilibrium move
+    # with the sub-steps: reported, not called a failure
+    assert "Sub-step check: doubling the 4 sub-steps" in done, done
     _shot(page, "hydro_transport_run.png")
+
+    # a file of realistic size, when one is named: it uploads and is read
+    big = os.environ.get("PYPATH_UI_BIGBOX")
+    if big:
+        page.set_input_files("#box_file_upload", big)
+        assert _wait_text(page, "#box_summary_text", "29 boxes", 120), _text(
+            page, "#box_summary"
+        )
 
     assert errors == []
     assert server.tracebacks() == 0
