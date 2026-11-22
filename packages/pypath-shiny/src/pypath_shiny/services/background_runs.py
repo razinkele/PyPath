@@ -40,6 +40,7 @@ __all__ = [
     "ibm_result_is_current",
     "run_ibm_comparison",
     "run_spatial",
+    "run_spatial_checked",
     "scenario_changed_since",
     "scenario_fingerprint",
     "spatial_result_is_current",
@@ -126,6 +127,12 @@ class SpatialOutcome:
         The prey-switching summary of ``source`` at launch.
     fingerprint : str
         ``scenario_fingerprint(source)`` at launch; empty when not taken.
+    substeps : SubstepResult, optional
+        What the sub-step check found, when the run asked for one
+        (``run_spatial_checked``).
+    notes : tuple of str
+        What the run did beyond the page's settings (groups integrated to
+        be carried by water), for the user.
     """
 
     run_id: str
@@ -134,6 +141,8 @@ class SpatialOutcome:
     output: Any
     switching: Any
     fingerprint: str = ""
+    substeps: Any = None
+    notes: tuple = ()
 
 
 #: Environment variable: worker processes for a spatial run (off unless set).
@@ -162,7 +171,9 @@ def spatial_jobs(n_patches: int) -> int:
     return max(1, min(wanted, usable_cpus()))
 
 
-def run_spatial(scenario, ecospace_params, spatial_fishing, control=None, n_jobs=1):
+def run_spatial(
+    scenario, ecospace_params, spatial_fishing, control=None, n_jobs=1, on_month=None
+):
     """Run the spatial simulation; called on a worker thread.
 
     Parameters
@@ -181,6 +192,9 @@ def run_spatial(scenario, ecospace_params, spatial_fishing, control=None, n_jobs
         Worker processes for the patches (:func:`spatial_jobs`). If they
         cannot be started, or die, the run is done again in this process
         alone: the numbers are the same either way.
+    on_month : callable, optional
+        The run's month callback in place of ``control.on_month`` (a caller
+        that runs twice scales the progress it reports).
 
     Returns
     -------
@@ -192,7 +206,10 @@ def run_spatial(scenario, ecospace_params, spatial_fishing, control=None, n_jobs
     RunCancelled
         When ``control`` was asked to stop.
     """
-    hook = {} if control is None else {"on_month": control.on_month}
+    if on_month is not None:
+        hook = {"on_month": on_month}
+    else:
+        hook = {} if control is None else {"on_month": control.on_month}
 
     def run(jobs):
         return rsim_run_spatial(
@@ -217,6 +234,51 @@ def run_spatial(scenario, ecospace_params, spatial_fishing, control=None, n_jobs
             ECOSPACE_JOBS_ENV,
         )
         return run(1)
+
+
+def run_spatial_checked(
+    scenario,
+    ecospace_params,
+    spatial_fishing,
+    control=None,
+    n_jobs=1,
+    check_substeps=False,
+):
+    """Run the spatial simulation and, when asked, check its sub-steps.
+
+    The check runs the scenario again with twice the RK4 sub-steps a month
+    and compares every group's biomass in every patch and month
+    (``hydro_fields.compare_substeps``). The second run costs twice the
+    first, and both stop at the next month boundary after a requested stop.
+    Progress is reported over the three run-lengths as one.
+
+    Returns
+    -------
+    (RsimOutput, SubstepResult or None)
+        The run's output (at the scenario's own sub-steps), and the check.
+    """
+    if not check_substeps:
+        out = run_spatial(scenario, ecospace_params, spatial_fishing, control, n_jobs)
+        return out, None
+    import copy
+
+    from pypath_shiny.services.hydro_fields import compare_substeps
+
+    def stage(done, weight):
+        if control is None:
+            return None
+        return lambda month, n: control.on_month(done * n + weight * month, 3 * n)
+
+    steps = int(getattr(scenario.params, "RK4_STEPS", 1) or 1)
+    finer = copy.deepcopy(scenario)
+    finer.params.RK4_STEPS = 2 * steps
+    out = run_spatial(
+        scenario, ecospace_params, spatial_fishing, control, n_jobs, stage(0, 1)
+    )
+    fine = run_spatial(
+        finer, ecospace_params, spatial_fishing, control, n_jobs, stage(1, 2)
+    )
+    return out, compare_substeps(out, fine, scenario, steps)
 
 
 def spatial_result_is_current(

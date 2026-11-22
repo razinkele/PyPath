@@ -11,6 +11,7 @@ Interactive spatial ecosystem modeling with:
 
 import asyncio
 import copy
+import dataclasses
 import logging
 import shutil
 import tempfile
@@ -40,7 +41,7 @@ from pypath_shiny.config import SPATIAL
 from pypath_shiny.pages.ecosim import month_progress_tags
 from pypath_shiny.services.background_runs import (
     SpatialOutcome,
-    run_spatial,
+    run_spatial_checked,
     scenario_changed_since,
     scenario_fingerprint,
     spatial_jobs,
@@ -62,6 +63,19 @@ from pypath_shiny.services.deckgl_maps import (
     patch_value_layers,
 )
 from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunControl, RunSlot
+from pypath_shiny.services.hydro_fields import (
+    BEYOND_CHOICES,
+    DEFAULT_SUBSTEPS,
+    FIELD_LABELS,
+    build_transport,
+    field_on_patches,
+    field_range,
+    month_labels,
+    read_uploaded_boxes,
+    summarise_boxes,
+    transport_groups,
+    transport_scenario,
+)
 from pypath_shiny.services.mesh_grids import (
     UNIT_LABELS,
     build_mesh_grid,
@@ -107,7 +121,8 @@ GRID_MAP = MapWidget("ecospace_grid_map", **_MAP_OPTIONS)
 HABITAT_MAP = MapWidget("ecospace_habitat_map", **_MAP_OPTIONS)
 EFFORT_MAP = MapWidget("ecospace_effort_map", **_MAP_OPTIONS)
 BIOMASS_MAP = MapWidget("ecospace_biomass_map", **_MAP_OPTIONS)
-_MAPS = (GRID_MAP, HABITAT_MAP, EFFORT_MAP, BIOMASS_MAP)
+FIELD_MAP = MapWidget("ecospace_field_map", **_MAP_OPTIONS)
+_MAPS = (GRID_MAP, HABITAT_MAP, EFFORT_MAP, BIOMASS_MAP, FIELD_MAP)
 
 
 def spatial_task_alert(task_state: TaskState) -> tuple[str, str, str]:
@@ -756,6 +771,51 @@ def ecospace_ui():
                         ),
                         icon=ui.tags.i(class_="bi bi-arrows-move"),
                     ),
+                    # A hydrodynamic model's box output: fields and transport
+                    ui.accordion_panel(
+                        "Hydrodynamic Model",
+                        ui.p(
+                            "Upload a SHYFEM box model's output (boxes_2d.txt) "
+                            "to see its fields on the grid and to let its "
+                            "water flows carry chosen groups. Make the grid "
+                            "from the same model's .grd first.",
+                            class_="text-muted small mb-3",
+                        ),
+                        ui.input_file(
+                            "box_file_upload",
+                            "Upload box output",
+                            accept=[".txt"],
+                            multiple=False,
+                        ),
+                        ui.output_ui("box_summary"),
+                        ui.input_selectize(
+                            "transport_groups",
+                            "Groups the water carries",
+                            choices={},
+                            multiple=True,
+                        ),
+                        ui.output_ui("transport_note"),
+                        ui.input_numeric(
+                            "transport_substeps",
+                            "Sub-steps a month (when a fast group is carried)",
+                            value=DEFAULT_SUBSTEPS,
+                            min=1,
+                            max=64,
+                            step=1,
+                        ),
+                        ui.input_checkbox(
+                            "transport_check",
+                            "Check the sub-steps (the run takes three times as long)",
+                            value=True,
+                        ),
+                        ui.input_select(
+                            "transport_beyond",
+                            "When the run is longer than the file",
+                            choices=BEYOND_CHOICES,
+                            selected="repeat_year",
+                        ),
+                        icon=ui.tags.i(class_="bi bi-water"),
+                    ),
                     # Habitat configuration
                     ui.accordion_panel(
                         "Habitat Preferences",
@@ -868,6 +928,7 @@ def ecospace_ui():
                 ),
                 ui.output_ui("spatial_run_status"),
                 ui.output_ui("spatial_switching_line"),
+                ui.output_ui("spatial_transport_line"),
                 role="complementary",
                 aria_label="Ecospace settings",
                 width=350,
@@ -883,6 +944,29 @@ def ecospace_ui():
                 ui.nav_panel(
                     "Habitat Map",
                     HABITAT_MAP.ui(height="500px"),
+                ),
+                ui.nav_panel(
+                    "Hydrodynamic Fields",
+                    ui.output_ui("field_map_note"),
+                    FIELD_MAP.ui(height="500px"),
+                    ui.div(
+                        ui.input_select(
+                            "box_variable",
+                            "Field:",
+                            choices={},
+                            width="300px",
+                        ),
+                        ui.input_slider(
+                            "box_month",
+                            "Month of the file",
+                            min=1,
+                            max=12,
+                            value=1,
+                            step=1,
+                            animate=True,
+                        ),
+                        class_="mt-3",
+                    ),
                 ),
                 ui.nav_panel(
                     "Fishing Effort",
@@ -980,6 +1064,8 @@ def ecospace_server(
     _ecospace_params = reactive.Value(None)
     _spatial_results = reactive.Value(None)
     _spatial_switching = reactive.Value(None)
+    # what the shown run did with the water transport: (css class, text) lines
+    _spatial_notes = reactive.Value(())
     spatial_task_state = reactive.Value(TaskState(run_id="spatial-idle"))
 
     @reactive.effect
@@ -1188,6 +1274,219 @@ def ecospace_server(
         )
 
     # Create grid based on configuration
+    # --- a hydrodynamic model's box output ---------------------------------
+
+    @reactive.calc
+    def _uploaded_boxes():
+        """The uploaded box output as monthly means, or None; errors are reported."""
+        file_info = input.box_file_upload()
+        if not file_info:
+            return None
+        try:
+            return read_uploaded_boxes(file_info[0]["datapath"])
+        except Exception as e:
+            logger.debug("Could not read the box output: %s", e)
+            _notify_legacy(
+                f"Could not read the box output: {e!s}", type="error", duration=8
+            )
+            return None
+
+    @reactive.calc
+    def _box_summary():
+        series = _uploaded_boxes()
+        return None if series is None else summarise_boxes(series, grid())
+
+    @render.ui
+    def box_summary():
+        """What the uploaded file holds and whether it fits the grid."""
+        info = _box_summary()
+        if info is None:
+            return ui.p(
+                "Files of up to 64 MB are read, about a year of hourly output "
+                "of a 29-box model. The file is not kept on the server.",
+                class_="text-muted small",
+            )
+        lines = [
+            f"{info.n_months} months, {info.first_month} to {info.last_month} "
+            "(monthly means)",
+            f"{info.n_boxes} boxes, {info.n_sections} sections",
+            "Fields: " + ", ".join(info.variables),
+        ]
+        if info.missing_zones is None:
+            lines.append("Create a grid to place the fields.")
+        elif info.fits_grid:
+            lines.append(
+                f"Every one of the grid's {info.n_patches:,} patches lies in a "
+                "box of the file."
+            )
+        return ui.div(
+            *[ui.div(line) for line in lines],
+            *[ui.div(problem, class_="text-danger") for problem in info.problems],
+            ui.div(
+                "The file's first month is taken as the run's first month.",
+                class_="text-muted",
+            ),
+            id="box_summary_text",
+            class_="small mb-2",
+        )
+
+    @reactive.effect
+    def _offer_box_fields():
+        """The file's fields and months, for the field map."""
+        series = _uploaded_boxes()
+        if series is None:
+            ui.update_select("box_variable", choices={})
+            return
+        choices = {name: FIELD_LABELS.get(name, name) for name in series.variables}
+        selected = "salt" if "salt" in choices else series.variables[0]
+        ui.update_select("box_variable", choices=choices, selected=selected)
+        ui.update_slider("box_month", min=1, max=len(series.times), value=1)
+
+    def _box_month_index(series):
+        try:
+            month = int(input.box_month() or 1)
+        except (TypeError, ValueError):
+            month = 1
+        return min(max(month, 1), len(series.times)) - 1
+
+    @render.ui
+    def field_map_note():
+        series, info = _uploaded_boxes(), _box_summary()
+        if series is None:
+            return ui.p(
+                "Upload a box model's output under Hydrodynamic Model to see "
+                "its fields here.",
+                class_="text-muted small",
+            )
+        if info.missing_zones is None:
+            return ui.p("Create a grid to place the fields.", class_="text-muted small")
+        if not info.fits_grid:
+            return ui.p(info.problems[-1], class_="text-danger small")
+        variable = input.box_variable()
+        if variable not in series.variables:
+            return None
+        return ui.p(
+            f"{FIELD_LABELS.get(variable, variable)}, mean of "
+            f"{month_labels(series)[_box_month_index(series)]}",
+            id="field_map_title",
+            class_="fw-semibold mb-1",
+        )
+
+    @reactive.effect
+    async def _push_field_map():
+        series, g = _uploaded_boxes(), grid()
+        variable = input.box_variable()
+        info = _box_summary()
+        if (
+            series is None
+            or g is None
+            or info is None
+            or not info.fits_grid
+            or variable not in series.variables
+        ):
+            await FIELD_MAP.update(_session, [], widgets=[])
+            return
+        values = field_on_patches(series, g, variable, _box_month_index(series))
+        vmin, vmax = field_range(series, variable)
+        label = FIELD_LABELS.get(variable, variable)
+        await FIELD_MAP.update(
+            _session,
+            patch_value_layers(
+                "field",
+                g,
+                values,
+                palette=BIOMASS_PALETTE,
+                vmin=vmin,
+                vmax=vmax,
+                value_name=label,
+                value_format=".3g",
+                labels=g.geometry is not None
+                and g.n_patches <= SPATIAL.large_grid_threshold,
+            ),
+            widgets=[gradient_legend(label, BIOMASS_PALETTE, vmin, vmax, "field")],
+        )
+
+    @reactive.calc
+    def _transport_choices():
+        scenario = _sim_scenario() if _sim_scenario is not None else None
+        if scenario is None:
+            return []
+        try:
+            return transport_groups(scenario)
+        except Exception as e:
+            logger.debug("Could not list the groups for water transport: %s", e)
+            return []
+
+    @reactive.effect
+    def _offer_transport_groups():
+        """The groups water can carry; a new scenario clears the choice."""
+        choices = {
+            str(c.row): c.name + (" (fast: will be integrated)" if c.fast else "")
+            for c in _transport_choices()
+            if c.eligible
+        }
+        ui.update_selectize("transport_groups", choices=choices, selected=[])
+
+    def _transport_rows():
+        try:
+            return [int(r) for r in (input.transport_groups() or ())]
+        except (TypeError, ValueError) as e:
+            logger.debug("Transport group selection rejected: %s", e)
+            return []
+
+    @render.ui
+    def transport_note():
+        """What carrying the chosen groups needs and costs."""
+        choices = _transport_choices()
+        if not choices:
+            return ui.p(
+                "Create an Ecosim scenario to choose groups.",
+                class_="text-muted small",
+            )
+        left_out = [c for c in choices if not c.eligible]
+        rows = _transport_rows()
+        by_row = {c.row: c for c in choices}
+        fast = [by_row[r].name for r in rows if r in by_row and by_row[r].fast]
+        lines = []
+        info = _box_summary()
+        if rows and info is None:
+            lines.append(
+                ui.div("Upload the box output: without it nothing is carried.")
+            )
+        elif rows and not (info.has_flows and info.fits_grid):
+            lines.append(
+                ui.div(
+                    "This file cannot carry groups on this grid (see above).",
+                    class_="text-danger",
+                )
+            )
+        if fast:
+            lines.append(
+                ui.div(
+                    ", ".join(fast) + " will be integrated instead of solved at "
+                    "equilibrium, at the sub-steps below; the run takes that "
+                    "many times as long."
+                )
+            )
+        if left_out:
+            lines.append(
+                ui.div(
+                    "Not offered: "
+                    + "; ".join(f"{c.name} ({c.reason})" for c in left_out[:12])
+                    + (" and others" if len(left_out) > 12 else "")
+                    + ".",
+                    class_="text-muted",
+                )
+            )
+        lines.append(
+            ui.div(
+                "Only water that goes both ways between two boxes carries a "
+                "group (exchange); the net flow through the lagoon does not.",
+                class_="text-muted",
+            )
+        )
+        return ui.div(*lines, id="transport_note_text", class_="small mb-2")
+
     @reactive.effect
     @reactive.event(input.create_grid)
     def create_spatial_grid():
@@ -1627,6 +1926,8 @@ def ecospace_server(
         slot,
         control,
         fingerprint,
+        check_substeps=False,
+        notes=(),
     ):
         """Integrate on a worker thread, off the event loop.
 
@@ -1637,17 +1938,20 @@ def ecospace_server(
         outcome, both on the loop.
         """
         future = RUN_EXECUTOR.submit(
-            run_spatial,
+            run_spatial_checked,
             scen,
             ecospace_params,
             spatial_fishing,
             control=control,
             # worker processes, where asked for (PYPATH_ECOSPACE_JOBS)
             n_jobs=spatial_jobs(ecospace_params.grid.n_patches),
+            check_substeps=check_substeps,
         )
         slot.acquire(future)
-        out = await asyncio.wrap_future(future)
-        return SpatialOutcome(run_id, source, source_grid, out, used, fingerprint)
+        out, substeps = await asyncio.wrap_future(future)
+        return SpatialOutcome(
+            run_id, source, source_grid, out, used, fingerprint, substeps, notes
+        )
 
     def _stop_spatial_run() -> None:
         """Stop the session's spatial run, on the loop.
@@ -1781,6 +2085,44 @@ def ecospace_server(
             )
 
             spatial_fishing = _build_spatial_fishing()
+
+            # Water transport from the uploaded box output, for the groups
+            # chosen: the fast ones among them are integrated in the run's
+            # copy of the scenario.
+            run_scenario, notes, check_substeps = scenario, [], False
+            rows = _transport_rows()
+            if rows:
+                series, info = _uploaded_boxes(), _box_summary()
+                if series is None:
+                    raise ValueError(
+                        "groups are chosen for water transport but no box "
+                        "output is uploaded (Hydrodynamic Model)"
+                    )
+                if not (info.has_flows and info.fits_grid):
+                    raise ValueError(
+                        "the uploaded box output cannot carry groups on this "
+                        "grid: " + " ".join(info.problems)
+                    )
+                choices = _transport_choices()
+                substeps = int(input.transport_substeps() or DEFAULT_SUBSTEPS)
+                run_scenario, integrated = transport_scenario(
+                    scenario, choices, rows, substeps=substeps
+                )
+                transport = build_transport(
+                    series, rows, beyond=input.transport_beyond() or "repeat_year"
+                )
+                ecospace_params = dataclasses.replace(
+                    ecospace_params, water_transport=transport
+                )
+                names = {c.row: c.name for c in choices}
+                notes.append("Water carried " + ", ".join(names[r] for r in rows) + ".")
+                if integrated:
+                    notes.append(
+                        ", ".join(integrated)
+                        + f" integrated at {substeps} sub-steps a month."
+                    )
+                check_substeps = bool(input.transport_check())
+
             # The worker integrates a copy: the page's scenario stays usable
             # (and editable) while the run computes.
             control = RunControl()
@@ -1789,13 +2131,15 @@ def ecospace_server(
                 run_id,
                 scenario,
                 current_grid,
-                copy.deepcopy(scenario),
+                copy.deepcopy(run_scenario),
                 ecospace_params,
                 spatial_fishing=spatial_fishing,
                 used=used,
                 slot=run_slot,
                 control=control,
                 fingerprint=scenario_fingerprint(scenario),
+                check_substeps=check_substeps,
+                notes=tuple(notes),
             )
 
         except Exception as e:
@@ -1825,6 +2169,15 @@ def ecospace_server(
         n_groups = scenario.params.NUM_GROUPS
         _spatial_results.set(result)
         _spatial_switching.set(outcome.switching)
+        lines = [("text-muted", note) for note in outcome.notes]
+        if outcome.substeps is not None:
+            passed = outcome.substeps.converged
+            lines.append(
+                ("text-success" if passed else "text-danger", outcome.substeps.message)
+            )
+            if not passed:
+                _notify_legacy(outcome.substeps.message, type="warning", duration=12)
+        _spatial_notes.set(tuple(lines))
 
         # Post-run: update biomass group dropdown with group names
         spname = getattr(scenario.params, "spname", None)
@@ -1972,6 +2325,20 @@ def ecospace_server(
         return ui.p(
             summary_line(_spatial_switching.get()),
             class_="text-muted small",
+        )
+
+    @render.ui
+    def spatial_transport_line():
+        """What the shown run did with the water transport, and its check."""
+        if _spatial_results.get() is None:
+            return None
+        lines = _spatial_notes.get()
+        if not lines:
+            return None
+        return ui.div(
+            *[ui.div(text, class_=css) for css, text in lines],
+            id="spatial_transport_text",
+            class_="small",
         )
 
     @render.ui

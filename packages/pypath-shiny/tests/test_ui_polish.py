@@ -108,6 +108,7 @@ def test_ecospace_maps_have_a_dark_basemap():
         ecospace_page.HABITAT_MAP,
         ecospace_page.EFFORT_MAP,
         ecospace_page.BIOMASS_MAP,
+        ecospace_page.FIELD_MAP,
     ]
     assert ecospace_page._MAPS == tuple(maps) or list(ecospace_page._MAPS) == maps
     for widget in maps:
