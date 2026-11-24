@@ -33,8 +33,8 @@ __all__ = [
 ]
 
 # A spatial run on more cells than this would hold a worker for hours: a
-# 100 x 200 grid of 0.5 km cells (20,000 patches, 68 groups) needs about an
-# hour per simulated year.
+# 100 x 200 grid of 0.5 km cells (20,000 patches, 68 groups) needs about
+# twelve minutes per simulated year, two hours for ten years.
 MAX_STORED_PATCHES = 10_000
 
 # The scenario's rows x columns, land included, which the reader checks

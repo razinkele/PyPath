@@ -88,6 +88,28 @@ def test_run_time_estimate_grows_with_patches_groups_and_years():
     assert 0.5 < small < 3.0  # measured: 1.3 s
     assert 40 < estimated_run_seconds(2027, 5, 3) < 150  # measured: 85 s
     assert estimated_run_seconds(58, 5, 3) == pytest.approx(2 * small)
+    assert estimated_run_seconds(29, 5, 6) == pytest.approx(2 * small)
+    assert estimated_run_seconds(29, 50, 3) > small
+
+
+@pytest.mark.parametrize(
+    "patches, groups, years, measured",
+    [
+        (29, 20, 5, 2.6),  # the Curonian Lagoon example on its 29 boxes
+        (2027, 20, 1, 33.5),  # ... on the mesh's elements
+        (29, 45, 5, 3.4),  # the Lithuanian Coast example
+        (2027, 45, 1, 47.2),
+        (304, 23, 2, 11.4),  # the Black Sea scenario
+        (1576, 20, 1, 26.2),  # the Curonian pelagic scenario
+        (1576, 73, 1, 55.2),  # the Curonian cohorts scenario
+    ],
+)
+def test_the_estimate_is_just_above_the_runs_it_was_measured_on(
+    patches, groups, years, measured
+):
+    """Seconds on the server, 2026-11-24; a fifth above at most, never below."""
+    estimate = estimated_run_seconds(patches, groups, years)
+    assert measured <= estimate <= 1.25 * measured
 
 
 def test_the_page_offers_the_mesh_grid_type_and_builds_it_through_the_service():

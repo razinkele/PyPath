@@ -33,9 +33,14 @@ __all__ = [
 MAX_MESH_BYTES = 64 * 1024 * 1024
 MAX_MESH_ELEMENTS = 500_000
 
-# Seconds per patch, month and group of a spatial run on the server, from a
-# 5-group model on 29 and on 2027 patches (about 1.2 ms per patch-month).
-_SECONDS_PER_PATCH_MONTH_GROUP = 2.4e-4
+# Seconds of a spatial run on the server per patch and month: a part that
+# does not depend on the model, and a part per group. From runs of 5 to 73
+# groups on 29 to 2,027 patches (measured ms per patch-month: 5 groups 1.2,
+# 20 groups 1.4 to 1.5, 23 groups 1.6, 45 groups 1.9, 73 groups 2.9); the
+# estimate is within a fifth above each of them. One rate per group, as
+# before, was right for 5 groups and six times too high for 73.
+_SECONDS_PER_PATCH_MONTH = 1.0e-3
+_SECONDS_PER_PATCH_MONTH_GROUP = 3.0e-5
 
 UNIT_LABELS = {"degrees": "degrees (longitude, latitude)", "m": "metres", "km": "km"}
 
@@ -146,4 +151,7 @@ def build_mesh_grid(
 
 def estimated_run_seconds(n_patches: int, n_groups: int, years: float) -> float:
     """A rough run time of a spatial simulation on this many patches."""
-    return _SECONDS_PER_PATCH_MONTH_GROUP * n_patches * n_groups * 12.0 * years
+    per_patch_month = (
+        _SECONDS_PER_PATCH_MONTH + _SECONDS_PER_PATCH_MONTH_GROUP * n_groups
+    )
+    return per_patch_month * n_patches * 12.0 * years
