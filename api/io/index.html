@@ -7856,7 +7856,7 @@ print(tables)
 
 
 <a href="#pypath.io.ewemdb.read_ecospace" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">read_ecospace</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="s1">'Optional[EcospaceGrid]'</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ecopath_pb</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">grid_corner</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'north_west'</span><span class="p">,</span> <span class="n">geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">max_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cell_placement</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'ewe'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcospaceReadResult</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">read_ecospace</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="s1">'Optional[EcospaceGrid]'</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ecopath_pb</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">grid_corner</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'north_west'</span><span class="p">,</span> <span class="n">geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">max_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cell_placement</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'ewe'</span><span class="p">,</span> <span class="n">relative_pp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcospaceReadResult</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -8055,6 +8055,28 @@ those of EwE's placement, so the run is the same.</p>
             </td>
             <td>
                   <code>&#34;ewe&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>relative_pp</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keep the scenario's relative primary production map
+(EcospaceScenario.RelPPMap) as <code>EcospaceParams.relative_pp</code> when
+it varies over the water cells, so that a run applies it as EwE
+does. Off by default: a run then treats the map as 1 everywhere,
+as before, and a map that varies is named in a warning. No EwE run
+with such a map has been compared with PyPath's. Only for the grid
+built here: with <code>grid</code> given it raises ValueError.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
@@ -8480,7 +8502,54 @@ than <code>max_cells</code> cells.</p>
 <span class="normal">5893</span>
 <span class="normal">5894</span>
 <span class="normal">5895</span>
-<span class="normal">5896</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
+<span class="normal">5896</span>
+<span class="normal">5897</span>
+<span class="normal">5898</span>
+<span class="normal">5899</span>
+<span class="normal">5900</span>
+<span class="normal">5901</span>
+<span class="normal">5902</span>
+<span class="normal">5903</span>
+<span class="normal">5904</span>
+<span class="normal">5905</span>
+<span class="normal">5906</span>
+<span class="normal">5907</span>
+<span class="normal">5908</span>
+<span class="normal">5909</span>
+<span class="normal">5910</span>
+<span class="normal">5911</span>
+<span class="normal">5912</span>
+<span class="normal">5913</span>
+<span class="normal">5914</span>
+<span class="normal">5915</span>
+<span class="normal">5916</span>
+<span class="normal">5917</span>
+<span class="normal">5918</span>
+<span class="normal">5919</span>
+<span class="normal">5920</span>
+<span class="normal">5921</span>
+<span class="normal">5922</span>
+<span class="normal">5923</span>
+<span class="normal">5924</span>
+<span class="normal">5925</span>
+<span class="normal">5926</span>
+<span class="normal">5927</span>
+<span class="normal">5928</span>
+<span class="normal">5929</span>
+<span class="normal">5930</span>
+<span class="normal">5931</span>
+<span class="normal">5932</span>
+<span class="normal">5933</span>
+<span class="normal">5934</span>
+<span class="normal">5935</span>
+<span class="normal">5936</span>
+<span class="normal">5937</span>
+<span class="normal">5938</span>
+<span class="normal">5939</span>
+<span class="normal">5940</span>
+<span class="normal">5941</span>
+<span class="normal">5942</span>
+<span class="normal">5943</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ecospace</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">scenario_id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
@@ -8490,6 +8559,7 @@ than <code>max_cells</code> cells.</p>
     <span class="n">geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">max_cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">cell_placement</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ewe"</span><span class="p">,</span>
+    <span class="n">relative_pp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EcospaceReadResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read Ecospace configuration from an EwE database.</span>
 
@@ -8547,6 +8617,14 @@ than <code>max_cells</code> cells.</p>
 <span class="sd">        Curonian Lagoon scenarios by 0.57, the Black Sea test case by</span>
 <span class="sd">        0.72). Only the position changes: the distances a run reads stay</span>
 <span class="sd">        those of EwE's placement, so the run is the same.</span>
+<span class="sd">    relative_pp : bool</span>
+<span class="sd">        Keep the scenario's relative primary production map</span>
+<span class="sd">        (EcospaceScenario.RelPPMap) as ``EcospaceParams.relative_pp`` when</span>
+<span class="sd">        it varies over the water cells, so that a run applies it as EwE</span>
+<span class="sd">        does. Off by default: a run then treats the map as 1 everywhere,</span>
+<span class="sd">        as before, and a map that varies is named in a warning. No EwE run</span>
+<span class="sd">        with such a map has been compared with PyPath's. Only for the grid</span>
+<span class="sd">        built here: with ``grid`` given it raises ValueError.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -8595,6 +8673,12 @@ than <code>max_cells</code> cells.</p>
 
     <span class="c1"># 2. Grid construction</span>
     <span class="n">ewe_depth</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">relative_pp</span> <span class="ow">and</span> <span class="n">grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"relative_pp=True needs the grid built from the database (leave "</span>
+            <span class="s2">"grid out): the relative primary production map is stored per "</span>
+            <span class="s2">"EwE cell and has no place on another grid"</span>
+        <span class="p">)</span>
     <span class="k">if</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">n_rows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Inrow"</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
         <span class="n">n_cols</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Incol"</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
@@ -8824,6 +8908,37 @@ than <code>max_cells</code> cells.</p>
                         <span class="n">weight</span><span class="p">,</span>
                     <span class="p">)</span>
 
+    <span class="c1"># 7d. Relative primary production (RelPPMap), stored for the water cells</span>
+    <span class="c1"># like the capacity maps, 1 where the string has no value</span>
+    <span class="n">relative_pp_map</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">ewe_depth</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_is_missing</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RelPPMap"</span><span class="p">)):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">rel</span> <span class="o">=</span> <span class="n">_ewe_map_from_string</span><span class="p">(</span>
+                <span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"RelPPMap"</span><span class="p">),</span>
+                <span class="n">ewe_depth</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="n">ewe_depth</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                <span class="n">fill</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"RelPPMap"</span><span class="p">,</span>
+                <span class="n">water</span><span class="o">=</span><span class="n">ewe_water_input</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">meta</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">cell_metadata</span>
+            <span class="n">cells</span> <span class="o">=</span> <span class="n">rel</span><span class="p">[</span><span class="n">meta</span><span class="p">[</span><span class="s2">"row"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"col"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()]</span>
+            <span class="k">if</span> <span class="n">cells</span><span class="o">.</span><span class="n">size</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">cells</span> <span class="o">==</span> <span class="n">cells</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="n">relative_pp</span><span class="p">:</span>
+                    <span class="n">relative_pp_map</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">"Ecospace scenario </span><span class="si">%s</span><span class="s2"> stores a relative primary "</span>
+                        <span class="s2">"production map that varies between cells (</span><span class="si">%.3g</span><span class="s2"> to "</span>
+                        <span class="s2">"</span><span class="si">%.3g</span><span class="s2">); it is not applied. Pass relative_pp=True to "</span>
+                        <span class="s2">"read_ecospace to keep it."</span><span class="p">,</span>
+                        <span class="n">scenario_id</span><span class="p">,</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">cells</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                        <span class="nb">float</span><span class="p">(</span><span class="n">cells</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+                    <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">EwEDatabaseError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Failed to read the relative primary production map: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+
     <span class="c1"># 8. Build EcospaceParams</span>
     <span class="n">ecospace</span> <span class="o">=</span> <span class="n">EcospaceParams</span><span class="p">(</span>
         <span class="n">grid</span><span class="o">=</span><span class="n">grid</span><span class="p">,</span>
@@ -8833,6 +8948,7 @@ than <code>max_cells</code> cells.</p>
         <span class="n">advection_enabled</span><span class="o">=</span><span class="n">advection_enabled</span><span class="p">,</span>
         <span class="n">gravity_strength</span><span class="o">=</span><span class="n">gravity_strength</span><span class="p">,</span>
         <span class="n">new_multi_stanza</span><span class="o">=</span><span class="n">_uses_new_multi_stanza</span><span class="p">(</span><span class="n">scenario_row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ModelType"</span><span class="p">)),</span>
+        <span class="n">relative_pp</span><span class="o">=</span><span class="n">relative_pp_map</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">EcospaceReadResult</span><span class="p">(</span>
@@ -9220,54 +9336,7 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6901</span>
-<span class="normal">6902</span>
-<span class="normal">6903</span>
-<span class="normal">6904</span>
-<span class="normal">6905</span>
-<span class="normal">6906</span>
-<span class="normal">6907</span>
-<span class="normal">6908</span>
-<span class="normal">6909</span>
-<span class="normal">6910</span>
-<span class="normal">6911</span>
-<span class="normal">6912</span>
-<span class="normal">6913</span>
-<span class="normal">6914</span>
-<span class="normal">6915</span>
-<span class="normal">6916</span>
-<span class="normal">6917</span>
-<span class="normal">6918</span>
-<span class="normal">6919</span>
-<span class="normal">6920</span>
-<span class="normal">6921</span>
-<span class="normal">6922</span>
-<span class="normal">6923</span>
-<span class="normal">6924</span>
-<span class="normal">6925</span>
-<span class="normal">6926</span>
-<span class="normal">6927</span>
-<span class="normal">6928</span>
-<span class="normal">6929</span>
-<span class="normal">6930</span>
-<span class="normal">6931</span>
-<span class="normal">6932</span>
-<span class="normal">6933</span>
-<span class="normal">6934</span>
-<span class="normal">6935</span>
-<span class="normal">6936</span>
-<span class="normal">6937</span>
-<span class="normal">6938</span>
-<span class="normal">6939</span>
-<span class="normal">6940</span>
-<span class="normal">6941</span>
-<span class="normal">6942</span>
-<span class="normal">6943</span>
-<span class="normal">6944</span>
-<span class="normal">6945</span>
-<span class="normal">6946</span>
-<span class="normal">6947</span>
-<span class="normal">6948</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6948</span>
 <span class="normal">6949</span>
 <span class="normal">6950</span>
 <span class="normal">6951</span>
@@ -9436,7 +9505,54 @@ If sample_id is None, returns a dict mapping SampleID → SampleContainer.</p>
 <span class="normal">7114</span>
 <span class="normal">7115</span>
 <span class="normal">7116</span>
-<span class="normal">7117</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
+<span class="normal">7117</span>
+<span class="normal">7118</span>
+<span class="normal">7119</span>
+<span class="normal">7120</span>
+<span class="normal">7121</span>
+<span class="normal">7122</span>
+<span class="normal">7123</span>
+<span class="normal">7124</span>
+<span class="normal">7125</span>
+<span class="normal">7126</span>
+<span class="normal">7127</span>
+<span class="normal">7128</span>
+<span class="normal">7129</span>
+<span class="normal">7130</span>
+<span class="normal">7131</span>
+<span class="normal">7132</span>
+<span class="normal">7133</span>
+<span class="normal">7134</span>
+<span class="normal">7135</span>
+<span class="normal">7136</span>
+<span class="normal">7137</span>
+<span class="normal">7138</span>
+<span class="normal">7139</span>
+<span class="normal">7140</span>
+<span class="normal">7141</span>
+<span class="normal">7142</span>
+<span class="normal">7143</span>
+<span class="normal">7144</span>
+<span class="normal">7145</span>
+<span class="normal">7146</span>
+<span class="normal">7147</span>
+<span class="normal">7148</span>
+<span class="normal">7149</span>
+<span class="normal">7150</span>
+<span class="normal">7151</span>
+<span class="normal">7152</span>
+<span class="normal">7153</span>
+<span class="normal">7154</span>
+<span class="normal">7155</span>
+<span class="normal">7156</span>
+<span class="normal">7157</span>
+<span class="normal">7158</span>
+<span class="normal">7159</span>
+<span class="normal">7160</span>
+<span class="normal">7161</span>
+<span class="normal">7162</span>
+<span class="normal">7163</span>
+<span class="normal">7164</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_ewe_samples</span><span class="p">(</span>
     <span class="n">filepath</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span>
     <span class="n">sample_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">SampleContainer</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">SampleContainer</span><span class="p">]]:</span>
@@ -13677,54 +13793,7 @@ print(groups.columns)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6595</span>
-<span class="normal">6596</span>
-<span class="normal">6597</span>
-<span class="normal">6598</span>
-<span class="normal">6599</span>
-<span class="normal">6600</span>
-<span class="normal">6601</span>
-<span class="normal">6602</span>
-<span class="normal">6603</span>
-<span class="normal">6604</span>
-<span class="normal">6605</span>
-<span class="normal">6606</span>
-<span class="normal">6607</span>
-<span class="normal">6608</span>
-<span class="normal">6609</span>
-<span class="normal">6610</span>
-<span class="normal">6611</span>
-<span class="normal">6612</span>
-<span class="normal">6613</span>
-<span class="normal">6614</span>
-<span class="normal">6615</span>
-<span class="normal">6616</span>
-<span class="normal">6617</span>
-<span class="normal">6618</span>
-<span class="normal">6619</span>
-<span class="normal">6620</span>
-<span class="normal">6621</span>
-<span class="normal">6622</span>
-<span class="normal">6623</span>
-<span class="normal">6624</span>
-<span class="normal">6625</span>
-<span class="normal">6626</span>
-<span class="normal">6627</span>
-<span class="normal">6628</span>
-<span class="normal">6629</span>
-<span class="normal">6630</span>
-<span class="normal">6631</span>
-<span class="normal">6632</span>
-<span class="normal">6633</span>
-<span class="normal">6634</span>
-<span class="normal">6635</span>
-<span class="normal">6636</span>
-<span class="normal">6637</span>
-<span class="normal">6638</span>
-<span class="normal">6639</span>
-<span class="normal">6640</span>
-<span class="normal">6641</span>
-<span class="normal">6642</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6642</span>
 <span class="normal">6643</span>
 <span class="normal">6644</span>
 <span class="normal">6645</span>
@@ -13783,7 +13852,54 @@ print(groups.columns)</p>
 <span class="normal">6698</span>
 <span class="normal">6699</span>
 <span class="normal">6700</span>
-<span class="normal">6701</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
+<span class="normal">6701</span>
+<span class="normal">6702</span>
+<span class="normal">6703</span>
+<span class="normal">6704</span>
+<span class="normal">6705</span>
+<span class="normal">6706</span>
+<span class="normal">6707</span>
+<span class="normal">6708</span>
+<span class="normal">6709</span>
+<span class="normal">6710</span>
+<span class="normal">6711</span>
+<span class="normal">6712</span>
+<span class="normal">6713</span>
+<span class="normal">6714</span>
+<span class="normal">6715</span>
+<span class="normal">6716</span>
+<span class="normal">6717</span>
+<span class="normal">6718</span>
+<span class="normal">6719</span>
+<span class="normal">6720</span>
+<span class="normal">6721</span>
+<span class="normal">6722</span>
+<span class="normal">6723</span>
+<span class="normal">6724</span>
+<span class="normal">6725</span>
+<span class="normal">6726</span>
+<span class="normal">6727</span>
+<span class="normal">6728</span>
+<span class="normal">6729</span>
+<span class="normal">6730</span>
+<span class="normal">6731</span>
+<span class="normal">6732</span>
+<span class="normal">6733</span>
+<span class="normal">6734</span>
+<span class="normal">6735</span>
+<span class="normal">6736</span>
+<span class="normal">6737</span>
+<span class="normal">6738</span>
+<span class="normal">6739</span>
+<span class="normal">6740</span>
+<span class="normal">6741</span>
+<span class="normal">6742</span>
+<span class="normal">6743</span>
+<span class="normal">6744</span>
+<span class="normal">6745</span>
+<span class="normal">6746</span>
+<span class="normal">6747</span>
+<span class="normal">6748</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_mpa_config</span><span class="p">(</span>
     <span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">n_patches</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">fleet_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
@@ -14183,54 +14299,7 @@ Empty defaults if tables are missing.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6757</span>
-<span class="normal">6758</span>
-<span class="normal">6759</span>
-<span class="normal">6760</span>
-<span class="normal">6761</span>
-<span class="normal">6762</span>
-<span class="normal">6763</span>
-<span class="normal">6764</span>
-<span class="normal">6765</span>
-<span class="normal">6766</span>
-<span class="normal">6767</span>
-<span class="normal">6768</span>
-<span class="normal">6769</span>
-<span class="normal">6770</span>
-<span class="normal">6771</span>
-<span class="normal">6772</span>
-<span class="normal">6773</span>
-<span class="normal">6774</span>
-<span class="normal">6775</span>
-<span class="normal">6776</span>
-<span class="normal">6777</span>
-<span class="normal">6778</span>
-<span class="normal">6779</span>
-<span class="normal">6780</span>
-<span class="normal">6781</span>
-<span class="normal">6782</span>
-<span class="normal">6783</span>
-<span class="normal">6784</span>
-<span class="normal">6785</span>
-<span class="normal">6786</span>
-<span class="normal">6787</span>
-<span class="normal">6788</span>
-<span class="normal">6789</span>
-<span class="normal">6790</span>
-<span class="normal">6791</span>
-<span class="normal">6792</span>
-<span class="normal">6793</span>
-<span class="normal">6794</span>
-<span class="normal">6795</span>
-<span class="normal">6796</span>
-<span class="normal">6797</span>
-<span class="normal">6798</span>
-<span class="normal">6799</span>
-<span class="normal">6800</span>
-<span class="normal">6801</span>
-<span class="normal">6802</span>
-<span class="normal">6803</span>
-<span class="normal">6804</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6804</span>
 <span class="normal">6805</span>
 <span class="normal">6806</span>
 <span class="normal">6807</span>
@@ -14281,7 +14350,54 @@ Empty defaults if tables are missing.</p>
 <span class="normal">6852</span>
 <span class="normal">6853</span>
 <span class="normal">6854</span>
-<span class="normal">6855</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
+<span class="normal">6855</span>
+<span class="normal">6856</span>
+<span class="normal">6857</span>
+<span class="normal">6858</span>
+<span class="normal">6859</span>
+<span class="normal">6860</span>
+<span class="normal">6861</span>
+<span class="normal">6862</span>
+<span class="normal">6863</span>
+<span class="normal">6864</span>
+<span class="normal">6865</span>
+<span class="normal">6866</span>
+<span class="normal">6867</span>
+<span class="normal">6868</span>
+<span class="normal">6869</span>
+<span class="normal">6870</span>
+<span class="normal">6871</span>
+<span class="normal">6872</span>
+<span class="normal">6873</span>
+<span class="normal">6874</span>
+<span class="normal">6875</span>
+<span class="normal">6876</span>
+<span class="normal">6877</span>
+<span class="normal">6878</span>
+<span class="normal">6879</span>
+<span class="normal">6880</span>
+<span class="normal">6881</span>
+<span class="normal">6882</span>
+<span class="normal">6883</span>
+<span class="normal">6884</span>
+<span class="normal">6885</span>
+<span class="normal">6886</span>
+<span class="normal">6887</span>
+<span class="normal">6888</span>
+<span class="normal">6889</span>
+<span class="normal">6890</span>
+<span class="normal">6891</span>
+<span class="normal">6892</span>
+<span class="normal">6893</span>
+<span class="normal">6894</span>
+<span class="normal">6895</span>
+<span class="normal">6896</span>
+<span class="normal">6897</span>
+<span class="normal">6898</span>
+<span class="normal">6899</span>
+<span class="normal">6900</span>
+<span class="normal">6901</span>
+<span class="normal">6902</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_taxonomy</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaxonomyData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read taxonomy tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
@@ -15040,47 +15156,47 @@ None reads every series.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/io/ewemdb.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6858</span>
-<span class="normal">6859</span>
-<span class="normal">6860</span>
-<span class="normal">6861</span>
-<span class="normal">6862</span>
-<span class="normal">6863</span>
-<span class="normal">6864</span>
-<span class="normal">6865</span>
-<span class="normal">6866</span>
-<span class="normal">6867</span>
-<span class="normal">6868</span>
-<span class="normal">6869</span>
-<span class="normal">6870</span>
-<span class="normal">6871</span>
-<span class="normal">6872</span>
-<span class="normal">6873</span>
-<span class="normal">6874</span>
-<span class="normal">6875</span>
-<span class="normal">6876</span>
-<span class="normal">6877</span>
-<span class="normal">6878</span>
-<span class="normal">6879</span>
-<span class="normal">6880</span>
-<span class="normal">6881</span>
-<span class="normal">6882</span>
-<span class="normal">6883</span>
-<span class="normal">6884</span>
-<span class="normal">6885</span>
-<span class="normal">6886</span>
-<span class="normal">6887</span>
-<span class="normal">6888</span>
-<span class="normal">6889</span>
-<span class="normal">6890</span>
-<span class="normal">6891</span>
-<span class="normal">6892</span>
-<span class="normal">6893</span>
-<span class="normal">6894</span>
-<span class="normal">6895</span>
-<span class="normal">6896</span>
-<span class="normal">6897</span>
-<span class="normal">6898</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">6905</span>
+<span class="normal">6906</span>
+<span class="normal">6907</span>
+<span class="normal">6908</span>
+<span class="normal">6909</span>
+<span class="normal">6910</span>
+<span class="normal">6911</span>
+<span class="normal">6912</span>
+<span class="normal">6913</span>
+<span class="normal">6914</span>
+<span class="normal">6915</span>
+<span class="normal">6916</span>
+<span class="normal">6917</span>
+<span class="normal">6918</span>
+<span class="normal">6919</span>
+<span class="normal">6920</span>
+<span class="normal">6921</span>
+<span class="normal">6922</span>
+<span class="normal">6923</span>
+<span class="normal">6924</span>
+<span class="normal">6925</span>
+<span class="normal">6926</span>
+<span class="normal">6927</span>
+<span class="normal">6928</span>
+<span class="normal">6929</span>
+<span class="normal">6930</span>
+<span class="normal">6931</span>
+<span class="normal">6932</span>
+<span class="normal">6933</span>
+<span class="normal">6934</span>
+<span class="normal">6935</span>
+<span class="normal">6936</span>
+<span class="normal">6937</span>
+<span class="normal">6938</span>
+<span class="normal">6939</span>
+<span class="normal">6940</span>
+<span class="normal">6941</span>
+<span class="normal">6942</span>
+<span class="normal">6943</span>
+<span class="normal">6944</span>
+<span class="normal">6945</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">read_value_chain</span><span class="p">(</span><span class="n">db_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ValueChainData</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Read value chain economics tables from an EwE database.</span>
 
 <span class="sd">    Parameters</span>
