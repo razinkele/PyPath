@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.21.0 (2026-11-24)
+
+### Bug Fixes
+
+- A stored Ecospace scenario stays with the groups it was read for
+  ([`a53aa93`](https://github.com/razinkele/PyPath/commit/a53aa93a7873aa2d16d179af69da204a14ddf26f))
+
+### Features
+
+- **examples**: The Curonian Lagoon example ships its 29-box grid
+  ([`9cbb8f8`](https://github.com/razinkele/PyPath/commit/9cbb8f8a6cfc103e10f4431659b52a53ce598312))
+
+- **spatial**: Fleet rows and cell polygons for an Ecospace scenario read from a database
+  ([`10f7482`](https://github.com/razinkele/PyPath/commit/10f74825739341900c3e8d98600f67b6375f1e19))
+
+
 ## v1.20.0 (2026-11-21)
 
 ### Bug Fixes
