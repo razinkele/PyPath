@@ -425,6 +425,9 @@ def server(input: Inputs, output: Outputs, session: Session):
     # True only while the Ecopath page's re-balance is publishing its model, so
     # the Ecosim page can tell a re-balance from any other model change
     rebalance_mark = reactive.Value(False)
+    # RpathParams another page opened for the Ecopath page to adopt and
+    # balance in one step (the Ecosim page's example picker)
+    balance_request = reactive.Value(None)
 
     # Create shared data object for pages that need structured access
     class SharedData:
@@ -484,7 +487,12 @@ def server(input: Inputs, output: Outputs, session: Session):
         (
             "Ecopath",
             lambda: ecopath.ecopath_server(
-                input, output, session, model_data, rebalance_mark=rebalance_mark
+                input,
+                output,
+                session,
+                model_data,
+                rebalance_mark=rebalance_mark,
+                balance_request=balance_request,
             ),
         ),
         (
@@ -502,6 +510,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 sim_scenario,
                 ewe_source=ewe_source,
                 rebalance_mark=rebalance_mark,
+                balance_request=balance_request,
             ),
         ),
         (
@@ -514,6 +523,7 @@ def server(input: Inputs, output: Outputs, session: Session):
                 sim_results,
                 sim_scenario,
                 shared_data.ecospace_params,
+                ewe_source=ewe_source,
             ),
         ),
         (

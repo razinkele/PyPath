@@ -1,5 +1,6 @@
 """Ecopath model page module."""
 
+import itertools
 import logging
 from typing import List, Union
 
@@ -624,8 +625,15 @@ def ecopath_server(
     session: Session,
     model_data: reactive.Value,
     rebalance_mark: reactive.Value | None = None,
+    balance_request: reactive.Value | None = None,
 ):
-    """Ecopath model page server logic."""
+    """Ecopath model page server logic.
+
+    ``balance_request``, when given, receives an RpathParams another page
+    opened and wants balanced in one step (the Ecosim page's example
+    picker): this page adopts it as its parameters and balances it as its
+    Balance button does, publishing the balanced model as a new model.
+    """
 
     # Reactive values for this page
     params = reactive.Value(None)
@@ -1354,8 +1362,26 @@ def ecopath_server(
         if p is None:
             _notify_legacy("Create parameters first", type="warning")
             return
+        _balance(p, f"ecopath-balance-{input.btn_balance()}")
 
-        run_id = f"ecopath-balance-{input.btn_balance()}"
+    if balance_request is not None:
+        balance_requests = itertools.count(1)
+
+        @reactive.effect
+        @reactive.event(balance_request, ignore_init=True)
+        def _balance_on_request():
+            """Adopt and balance a model another page opened, in one step."""
+            requested = balance_request.get()
+            if requested is None:
+                return
+            params.set(requested)
+            # one model change for the other pages, and a new model, not a
+            # re-balance of the one they hold
+            params_status["new_since_balance"] = True
+            _balance(requested, f"ecopath-balance-request-{next(balance_requests)}")
+
+    def _balance(p, run_id: str) -> None:
+        """Balance ``p`` and publish the balanced model."""
         balance_task_state.set(new_running_task(run_id, "Validating model inputs"))
 
         try:

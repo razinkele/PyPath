@@ -43,6 +43,7 @@ from pypath_shiny.pages.ewe_scenario import (
     ewe_source_matches,
     scenario_source_choices,
 )
+from pypath_shiny.pages.home import example_choices, publish_example_model
 from pypath_shiny.pages.utils import is_balanced_model, is_rpath_params
 from pypath_shiny.services.cell_tables import as_cell_table, info_tip
 from pypath_shiny.services.ecosim_controls import (
@@ -452,6 +453,36 @@ def ecosim_ui() -> ui.Tag:
             # Sidebar for simulation settings
             ui.sidebar(
                 ui.h4("Simulation Settings"),
+                # Open a shipped example here, without the Home and Ecopath
+                # pages: it is balanced and its Ecosim settings are offered
+                # below. Ids of its own: the Home page has a picker too.
+                ui.div(
+                    ui.h5("Example Model"),
+                    ui.input_select(
+                        "ecosim_example_model",
+                        None,
+                        example_choices(),
+                        selected="",
+                    ),
+                    ui.input_action_button(
+                        "btn_ecosim_open_example",
+                        ui.TagList(
+                            ui.tags.i(class_="bi bi-folder2-open me-2"),
+                            "Open and balance",
+                        ),
+                        class_="btn btn-outline-primary btn-sm w-100",
+                    ),
+                    ui.p(
+                        "Opens the example, balances it and offers its own "
+                        "Ecosim settings below. It replaces the model you have "
+                        "open. For your own model, use Data Import: an EwE "
+                        "database's Ecosim scenarios are offered here the "
+                        "same way.",
+                        class_="text-muted small mt-2",
+                    ),
+                    ui.tags.hr(),
+                    id="ecosim_example_block",
+                ),
                 # Scenario stored in an imported EwE database (when it matches)
                 ui.output_ui("ewe_scenario_source_ui"),
                 # Time settings
@@ -1129,6 +1160,7 @@ def ecosim_server(
     sim_scenario: reactive.Value = None,
     ewe_source: reactive.Value = None,
     rebalance_mark: reactive.Value | None = None,
+    balance_request: reactive.Value | None = None,
 ) -> None:
     """Ecosim simulation page server logic.
 
@@ -1323,6 +1355,35 @@ def ecosim_server(
     def _input_or_default(name: str, default):
         """Read a UI input value with fallback for conditional controls."""
         return read_optional_input(input, name, default)
+
+    @reactive.effect
+    @reactive.event(input.btn_ecosim_open_example)
+    def _open_example_here():
+        """Open the example chosen on this page, balanced, in one step."""
+        name = input.ecosim_example_model()
+        if not name:
+            notify_warning("Choose an example model first.")
+            return
+        if balance_request is None:
+            notify_error("Examples cannot be opened from this page here.")
+            return
+        try:
+            record = publish_example_model(
+                name,
+                model_data=model_data,
+                ewe_source=ewe_source,
+                sim_results=sim_results,
+                balance_request=balance_request,
+            )
+        except Exception as e:  # report any reader or balance failure
+            logger.exception("Opening the example model %s failed", name)
+            notify_error(f"Could not open {name}: {e}")
+            return
+        notify_info(
+            f"{record['name']} opened and balanced. Its Ecosim settings are "
+            "selected under Scenario Source: click Create Scenario.",
+            duration=8,
+        )
 
     def _matching_ewe_source():
         """The imported EwE database, when the current model has its groups."""

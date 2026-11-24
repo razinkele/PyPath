@@ -93,15 +93,38 @@ def _functions_setting_the_flag(tree, value):
     return found
 
 
-def test_only_create_parameters_marks_the_params_new():
+# The two places that hand the page a different model which no load has
+# announced to the other pages: "Create parameters", and a model another page
+# opened to be balanced in one step (the Ecosim page's example picker), whose
+# only model change is the balanced model itself.
+NEW_MODEL_PATHS = ("_create_params", "_balance_on_request")
+
+
+def test_only_new_models_without_a_load_mark_the_params_new():
     # A load clears the switching settings when it lands, and its first
-    # Balance re-balances the same model; only "Create parameters" builds a
-    # different model without a load.
+    # Balance re-balances the same model.
     tree = _ecopath_tree()
-    assert _functions_setting_the_flag(tree, "True") == ["_create_params"]
-    create = _find_function(tree, "_create_params")
-    (block,) = [b for b in _blocks(create) if any(_is_params_set(s) for s in b)]
-    assert any(_flag_assigned(s, "True") for s in block)
+    assert set(_functions_setting_the_flag(tree, "True")) == set(NEW_MODEL_PATHS)
+    for name in NEW_MODEL_PATHS:
+        fn = _find_function(tree, name)
+        (block,) = [b for b in _blocks(fn) if any(_is_params_set(s) for s in b)]
+        assert any(_flag_assigned(s, "True") for s in block), name
+
+
+def test_a_requested_balance_is_a_new_model_for_the_other_pages():
+    # The request marks the params new before it balances, so the balance
+    # does not set the re-balance mark and the Ecosim page clears the
+    # previous model's switching overrides, as it does for a load.
+    request = _find_function(_ecopath_tree(), "_balance_on_request")
+    body = request.body
+    flagged = next(i for i, s in enumerate(body) if _flag_assigned(s, "True"))
+    balanced = next(
+        i
+        for i, s in enumerate(body)
+        if isinstance(s, ast.Expr) and _is_call(s.value, "_balance")
+    )
+    assert flagged < balanced
+    assert not any(_is_model_data_set(s) for s in ast.walk(request))
 
 
 # Loads supersede the created params and clear the switching settings
@@ -112,7 +135,7 @@ LOAD_PATHS = ("_sync_model_data", "_load_params_from_csv")
 def test_the_balance_and_the_loads_clear_the_flag():
     tree = _ecopath_tree()
     assert set(_functions_setting_the_flag(tree, "False")) == {
-        "_balance_model",
+        "_balance",  # the Balance button's and a requested balance's body
         *LOAD_PATHS,
     }
     for name in LOAD_PATHS:
@@ -133,7 +156,7 @@ def test_a_load_clears_the_flag_only_after_the_own_model_check():
 
 
 def test_the_mark_is_set_only_while_the_params_are_not_new():
-    balance = _find_function(_ecopath_tree(), "_balance_model")
+    balance = _find_function(_ecopath_tree(), "_balance")
     for block in _blocks(balance):
         for i, stmt in enumerate(block):
             if _is_model_data_set(stmt):
@@ -143,7 +166,7 @@ def test_the_mark_is_set_only_while_the_params_are_not_new():
                 # Cleared after the model is published, on the success path.
                 assert any(_flag_assigned(s, "False") for s in block[i + 1 :])
                 return
-    raise AssertionError("_balance_model publishes no model")
+    raise AssertionError("_balance publishes no model")
 
 
 def test_the_flag_starts_clear_and_is_plain_state():
