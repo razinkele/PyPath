@@ -546,7 +546,7 @@ def test_water_transport_is_the_last_field_of_ecospace_params():
 
     names = [f.name for f in dataclasses.fields(EcospaceParams)]
     # the fields added since stand at the end, after every earlier one
-    assert names[-2:] == ["water_transport", "monthly_capacity"]
+    assert names[-3:] == ["water_transport", "monthly_capacity", "relative_pp"]
     assert names.index("external_flux") + 1 == names.index("environmental_drivers")
 
 

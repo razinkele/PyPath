@@ -438,6 +438,23 @@ class EcospaceParams:
         A habitat capacity for every month for chosen groups, acting on the
         local dynamics and, with its ``movement=True``, on movement between
         patches; see ``pypath.spatial.monthly_capacity``
+    relative_pp : Optional[np.ndarray]
+        Relative primary production of each patch [n_patches], not
+        negative: EwE's relative primary production map (``RelPP``). Only
+        its pattern matters; a run divides it by its area-weighted mean, so
+        the map as a whole holds the nutrient Ecopath's does. In a patch
+        the total nutrient is the map-wide total times the patch's value
+        (``cSpaceSolver.vb`` 570, 860), and the producers' production
+        follows the free nutrient, at most doubling: with nearly all the
+        nutrient free (EwE's default) a value s scales production by
+        2s / (1 + s). The nutrient is kept, the production is not: that
+        response bends, so a map that varies leaves the producers' total
+        below Ecopath's (cells of 1, 0.6 and 0.2: about 0.87). The same
+        pattern as a habitat capacity, which caps their production, cuts
+        it further (about 0.67; see the parity register, B-prod and
+        B-relpp). It needs the EwE rule's nutrient limitation and applies
+        to every producer. None (default): no map, as a map of 1
+        everywhere.
     environmental_drivers : Optional[object]
         Time-varying environmental drivers (EnvironmentalDrivers instance).
         A run does not evaluate them: make a capacity from them with
@@ -480,6 +497,9 @@ class EcospaceParams:
     # pypath.spatial.monthly_capacity): the month's feeding efficiency per
     # patch; habitat_capacity stays the base map.
     monthly_capacity: Optional[object] = None
+    # EwE's relative primary production map (RelPP), per patch; a run divides
+    # it by its area-weighted mean and scales each patch's total nutrient.
+    relative_pp: Optional[np.ndarray] = None
 
     def with_group_rows(self, n_groups: int) -> "EcospaceParams":
         """A copy with one row per Ecosim group, fleets included.
@@ -576,6 +596,19 @@ class EcospaceParams:
 
         if np.any(self.gravity_strength < 0):
             raise ValueError("gravity_strength values must be non-negative")
+
+        if self.relative_pp is not None:
+            self.relative_pp = np.asarray(self.relative_pp, dtype=float)
+            if self.relative_pp.shape != (n_patches,):
+                raise ValueError(
+                    f"relative_pp shape {self.relative_pp.shape} != ({n_patches},)"
+                )
+            if not np.all(np.isfinite(self.relative_pp)) or np.any(
+                self.relative_pp < 0
+            ):
+                raise ValueError("relative_pp must be finite and not negative")
+            if not np.any(self.relative_pp > 0):
+                raise ValueError("relative_pp is zero in every patch")
 
 
 @dataclass

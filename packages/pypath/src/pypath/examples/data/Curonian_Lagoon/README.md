@@ -33,6 +33,7 @@ On its own grid the model does not stay at its Ecopath biomasses. In a ten-year 
 | phytoplankton as shipped, the others uniform | 0.53 to 0.92, median 0.61; phytoplankton 0.593 |
 | as shipped | 0.56 to 0.92, median 0.68; phytoplankton 0.592 |
 | as shipped, with phytoplankton's maximum relative P/B at 5 | 0.82 to 0.97, median 0.89; phytoplankton 0.881 |
+| phytoplankton's pattern as the relative primary production map, its capacity uniform | 0.80 to 1.04, median 0.94; phytoplankton 0.884 |
 
 Why: in EwE 6's Ecospace, which PyPath follows, a producer's production in a cell is its habitat capacity there times the production it would have without it (`cSpaceSolver.vb` 1008, with the density term scaled by the base ratio, `cEcoSpace.vb` 6121). The production per biomass can rise to the group's maximum relative P/B (EwE's `PBmaxs`, 2 by default and 2 here) times its Ecopath P/B, so at capacity c a producer balancing its Ecopath mortality settles at
 
@@ -44,6 +45,17 @@ Two things follow:
 
 - It is what EwE 6's equations give for these maps, checked against EwE's source. There is still no EwE 6 run of this model to compare numbers with. In the one case where PyPath's Ecospace is compared with EwE's own run (a Black Sea model), every group shares one map pattern, the grazers fall with the phytoplankton, and phytoplankton ends at 1.27 of its start in PyPath and 1.21 in EwE.
 - The level depends on the producer's maximum relative P/B. With 5 in place of 2, the same three-year run ends with phytoplankton at 0.88 of its start and all groups between 0.82 and 0.97.
+- EwE 6 has its own place for a producer's pattern: the relative primary production map, which scales each cell's nutrient and is divided by its mean, so the map as a whole holds the nutrient Ecopath's does (`EcospaceParams.relative_pp`; register row B-relpp). The nutrient is kept, the production is not: a cell at s times the mean produces 2s / (1 + s) as much, which bends, so the total still ends below Ecopath's, though well above what the same pattern gives as a capacity. With the phytoplankton's depth pattern there and its habitat capacity uniform, the same three-year run ends with phytoplankton at 0.88 of its start and all groups between 0.80 and 1.04 (median 0.94), and phytoplankton still follows depth (correlation with the pattern 0.95). No EwE run with such a map has been compared with PyPath's. With `scenario` and `ecospace` as under *Use* below:
+
+```python
+import dataclasses
+
+names = [str(n).strip() for n in scenario.params.spname]
+row = names.index("Fitoplankton") - 1
+capacity = ecospace.habitat_capacity.copy()
+pattern, capacity[row] = capacity[row].copy(), 1.0
+moved = dataclasses.replace(ecospace, habitat_capacity=capacity, relative_pp=pattern)
+```
 
 The maps were drawn for EwE-F, which rescales each map to a mean of 1, so that only its pattern matters. Under EwE 6's rule a map's level relative to its largest value matters as well, and a water-column group's capacity of 0.15 in the shallows says more than the map's author meant.
 

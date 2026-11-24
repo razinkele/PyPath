@@ -94,7 +94,12 @@ def _local_deriv(
 
 # Keys of the run's params the patch workers do not get: the pool itself and
 # the per-patch arrays, whose columns travel with each chunk.
-_NOT_FOR_WORKERS = ("_patch_pool", "_hden_patches", "_eat_eff_patches")
+_NOT_FOR_WORKERS = (
+    "_patch_pool",
+    "_hden_patches",
+    "_eat_eff_patches",
+    "_nut_scale_patches",
+)
 
 
 def _patch_chunk_derivs(
@@ -434,11 +439,23 @@ def deriv_vector_spatial(
             )
         )
 
+    # EwE's relative primary production map: each patch's total nutrient is
+    # the map-wide total times its value (cSpaceSolver.vb 570, 860), which
+    # the kernel reads as the patch's nutrient forcing
+    _nut_scale = params.get("_nut_scale_patches")
+
     def _patch_forcing(patch_idx):
-        """Forcing of one patch: its own effort and stanza consumption index."""
-        if patch_effort_mask is None and stanza_pred_ratio is None:
+        """Forcing of one patch: its own effort, stanza consumption index and
+        relative primary production."""
+        if (
+            patch_effort_mask is None
+            and stanza_pred_ratio is None
+            and _nut_scale is None
+        ):
             return forcing
         patch_forcing = forcing.copy()
+        if _nut_scale is not None:
+            patch_forcing["NutForcing"] = float(_nut_scale[patch_idx])
         if patch_effort_mask is not None:
             patch_effort = forcing["ForcedEffort"].copy()
             n_mask_fleets = patch_effort_mask.shape[1]
@@ -598,6 +615,8 @@ def deriv_vector_spatial(
         USE_BATCHED_DERIV
         and patch_share is not None
         and not ibm_spatial_contexts
+        # the batched kernel takes one nutrient forcing for the whole map
+        and _nut_scale is None
         and batch_supported(params, forcing, () if rates_out is None else rates_out)
     )
     try:
@@ -1183,6 +1202,27 @@ def _run_spatial(
     # A capacity that changes by month (ecospace.monthly_capacity) needs the
     # calibrated form also on a uniform base map, where the calibration
     # leaves every parameter as it is.
+    # EwE's relative primary production map (ecospace.relative_pp), divided
+    # by its area-weighted mean: the patches' total nutrient, relative to the
+    # map's. A map that is the same everywhere is no map.
+    _relative_pp = getattr(ecospace, "relative_pp", None)
+    if _relative_pp is not None:
+        _relative_pp = np.asarray(_relative_pp, dtype=float)
+        if np.all(_relative_pp == _relative_pp[0]):
+            _relative_pp = None
+    if _relative_pp is not None:
+        if params_dict.get("NutBaseFreeProp") is None:
+            raise ValueError(
+                "relative_pp scales the nutrient that limits primary "
+                "production, which only the EwE rule has: build the scenario "
+                "with fast_group_rule='ewe' (NutBaseFreeProp), or leave the "
+                "map out"
+            )
+        if not density_form:
+            raise ValueError("relative_pp cannot be used in a run with IBM groups")
+        params_dict["_nut_scale_patches"] = _relative_pp / float(
+            np.sum(patch_w * _relative_pp) / np.sum(patch_w)
+        )
     monthly_capacity = getattr(ecospace, "monthly_capacity", None)
     capacity_rows = []
     if monthly_capacity is not None:

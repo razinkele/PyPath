@@ -70,7 +70,9 @@ movement, and the case's advection field, are not reproduced.
     0.5. The map follows depth and is divided by its largest value, which
     puts 43 % of the lagoon's cells below 0.5. With every map uniform the
     totals stay at 1.000; with phytoplankton's maximum relative P/B at 5
-    they end between 0.82 and 0.97. This is what EwE 6's equations give for
+    they end between 0.82 and 0.97; with its pattern moved to EwE's relative
+    primary production map (`EcospaceParams.relative_pp`) and its capacity
+    uniform, between 0.80 and 1.04. This is what EwE 6's equations give for
     these maps, checked against EwE's source; there is no EwE 6 run of this
     model to compare numbers with. The maps were drawn for EwE-F, which
     rescales each to a mean of 1. The example's README has the figures.
