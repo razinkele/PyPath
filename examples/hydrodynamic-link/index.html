@@ -1037,6 +1037,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="2. Box fields as layers and a capacity map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-monthly-box-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A monthly box file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1205,6 +1222,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="2. Box fields as layers and a capacity map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-monthly-box-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A monthly box file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1434,6 +1468,53 @@ first month.</p>
     <span class="n">layers</span><span class="o">.</span><span class="n">get_layer_at_time</span><span class="p">(</span><span class="s2">"temp"</span><span class="p">,</span> <span class="mi">6</span> <span class="o">/</span> <span class="mi">12</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
 <span class="p">)</span>
 </code></pre></div>
+<h3 id="a-monthly-box-file">A monthly box file<a class="headerlink" href="#a-monthly-box-file" title="Permanent link">&para;</a></h3>
+<p><code>boxes_2d.txt</code> holds every output record as text: a year of hourly output
+of 29 boxes is 54 MB, and 24 years would be over a gigabyte. A run reads the
+monthly means only, so that is what a <em>monthly box file</em> keeps, with the
+minimum, the maximum and the spread of the records of each month beside
+each mean. For that year of 29 boxes it is 0.15 MB, and <code>read_box_series</code>
+reads it wherever it reads the text, as the same series.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.shyfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_box_netcdf</span>
+
+<span class="n">monthly_file</span> <span class="o">=</span> <span class="n">write_box_netcdf</span><span class="p">(</span>
+    <span class="n">series</span><span class="p">,</span> <span class="n">work</span> <span class="o">/</span> <span class="s2">"boxes_monthly.nc"</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s2">"boxes_2d.txt"</span>
+<span class="p">)</span>
+<span class="n">again</span> <span class="o">=</span> <span class="n">read_box_series</span><span class="p">(</span><span class="n">monthly_file</span><span class="p">)</span>  <span class="c1"># a monthly series, whatever is asked</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">"text"</span><span class="p">,</span>
+    <span class="p">(</span><span class="n">work</span> <span class="o">/</span> <span class="s2">"boxes_2d.txt"</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">//</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="s2">"kB, monthly file"</span><span class="p">,</span>
+    <span class="n">monthly_file</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">//</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="s2">"kB; the same means:"</span><span class="p">,</span>
+    <span class="nb">bool</span><span class="p">((</span><span class="n">again</span><span class="o">.</span><span class="n">values</span> <span class="o">==</span> <span class="n">series</span><span class="o">.</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()),</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"records behind each month:"</span><span class="p">,</span> <span class="n">again</span><span class="o">.</span><span class="n">counts</span><span class="p">[:</span><span class="mi">3</span><span class="p">],</span> <span class="s2">"..."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span>
+    <span class="s2">"salinity of the strait in July, lowest and highest record:"</span><span class="p">,</span>
+    <span class="n">again</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s2">"salt"</span><span class="p">,</span> <span class="s2">"min"</span><span class="p">)[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">again</span><span class="o">.</span><span class="n">variable</span><span class="p">(</span><span class="s2">"salt"</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">)[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>From a shell, where the text is:</p>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>pypath.io.shyfem<span class="w"> </span>boxes_2d.txt<span class="w"> </span>boxes_monthly.nc
+</code></pre></div>
+<p>The file is classic NetCDF, which the usual NetCDF tools read (<code>ncdump -h</code>,
+xarray and the netCDF4 library open it, with its months as dates), and it
+names its variables as SHYFEM does (<code>temp</code>, <code>salt</code>, ..., with <code>_min</code>,
+<code>_max</code>, <code>_std</code>; <code>flow_total</code>, <code>flow_positive</code>, <code>flow_negative</code> for the
+sections). <code>variable(name, "min")</code>, <code>"max"</code> and <code>"std"</code> give the statistics
+of a monthly series; the layers, the capacity maps and the water transport
+below read the means, as before.</p>
+<div class="admonition warning">
+<p class="admonition-title">Keep the text</p>
+<p>The records themselves are not in the monthly file and cannot be made
+again from it. If anything but these statistics may be wanted later
+(a daily series, a percentile), keep <code>boxes_2d.txt</code>.</p>
+</div>
+<p>In the app, the Ecospace page's <em>Hydrodynamic Model</em> panel takes either
+file. The text is read up to 64 MB, and a server in front of the app may
+take less; a monthly box file passes both.</p>
 <p>A capacity map is made from layers and response functions. Here two marine
 groups need salt: unsuitable below 0.5, fully suitable from 6.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.examples</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_ecosim_scenario</span>
