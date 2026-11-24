@@ -4,6 +4,8 @@ Ecopath mass balance of the Curonian Lagoon pelagic food web: 19 groups (17 cons
 
 Meiobenthos has both B and EE in the database; its B is left for Ecopath to estimate from the EE of 0.95 (`ecopath/README.md`).
 
+Seven consumers take part of their diet from outside the lagoon (`EcopathGroup.ImpVar` in the database: Demersal fish 0.345, the five bird groups 0.2 each, Predatory fish 0.306), carried in the Import row of the diet file. Copies of this example made before 24 November 2026 (pypath-ewe 1.22.0 and earlier) had that row at zero: the diets of those groups did not sum to 1, and the Ecosim baseline drifted (over 50 years the birds fell to 0.38 of their start and oligochaetes rose to 1.16). With the row the baseline stays within 0.03 % of its start. The Ecopath biomasses and EE are the same in both.
+
 ## Files
 
 - `ecopath/`: EwE-F Ecopath inputs: `*_Scenario.csv` (basic input), `*_DC.csv` (diet, Import row last), `*_DetFate.csv` (detritus fate), and `*_filenames.nml`. `ecopath/README.md` is EPath's note on the model and every change made to the source file.
@@ -11,7 +13,7 @@ Meiobenthos has both B and EE in the database; its B is left for Ecopath to esti
 
 - `ecospace/curonian29.grd`: a SHYFEM mesh of the lagoon, the Klaipėda strait and the sea off the coast (1,309 nodes, 2,027 elements, 2,296 km²). Its element types are the 29 boxes of a hydrodynamic box model of the lagoon, so `example_ecospace_grid("Curonian_Lagoon")` gives a 29-patch Ecospace grid that the box model's output (`boxes_2d.txt`) fits as it is. Only the grid is here: no habitat maps, dispersal rates or model output. By the mesh's own depths, 21 boxes are 1.4 to 4.5 m deep on average, box 11 is 7.1 m, and boxes 1, 4, 7, 10, 12, 13 and 16 are over 10 m.
 
-The Ecopath and Ecosim files are copied from EPath (EwE-F) test cases `ecopath-f/testcases/Curonian_Lagoon` and `ecosim-f/testcases/Curonian_Lagoon` at EPath commit 8029f8d (13 November 2026). The namelists' paths are EPath's; PyPath finds the files beside them.
+The Ecopath and Ecosim files are copied from EPath (EwE-F) test cases `ecopath-f/testcases/Curonian_Lagoon` and `ecosim-f/testcases/Curonian_Lagoon` at EPath commit 5bdbeb9 (24 November 2026; the case itself was last built on 18 November, EPath e725905). The namelists' paths are EPath's; PyPath finds the files beside them.
 
 ## Use
 

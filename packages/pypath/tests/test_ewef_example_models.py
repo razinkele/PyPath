@@ -154,6 +154,39 @@ def test_each_example_runs_with_its_ecosim_settings(model):
     assert np.isfinite(living).all() and (living > 0).all()
 
 
+def test_the_curonian_diets_include_what_is_eaten_outside_the_lagoon():
+    """EcopathGroup.ImpVar of the database, in the Import row (EPath, 2026-11-18)."""
+    diet = load_example_model("Curonian_Lagoon").diet
+    row = diet[diet.iloc[:, 0].astype(str).str.strip() == "Import"].iloc[0, 1:]
+    imported = {k: float(v) for k, v in row.astype(float).items() if v > 0}
+    assert imported == pytest.approx(
+        {
+            "Demersal fish": 0.345,
+            "grey heron": 0.2,
+            "larus": 0.2,
+            "goosander": 0.2,
+            "Great Crested Grebe": 0.2,
+            "Cormorants": 0.2,
+            "Predatory fish": 0.306,
+        },
+        abs=1e-6,
+    )
+    # every consumer's diet sums to 1 with it (Predatory fish to 0.9997, as
+    # the database has it)
+    sums = diet.iloc[:, 1:].astype(float).sum(axis=0)
+    assert all(s == pytest.approx(1.0, abs=5e-4) for s in sums[list(imported)])
+
+
+def test_the_curonian_baseline_stays_where_ecopath_put_it():
+    """Without the diet import it drifted to 0.38-1.16 of the start in 50 years."""
+    years = range(1, 51)
+    scenario = example_ecosim_scenario("Curonian_Lagoon", years=years)
+    biomass = np.asarray(rsim_run(scenario, method="RK4", years=years).out_Biomass)
+    living = biomass[:, 1 : scenario.params.NUM_LIVING + 1]
+    ratio = living[-1] / living[0]
+    assert 0.999 < ratio.min() and ratio.max() < 1.001
+
+
 # --- the Curonian Lagoon grid for Ecospace ----------------------------------
 
 
