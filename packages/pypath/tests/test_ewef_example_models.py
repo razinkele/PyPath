@@ -491,8 +491,10 @@ def test_the_ecospace_reader_refuses_files_that_do_not_fit(tmp_path):
 @pytest.mark.slow
 def test_the_phytoplankton_map_sets_the_level_of_the_spatial_run():
     """What the README says of the run: uniform maps keep the Ecopath totals,
-    and with the phytoplankton map alone its total settles at the map's mean
-    capacity (0.593), the food web behind it."""
+    and the phytoplankton map alone brings its total to 0.59 of the start,
+    the food web behind it. (That the map's mean capacity is 0.593 too is a
+    coincidence: test_a_producer_cannot_sustain_itself_below_its_capacity_limit
+    has the rule.)"""
     import dataclasses
 
     from pypath.spatial import rsim_run_spatial
@@ -519,3 +521,65 @@ def test_the_phytoplankton_map_sets_the_level_of_the_spatial_run():
     ratio = totals(only_phyto)
     assert ratio[phyto - 1] == pytest.approx(0.593, abs=0.02)
     assert 0.5 < np.median(ratio) < 0.7
+
+
+def test_a_producer_cannot_sustain_itself_below_its_capacity_limit():
+    """EwE 6's Ecospace, which PyPath follows: a producer's production in a
+    cell is its capacity there times what it would be without it
+    (cSpaceSolver.vb 1008), and can rise to PBmaxs x P/B. At capacity c it
+    settles at (c x PBmaxs - 1) / (PBmaxs - 1) of its level at capacity 1,
+    and at nothing where c < 1 / PBmaxs. Three cells, no movement."""
+    import copy
+
+    from pypath.io.ewemdb import _build_fallback_grid
+    from pypath.spatial import EcospaceParams, rsim_run_spatial
+
+    years = range(1, 6)
+    scenario = example_ecosim_scenario("Curonian_Lagoon", years=years)
+    params = scenario.params
+    names = [str(n).strip() for n in params.spname]
+    phyto = names.index("Fitoplankton")
+    links = [
+        k
+        for k in range(len(params.PreyFrom))
+        if params.PreyTo[k] == phyto and params.PreyFrom[k] == 0
+    ]
+    assert [float(params.VV[k]) for k in links] == [2.0]  # PBmaxs 2, EwE's default
+    grid = _build_fallback_grid(1, 3, 10.0)
+    n = params.NUM_GROUPS
+    capacity = np.ones((n, 3))
+    capacity[phyto - 1] = (1.0, 0.6, 0.2)  # mean 0.6
+
+    def phytoplankton(pb_max):
+        run = copy.deepcopy(scenario)
+        for k in links:  # Rpath's producer link: VV = PBmaxs / (PBmaxs - 1)
+            run.params.VV[k] = pb_max / (pb_max - 1.0)
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((n, 3)),
+            habitat_capacity=capacity,
+            dispersal_rate=np.zeros(n),
+            advection_enabled=np.zeros(n, dtype=bool),
+            gravity_strength=np.zeros(n),
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            out = rsim_run_spatial(run, ecospace=ecospace, years=years)
+        cells = out.out_Biomass_spatial[:, phyto]
+        return cells[-1].sum() / cells[0].sum(), cells[-1] / cells[-1].sum()
+
+    def rule(pb_max):
+        c = capacity[phyto - 1]
+        return np.maximum(c * pb_max - 1.0, 0.0).mean() / (pb_max - 1.0) / c.mean()
+
+    total, share = phytoplankton(2.0)
+    assert rule(2.0) == pytest.approx(0.667, abs=1e-3)  # not the mean, 0.6
+    assert total == pytest.approx(rule(2.0), abs=0.02)
+    assert share[2] < 1e-6 and share[0] > 2 * share[1]  # gone below 0.5
+    # a higher ceiling lets it live in the poorer cells
+    total, share = phytoplankton(5.0)
+    assert rule(5.0) == pytest.approx(0.833, abs=1e-3)
+    assert total == pytest.approx(rule(5.0), abs=0.03)
+    # 0.2 is the limit at 5: the last cell keeps a little, as its grazers
+    # have thinned out and its losses are below the Ecopath rate
+    assert share[1] > 0.25 and 0.0 < share[2] < 0.1
