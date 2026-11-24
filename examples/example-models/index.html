@@ -1554,8 +1554,21 @@ fleets' rows, which <code>with_group_rows</code> adds:</p>
 <span class="n">read</span> <span class="o">=</span> <span class="n">read_ecospace</span><span class="p">(</span><span class="s2">"model.eweaccdb"</span><span class="p">,</span> <span class="n">n_groups</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">p</span><span class="o">.</span><span class="n">NUM_DEAD</span><span class="p">)</span>
 <span class="n">ecospace</span> <span class="o">=</span> <span class="n">read</span><span class="o">.</span><span class="n">ecospace</span><span class="o">.</span><span class="n">with_group_rows</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">NUM_GROUPS</span><span class="p">)</span>
 </code></pre></div>
+<p>EwE places a cell as the same number of degrees each way, which draws a grid
+of km cells too narrow east to west (by cos(latitude): 0.57 at 55 N).
+<code>cell_placement="ground"</code> puts the cells where they lie on the ground instead;
+<code>geometry=True</code> keeps them as polygons for a map. Only the position changes:
+the run is the same on either placement.</p>
+<div class="highlight"><pre><span></span><code><span class="n">read</span> <span class="o">=</span> <span class="n">read_ecospace</span><span class="p">(</span>
+    <span class="s2">"model.eweaccdb"</span><span class="p">,</span>
+    <span class="n">n_groups</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">NUM_LIVING</span> <span class="o">+</span> <span class="n">p</span><span class="o">.</span><span class="n">NUM_DEAD</span><span class="p">,</span>
+    <span class="n">cell_placement</span><span class="o">=</span><span class="s2">"ground"</span><span class="p">,</span>
+    <span class="n">geometry</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
 <p>In the app, the Ecospace page offers the scenarios of the database you
-imported under <strong>Stored Ecospace Scenario</strong>.</p>
+imported under <strong>Stored Ecospace Scenario</strong>, placed on the ground unless you
+choose EwE's coordinates.</p>
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
 
 
