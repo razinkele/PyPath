@@ -119,3 +119,52 @@ def test_box_output_shows_fields_and_carries_a_group(server, browser, tmp_path):
 
     assert errors == []
     assert server.tracebacks() == 0
+
+
+def test_a_monthly_box_file_uploads_like_the_text(server, browser, tmp_path):  # noqa: F811
+    """The small file `python -m pypath.io.shyfem` makes of a boxes_2d.txt:
+    the panel names it before a file is there, and reads it as the text."""
+    from pypath.io.shyfem import read_box_series, write_box_netcdf
+
+    errors: list[str] = []
+    page = _new_page(browser, errors)
+    _setup(page, server.url)
+    _create_scenario(page)
+    page.click("a.dropdown-toggle:has-text('Advanced')")
+    page.click("a[data-value='Ecospace']")
+    page.wait_for_selector("#create_grid", state="visible", timeout=30000)
+
+    page.select_option("#grid_type", "shyfem")
+    page.wait_for_selector("#mesh_file_upload", state="attached", timeout=10000)
+    page.set_input_files("#mesh_file_upload", str(zone_grd(tmp_path)))
+    assert _wait_text(page, "#mesh_summary_text", "makes 3 patches", 20)
+    assert _click_for_note(page, "#create_grid", "3 patches", 30), _notes(page)
+
+    page.click("button.accordion-button:has-text('Hydrodynamic Model')")
+    page.wait_for_selector("#box_file_upload", state="attached", timeout=10000)
+    assert page.get_attribute("#box_file_upload", "accept") == ".txt,.nc"
+    assert _wait_text(
+        page,
+        "#box_summary",
+        "python -m pypath.io.shyfem boxes_2d.txt boxes_monthly.nc",
+        15,
+    ), _text(page, "#box_summary")
+
+    made = write_box_netcdf(
+        read_box_series(box_file(tmp_path), monthly=True),
+        tmp_path / "boxes_monthly.nc",
+    )
+    page.set_input_files("#box_file_upload", str(made))
+    assert _wait_text(page, "#box_summary_text", "14 months", 30), _text(
+        page, "#box_summary"
+    )
+    summary = _text(page, "#box_summary_text")
+    assert "2001-01 to 2002-02" in summary and "3 boxes, 2 sections" in summary
+    assert "Every one of the grid's 3 patches" in summary
+
+    page.click("#ecospace_tabs a:has-text('Hydrodynamic Fields')")
+    assert _wait_text(page, "#field_map_title", "Salinity, mean of 2001-01", 20)
+    _shot(page, "hydro_monthly_file.png")
+
+    assert errors == []
+    assert server.tracebacks() == 0

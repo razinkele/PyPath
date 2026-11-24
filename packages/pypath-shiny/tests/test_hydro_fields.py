@@ -114,7 +114,10 @@ def test_a_file_that_is_too_large_or_has_too_many_boxes_is_refused(
 ):
     path = box_file(tmp_path, months=2)
     monkeypatch.setattr(hydro_fields, "MAX_BOX_BYTES", 1000)
-    with pytest.raises(ValueError, match="Cut the file"):
+    # the way out is named: a monthly box file, and the command that makes it
+    with pytest.raises(
+        ValueError, match="monthly box file.*python -m pypath.io.shyfem boxes_2d.txt"
+    ):
         read_uploaded_boxes(path)
     monkeypatch.undo()
     monkeypatch.setattr(hydro_fields, "MAX_BOXES", 2)
@@ -125,6 +128,51 @@ def test_a_file_that_is_too_large_or_has_too_many_boxes_is_refused(
     empty.write_text("# nothing\n")
     with pytest.raises(ValueError):
         read_uploaded_boxes(empty)
+
+
+def test_a_monthly_box_file_is_read_as_the_text_it_was_made_from(tmp_path, series):
+    """What `python -m pypath.io.shyfem` makes of the text: the same months,
+    fields and flows, from a file a few hundred times smaller."""
+    from pypath.io.shyfem import write_box_netcdf
+
+    text = box_file(tmp_path, name="again.txt")
+    made = write_box_netcdf(series, tmp_path / "boxes_monthly.nc")
+    # (this text has a record a day; hourly output shrinks far more)
+    assert made.stat().st_size * 10 < text.stat().st_size
+    again = read_uploaded_boxes(made)
+    assert again.monthly and month_labels(again) == month_labels(series)
+    assert again.variables == series.variables
+    for name in ("boxes", "values", "section_from", "section_to", "section_flow"):
+        np.testing.assert_array_equal(getattr(again, name), getattr(series, name))
+    np.testing.assert_array_equal(again.counts, series.counts)
+    assert vars(summarise_boxes(again)) == vars(summarise_boxes(series))
+
+
+def test_a_file_that_only_looks_like_a_monthly_box_file_is_refused(tmp_path):
+    for name, content in (
+        ("liar.nc", b"CDF\x01 not a header\n" * 40),
+        ("four.nc", b"\x89HDF\r\n\x1a\n" + bytes(64)),
+    ):
+        path = tmp_path / name
+        path.write_bytes(content)
+        with pytest.raises(ValueError, match="monthly box file"):
+            read_uploaded_boxes(path)
+
+
+def test_the_upload_takes_the_text_and_the_monthly_file():
+    from pypath_shiny.pages.ecospace import _box_upload_hint, ecospace_ui
+
+    html = str(ecospace_ui())
+    at = html.index('id="box_file_upload"')
+    tag = html[html.rindex("<input", 0, at) : html.index(">", at)]
+    assert 'accept=".txt,.nc"' in tag
+    # the panel says there is a smaller file to upload, and how to make it
+    assert "or a monthly box file made from it" in html
+    hint = str(_box_upload_hint())
+    assert (
+        "<code>python -m pypath.io.shyfem boxes_2d.txt boxes_monthly.nc</code>" in hint
+    )
+    assert "not kept on the server" in hint
 
 
 def test_the_summary_says_what_the_file_holds_and_how_it_meets_the_grid(
