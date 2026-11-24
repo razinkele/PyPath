@@ -168,6 +168,13 @@ def test_the_curonian_example_has_the_29_boxes_as_its_grid():
     # lagoon, strait and the sea boxes off the coast
     assert grid.patch_areas.sum() == pytest.approx(2296.0, rel=0.01)
     assert (grid.adjacency_matrix != grid.adjacency_matrix.T).nnz == 0
+    # the depths the README gives, from the mesh itself
+    depth = dict(zip(patch_zones(grid).tolist(), grid.cell_metadata["depth"]))
+    assert sorted(z for z, d in depth.items() if d > 10) == [1, 4, 7, 10, 12, 13, 16]
+    assert depth[11] == pytest.approx(7.1, abs=0.05)
+    shallow = [d for z, d in depth.items() if d <= 10 and z != 11]
+    assert len(shallow) == 21
+    assert (min(shallow), max(shallow)) == pytest.approx((1.4, 4.5), abs=0.05)
     cells = example_ecospace_grid("Curonian_Lagoon", patches="element")
     assert cells.n_patches == 2027
     assert cells.patch_areas.sum() == pytest.approx(grid.patch_areas.sum())

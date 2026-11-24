@@ -243,6 +243,30 @@ def test_a_database_ecospace_scenario_is_loaded_and_runs(server, browser):  # no
         page, "#spatial_run_status"
     )
 
+    # a re-balance of the same groups keeps it
+    page.click("a[data-value='Ecopath Model']")
+    page.wait_for_selector("#btn_balance", state="visible", timeout=30000)
+    page.wait_for_timeout(3000)  # the page's charts settle (see the first test)
+    assert _click_for_note(page, "#btn_balance", "Model balanced successfully", 180), (
+        _notes(page)
+    )
+    page.click("a[data-value='Ecosim']")
+    page.wait_for_selector("#btn_create_scenario", state="visible")
+    assert _click_for_note(
+        page, "#btn_create_scenario", "Scenario created successfully", 90
+    ), _notes(page)
+    _to_ecospace(page)
+    assert _wait_text(
+        page, "#ecospace_config_note", "habitat capacity and dispersal rates of", 30
+    ), _text(page, "#wizard_config_note")
+    assert _patches(page) == 1576
+    assert _click_for_note(
+        page, "#run_spatial_sim", "Running with the Ecospace scenario", 60
+    ), _notes(page)
+    assert _wait_text(page, "#spatial_run_status", "complete", 500), _text(
+        page, "#spatial_run_status"
+    )
+
     # another model ends it: its rows belong to the groups it was read for
     page.click("a[data-value='Ecosim']")
     page.select_option("#ecosim_example_model", "Central_Baltic")
