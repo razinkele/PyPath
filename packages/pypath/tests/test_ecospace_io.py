@@ -677,6 +677,30 @@ def test_ground_placement_keeps_the_distances_a_run_reads():
     )
 
 
+def test_great_circle_distances_differ_between_the_placements_and_no_run_reads_them():
+    """build_distance_matrix("haversine") reads the map under EwE's placement."""
+    import inspect
+
+    from pypath.spatial import integration
+    from pypath.spatial.connectivity import build_distance_matrix
+
+    ewe, ground = _two_placements()
+    east = (0, 1)  # the first cell and its east neighbour, 10 km apart
+    on_map = build_distance_matrix(ewe, method="haversine")[east]
+    carried = build_distance_matrix(ground, method="haversine")[east]
+    assert on_map == pytest.approx(5.6, abs=0.1)  # squeezed by cos(55 N)
+    assert carried == pytest.approx(10.0, rel=2e-3)
+    np.testing.assert_allclose(
+        build_distance_matrix(ground, method="euclidean"),
+        build_distance_matrix(ewe, method="euclidean"),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    source = inspect.getsource(integration)
+    assert "build_distance_matrix" not in source
+    assert "find_k_nearest_neighbors" not in source
+
+
 def test_a_run_is_the_same_run_on_either_placement(spatial_scenario):
     from pypath.spatial import EcospaceParams, rsim_run_spatial
 

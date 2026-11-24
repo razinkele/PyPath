@@ -6460,6 +6460,14 @@ def _build_fallback_grid(
     under EwE's placement (``edge_distances``, bit for bit, and
     ``centroid_km``, the same plane in km), so a run on either placement
     is the same run.
+
+    One helper that no run reads does differ:
+    ``pypath.spatial.build_distance_matrix(method="haversine")`` (and
+    ``find_k_nearest_neighbors``, which uses it) measures great circles
+    between the centroids of a grid without ``centroid_km``, and returns
+    the carried plane for one with it. Under EwE's placement it therefore
+    gives the squeezed map's distances (a 10 km cell's east neighbour at
+    5.6 km at 55 N), under the ground placement the cell's own 10 km.
     """
     import scipy.sparse
 
