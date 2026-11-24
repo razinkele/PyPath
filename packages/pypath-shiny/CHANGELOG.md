@@ -6,6 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.19.0 (2026-11-24)
+
+### Bug Fixes
+
+- A stored Ecospace scenario stays with the groups it was read for
+  ([`a53aa93`](https://github.com/razinkele/PyPath/commit/a53aa93a7873aa2d16d179af69da204a14ddf26f))
+
+- **shiny**: Check a stored Ecospace scenario's grid size before reading it
+  ([`9b2974f`](https://github.com/razinkele/PyPath/commit/9b2974ffdfc28aac4ccb01fbb2b953798a9da7f6))
+
+### Features
+
+- **shiny**: Open an example on the Ecosim page; load a stored Ecospace scenario or an example's
+  grid
+  ([`3e1e3e7`](https://github.com/razinkele/PyPath/commit/3e1e3e7bb54bd605097b1abff544c7d6d1fc945c))
+
+
 ## v1.18.0 (2026-11-22)
 
 ### Bug Fixes
