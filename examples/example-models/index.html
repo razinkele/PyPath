@@ -962,6 +962,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-curonian-lagoon-on-its-own-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Curonian Lagoon on its own grid
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-curonian-lagoon-on-its-29-boxes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1042,6 +1053,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.examples.ExampleModel.ecospace_path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ecospace_path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.examples.ExampleModel.grid_path" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1073,6 +1095,17 @@
     <span class="md-ellipsis">
       
         example_ecosim_scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.examples.example_ecospace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        example_ecospace
       
     </span>
   </a>
@@ -1271,6 +1304,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-curonian-lagoon-on-its-own-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Curonian Lagoon on its own grid
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-curonian-lagoon-on-its-29-boxes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1351,6 +1395,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#pypath.examples.ExampleModel.ecospace_path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ecospace_path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pypath.examples.ExampleModel.grid_path" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1382,6 +1437,17 @@
     <span class="md-ellipsis">
       
         example_ecosim_scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pypath.examples.example_ecospace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        example_ecospace
       
     </span>
   </a>
@@ -1502,11 +1568,14 @@ page.</p>
 source, the changes made to it and the files included: the EwE-F Ecopath
 inputs and the Ecosim settings (vulnerabilities, group settings, fishing
 forcing). PyPath's balance of each matches Ecopath-F's.</p>
-<p>The Curonian Lagoon model also ships a spatial grid for Ecospace: the 29
-boxes of a SHYFEM box model of the lagoon (<code>example_ecospace_grid</code>). Only the
-grid: habitat maps and dispersal rates are yours to set. In the app, the
-Ecospace page offers it as <strong>Load the example's grid</strong> while the example is
-open.</p>
+<p>The Curonian Lagoon model is also a spatial model. It ships its own Ecospace
+set-up, from the same EwE-F case: a grid of 1,576 cells of 1 km (the lagoon
+and the Klaipėda strait) with the cells' depth and a habitat map per group
+(<code>example_ecospace</code>). As an alternative grid it has the 29 boxes of a SHYFEM
+box model of the lagoon (<code>example_ecospace_grid</code>), for which habitat maps and
+dispersal rates are yours to set. In the app, the Ecospace page offers both
+while the example is open: <strong>Load the example's Ecospace set-up</strong> and <strong>Load
+the example's grid</strong>.</p>
 <h2 id="balance-and-run-one">Balance and run one<a class="headerlink" href="#balance-and-run-one" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecopath</span><span class="w"> </span><span class="kn">import</span> <span class="n">rpath</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core.ecosim</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run</span>
@@ -1519,6 +1588,31 @@ open.</p>
 <span class="n">scenario</span> <span class="o">=</span> <span class="n">example_ecosim_scenario</span><span class="p">(</span><span class="s2">"Lithuanian_Coast"</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">rsim_run</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"RK4"</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="the-curonian-lagoon-on-its-own-grid">The Curonian Lagoon on its own grid<a class="headerlink" href="#the-curonian-lagoon-on-its-own-grid" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pypath.examples</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_ecosim_scenario</span><span class="p">,</span> <span class="n">example_ecospace</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pypath.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">rsim_run_spatial</span>
+
+<span class="n">years</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">example_ecosim_scenario</span><span class="p">(</span><span class="s2">"Curonian_Lagoon"</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
+<span class="n">ecospace</span> <span class="o">=</span> <span class="n">example_ecospace</span><span class="p">(</span><span class="s2">"Curonian_Lagoon"</span><span class="p">)</span>  <span class="c1"># 1,576 cells, 20 group rows</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">rsim_run_spatial</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">ecospace</span><span class="o">=</span><span class="n">ecospace</span><span class="p">,</span> <span class="n">years</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
+</code></pre></div>
+<p>The configuration is PyPath's Ecospace on the case's grid and habitat maps:
+each map, over its largest value, is its group's habitat capacity, and every
+group disperses at EwE's speed for a new Ecospace group (300 km a year, 10
+for detritus) over cells of 1 km. Those two are chosen, as the EwE-F files do
+not hold them; <code>pypath.io.ewef.read_ewef_ecospace</code> takes others. EwE-F's own
+movement, and the case's advection field, are not reproduced.</p>
+<div class="admonition note">
+<p class="admonition-title">The spatial run settles below the Ecopath biomasses</p>
+<p>Over ten years the map totals settle at about 0.6 of the start for most
+groups. The phytoplankton map is the cause: it follows depth, a map is
+divided by its largest value (EwE 6's rule), and over the lagoon its
+capacity is then 0.59 on average. With every map uniform the totals stay
+at 1.000; with only the phytoplankton map uniform they stay near the
+start. There is no EwE 6 run of this model to compare with. The example's
+README has the figures.</p>
+</div>
 <h2 id="the-curonian-lagoon-on-its-29-boxes">The Curonian Lagoon on its 29 boxes<a class="headerlink" href="#the-curonian-lagoon-on-its-29-boxes" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.examples</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_ecosim_scenario</span><span class="p">,</span> <span class="n">example_ecospace_grid</span>
@@ -1589,8 +1683,9 @@ choose EwE's coordinates.</p>
 (scenario, diet, detritus fate, growth) and its Ecosim settings
 (vulnerabilities, group settings, fishing forcing). Each model's folder has a
 README with its source and the changes made to it. The Curonian Lagoon model
-also has a spatial grid for Ecospace: the 29 boxes of a SHYFEM box model
-(<code>example_ecospace_grid</code>).</p>
+is also a spatial model: its own Ecospace set-up on a grid of 1 km cells
+with a habitat map per group (<code>example_ecospace</code>), and as an alternative
+grid the 29 boxes of a SHYFEM box model (<code>example_ecospace_grid</code>).</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
@@ -1707,8 +1802,7 @@ also has a spatial grid for Ecospace: the 29 boxes of a SHYFEM box model
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/examples/__init__.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">32</span>
-<span class="normal">33</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">33</span>
 <span class="normal">34</span>
 <span class="normal">35</span>
 <span class="normal">36</span>
@@ -1747,7 +1841,14 @@ also has a spatial grid for Ecospace: the 29 boxes of a SHYFEM box model
 <span class="normal">69</span>
 <span class="normal">70</span>
 <span class="normal">71</span>
-<span class="normal">72</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span>
+<span class="normal">79</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ExampleModel</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""An example model: its name, what it is and where it comes from.</span>
 
@@ -1782,6 +1883,12 @@ also has a spatial grid for Ecospace: the 29 boxes of a SHYFEM box model
     <span class="k">def</span><span class="w"> </span><span class="nf">ecosim_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""The EwE-F Ecosim inputs (folder with the ``filenames.nml``)."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="s2">"ecosim"</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ecospace_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The EwE-F Ecospace inputs (grid, depth, habitat maps), or None."""</span>
+        <span class="n">folder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="s2">"ecospace"</span>
+        <span class="k">return</span> <span class="n">folder</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">folder</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*_grid.csv"</span><span class="p">))</span> <span class="k">else</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">grid_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
@@ -1844,6 +1951,30 @@ also has a spatial grid for Ecospace: the 29 boxes of a SHYFEM box model
     <div class="doc doc-contents ">
 
         <p>The EwE-F Ecosim inputs (folder with the <code>filenames.nml</code>).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="pypath.examples.ExampleModel.ecospace_path" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">ecospace_path</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#pypath.examples.ExampleModel.ecospace_path" class="headerlink" title="Permanent link">&para;</a></h5>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">ecospace_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The EwE-F Ecospace inputs (grid, depth, habitat maps), or None.</p>
 
     </div>
 
@@ -2021,14 +2152,7 @@ model with the example's vulnerabilities, group settings and fishing.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/examples/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">170</span>
 <span class="normal">171</span>
 <span class="normal">172</span>
 <span class="normal">173</span>
@@ -2053,7 +2177,14 @@ model with the example's vulnerabilities, group settings and fishing.</p>
 <span class="normal">192</span>
 <span class="normal">193</span>
 <span class="normal">194</span>
-<span class="normal">195</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_ecosim_scenario</span><span class="p">(</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_ecosim_scenario</span><span class="p">(</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">fast_group_rule</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -2095,6 +2226,270 @@ model with the example's vulnerabilities, group settings and fishing.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="pypath.examples.example_ecospace" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">example_ecospace</span>
+
+
+<a href="#pypath.examples.example_ecospace" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">example_ecospace</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">cell_placement</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'ground'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'EcospaceParams'</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>An example's own Ecospace set-up, ready for a spatial run.</p>
+<p>The grid's water cells as patches, each group's habitat capacity from
+its habitat map, and a dispersal rate per group, with a row for every
+group of the model (fleets included). Use it with
+:func:<code>example_ecosim_scenario</code>:</p>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>scenario = example_ecosim_scenario("Curonian_Lagoon")
+ecospace = example_ecospace("Curonian_Lagoon")
+out = rsim_run_spatial(scenario, ecospace=ecospace)  # doctest: +SKIP</p>
+</blockquote>
+</blockquote>
+</blockquote>
+<p>It is PyPath's Ecospace on the case's grid and maps
+(:func:<code>pypath.io.ewef.read_ewef_ecospace</code> says what is read and what
+is chosen), not EwE-F's own movement.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An example's name (see :func:<code>list_example_models</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>geometry</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keep the cells as polygons, for maps (needs geopandas and shapely).</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cell_placement</code>
+            </td>
+            <td>
+                  <code>(&#39;ground&#39;, &#39;ewe&#39;)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where the cells are put; the run is the same either way.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;ground&#34;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="EcospaceParams
+
+
+  
+      dataclass
+   (pypath.spatial.EcospaceParams)" href="../../api/spatial/#pypath.spatial.ecospace_params.EcospaceParams">EcospaceParams</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the example has no Ecospace set-up; the message names those
+that have one.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>pypath/examples/__init__.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_ecospace</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">cell_placement</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ground"</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EcospaceParams"</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""An example's own Ecospace set-up, ready for a spatial run.</span>
+
+<span class="sd">    The grid's water cells as patches, each group's habitat capacity from</span>
+<span class="sd">    its habitat map, and a dispersal rate per group, with a row for every</span>
+<span class="sd">    group of the model (fleets included). Use it with</span>
+<span class="sd">    :func:`example_ecosim_scenario`:</span>
+
+<span class="sd">    &gt;&gt;&gt; scenario = example_ecosim_scenario("Curonian_Lagoon")</span>
+<span class="sd">    &gt;&gt;&gt; ecospace = example_ecospace("Curonian_Lagoon")</span>
+<span class="sd">    &gt;&gt;&gt; out = rsim_run_spatial(scenario, ecospace=ecospace)  # doctest: +SKIP</span>
+
+<span class="sd">    It is PyPath's Ecospace on the case's grid and maps</span>
+<span class="sd">    (:func:`pypath.io.ewef.read_ewef_ecospace` says what is read and what</span>
+<span class="sd">    is chosen), not EwE-F's own movement.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str</span>
+<span class="sd">        An example's name (see :func:`list_example_models`).</span>
+<span class="sd">    geometry : bool</span>
+<span class="sd">        Keep the cells as polygons, for maps (needs geopandas and shapely).</span>
+<span class="sd">    cell_placement : {"ground", "ewe"}</span>
+<span class="sd">        Where the cells are put; the run is the same either way.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    EcospaceParams</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the example has no Ecospace set-up; the message names those</span>
+<span class="sd">        that have one.</span>
+<span class="sd">    """</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.io.ewef</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_ewef</span><span class="p">,</span> <span class="n">read_ewef_ecospace</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">example_model</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">ecospace_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">with_one</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">_CATALOG</span> <span class="k">if</span> <span class="n">m</span><span class="o">.</span><span class="n">ecospace_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"The example </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has no Ecospace set-up; the examples "</span>
+            <span class="sa">f</span><span class="s2">"with one are: </span><span class="si">{</span><span class="n">with_one</span><span class="si">}</span><span class="s2">"</span>
+        <span class="p">)</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">read_ewef</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">ecopath_path</span><span class="p">)</span>
+    <span class="n">ecospace</span> <span class="o">=</span> <span class="n">read_ewef_ecospace</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">ecospace_path</span><span class="p">,</span>
+        <span class="n">params</span><span class="p">,</span>
+        <span class="n">ecosim_path</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">ecosim_path</span><span class="p">,</span>
+        <span class="n">cell_placement</span><span class="o">=</span><span class="n">cell_placement</span><span class="p">,</span>
+        <span class="n">geometry</span><span class="o">=</span><span class="n">geometry</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ecospace</span><span class="o">.</span><span class="n">with_group_rows</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">model</span><span class="p">))</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="pypath.examples.example_ecospace_grid" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">example_ecospace_grid</span>
 
@@ -2105,9 +2500,10 @@ model with the example's vulnerabilities, group settings and fishing.</p>
 
     <div class="doc doc-contents ">
 
-        <p>An example's spatial grid for Ecospace, from its SHYFEM mesh.</p>
-<p>Only the grid is shipped: habitat maps and dispersal rates are yours to
-set (<code>EcospaceParams</code>). The element types of the mesh are the boxes of
+        <p>An example's alternative grid for Ecospace, from its SHYFEM mesh.</p>
+<p>The boxes of a hydrodynamic box model, not the grid of the example's
+own Ecospace set-up (:func:<code>example_ecospace</code>). Only the grid: habitat
+maps and dispersal rates are yours to set (<code>EcospaceParams</code>). The element types of the mesh are the boxes of
 the hydrodynamic box model, so the model's box output
 (<code>pypath.io.shyfem.read_box_series</code>) fits the grid as it is.</p>
 
@@ -2228,53 +2624,55 @@ the hydrodynamic box model, so the model's box output
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/examples/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_ecospace_grid</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_ecospace_grid</span><span class="p">(</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">patches</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"type"</span><span class="p">,</span> <span class="n">geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"EcospaceGrid"</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""An example's spatial grid for Ecospace, from its SHYFEM mesh.</span>
+<span class="w">    </span><span class="sd">"""An example's alternative grid for Ecospace, from its SHYFEM mesh.</span>
 
-<span class="sd">    Only the grid is shipped: habitat maps and dispersal rates are yours to</span>
-<span class="sd">    set (``EcospaceParams``). The element types of the mesh are the boxes of</span>
+<span class="sd">    The boxes of a hydrodynamic box model, not the grid of the example's</span>
+<span class="sd">    own Ecospace set-up (:func:`example_ecospace`). Only the grid: habitat</span>
+<span class="sd">    maps and dispersal rates are yours to set (``EcospaceParams``). The element types of the mesh are the boxes of</span>
 <span class="sd">    the hydrodynamic box model, so the model's box output</span>
 <span class="sd">    (``pypath.io.shyfem.read_box_series``) fits the grid as it is.</span>
 
@@ -2356,20 +2754,20 @@ the hydrodynamic box model, so the model's box output
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/examples/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">136</span>
 <span class="normal">137</span>
 <span class="normal">138</span>
 <span class="normal">139</span>
 <span class="normal">140</span>
 <span class="normal">141</span>
-<span class="normal">142</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_model</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExampleModel</span><span class="p">:</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">example_model</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExampleModel</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The example model of that name (case does not matter).</span>
 
 <span class="sd">    Raises</span>
@@ -2407,9 +2805,9 @@ the hydrodynamic box model, so the model's box output
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/examples/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">list_example_models</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ExampleModel</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">list_example_models</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ExampleModel</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""The example models shipped with PyPath, in name order."""</span>
     <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">_CATALOG</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -2495,14 +2893,7 @@ the hydrodynamic box model, so the model's box output
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/examples/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">152</span>
 <span class="normal">153</span>
 <span class="normal">154</span>
 <span class="normal">155</span>
@@ -2510,7 +2901,14 @@ the hydrodynamic box model, so the model's box output
 <span class="normal">157</span>
 <span class="normal">158</span>
 <span class="normal">159</span>
-<span class="normal">160</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_example_model</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RpathParams"</span><span class="p">:</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_example_model</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RpathParams"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""An example model's Ecopath parameters, ready for ``rpath``.</span>
 
 <span class="sd">    Parameters</span>
