@@ -39,7 +39,11 @@ from shiny_deckgl import CARTO_DARK, MapWidget
 
 from pypath_shiny.config import SPATIAL
 from pypath_shiny.pages.ecosim import month_progress_tags
-from pypath_shiny.pages.ewe_scenario import EXAMPLE_KIND, ewe_source_matches
+from pypath_shiny.pages.ewe_scenario import (
+    EXAMPLE_KIND,
+    ewe_source_matches,
+    model_group_names,
+)
 from pypath_shiny.services.background_runs import (
     SpatialOutcome,
     run_spatial_checked,
@@ -1106,6 +1110,9 @@ def ecospace_server(
     _ecospace_params = reactive.Value(None)
     # where _ecospace_params comes from, as the notes name it
     _config_origin = reactive.Value(WIZARD_ORIGIN)
+    # the groups a loaded scenario's rows belong to, in order (None for the
+    # wizard's configuration, which is built for the model that is open)
+    _config_groups = reactive.Value(None)
     _spatial_results = reactive.Value(None)
     _spatial_switching = reactive.Value(None)
     # what the shown run did with the water transport: (css class, text) lines
@@ -1122,6 +1129,7 @@ def ecospace_server(
             return
         _ecospace_params.set(params_obj)
         _config_origin.set(WIZARD_ORIGIN)
+        _config_groups.set(None)
         wizard_grid = getattr(params_obj, "grid", None)
         if wizard_grid is not None:
             grid.set(wizard_grid)
@@ -1298,6 +1306,7 @@ def ecospace_server(
             return
         _ecospace_params.set(stored.params)
         _config_origin.set(stored.origin)
+        _config_groups.set(list(stored.groups))
         grid.set(stored.params.grid)
         _spatial_results.set(None)
         _spatial_switching.set(None)
@@ -1316,6 +1325,33 @@ def ecospace_server(
             f"about {_duration_text(seconds)}.{skipped}",
             type="message",
             duration=12,
+        )
+
+    @reactive.effect
+    def _drop_a_scenario_of_another_model():
+        """A loaded scenario's rows belong to the groups it was read for.
+
+        Another model, or the same one with a group added, removed, renamed
+        or moved, must not run with them: a re-balance of the same groups
+        keeps the scenario.
+        """
+        model = _model_data.get()
+        with reactive.isolate():
+            groups = _config_groups.get()
+            origin = _config_origin.get()
+        if groups is None or model_group_names(model) == groups:
+            return
+        _ecospace_params.set(None)
+        _config_origin.set(WIZARD_ORIGIN)
+        _config_groups.set(None)
+        _spatial_results.set(None)
+        _spatial_switching.set(None)
+        _notify_legacy(
+            f"{origin[0].upper()}{origin[1:]} was loaded for another set of "
+            "groups and is no longer used: this page's settings apply. Load "
+            "it again for the model that is open.",
+            type="warning",
+            duration=10,
         )
 
     @reactive.effect

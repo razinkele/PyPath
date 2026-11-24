@@ -559,3 +559,26 @@ def test_rows_for_the_fleets_are_added_as_groups_that_stay_put():
     assert read.habitat_capacity.shape == (2, 3)  # the original is not changed
     with pytest.raises(ValueError, match="more than the 1 groups"):
         read.with_group_rows(1)
+
+
+def test_a_grid_larger_than_asked_for_is_refused_before_its_maps_are_read(
+    monkeypatch,
+):
+    """For a database from someone else: its size is checked on the row read."""
+    from pathlib import Path
+
+    from pypath.io import ewemdb
+    from pypath.io.ewemdb import EwEDatabaseError, read_ecospace
+
+    db = Path(__file__).resolve().parents[3] / "Data" / "curonian_pelagic.sqlite"
+    if not db.exists():
+        pytest.skip("the Curonian pelagic database is not here")
+    full = read_ecospace(str(db), n_groups=19, max_cells=94 * 51)
+    assert full.ecospace.grid.n_patches == 1576
+
+    def never(*args, **kwargs):
+        raise AssertionError("a map was read")
+
+    monkeypatch.setattr(ewemdb, "_ewe_depth_input", never)
+    with pytest.raises(EwEDatabaseError, match=r"4,794 cells \(94 x 51\); up to 4,793"):
+        read_ecospace(str(db), n_groups=19, max_cells=94 * 51 - 1)

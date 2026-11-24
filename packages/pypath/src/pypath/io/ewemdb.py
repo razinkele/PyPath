@@ -5539,6 +5539,7 @@ def read_ecospace(
     ecopath_pb: Optional[Sequence[float]] = None,
     grid_corner: str = "north_west",
     geometry: bool = False,
+    max_cells: Optional[int] = None,
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
@@ -5582,6 +5583,11 @@ def read_ecospace(
     geometry : bool
         Keep the cells of the grid built here as polygons, for maps (needs
         geopandas and shapely). A user grid is left as it is.
+    max_cells : int, optional
+        Refuse a scenario whose grid has more cells than this (Inrow x
+        Incol, land included), before its maps are read: for a database
+        from someone else, whose size is not known. Not applied with a user
+        grid.
 
     Returns
     -------
@@ -5594,7 +5600,8 @@ def read_ecospace(
     ------
     EwEDatabaseError
         If EcospaceScenario table is missing, a depth or exclusion map
-        cannot be read, or the maps leave no water cell.
+        cannot be read, the maps leave no water cell, or the grid has more
+        than ``max_cells`` cells.
     """
     from pypath.spatial.ecospace_params import EcospaceParams
 
@@ -5639,6 +5646,12 @@ def read_ecospace(
             raise EwEDatabaseError(
                 f"Ecospace scenario {scenario_id} has no grid "
                 f"(Inrow x Incol = {n_rows} x {n_cols}); pass grid="
+            )
+        if max_cells is not None and n_rows * n_cols > int(max_cells):
+            raise EwEDatabaseError(
+                f"Ecospace scenario {scenario_id} has a grid of "
+                f"{n_rows * n_cols:,} cells ({n_rows} x {n_cols}); up to "
+                f"{int(max_cells):,} cells are read"
             )
         depth_input = _ewe_depth_input(scenario_row, n_rows, n_cols)
         depth = _ewe_depth_map(scenario_row, n_rows, n_cols, depth_input)

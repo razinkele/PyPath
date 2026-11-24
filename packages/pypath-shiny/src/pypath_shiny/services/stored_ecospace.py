@@ -36,8 +36,8 @@ __all__ = [
 # hour per simulated year.
 MAX_STORED_PATCHES = 10_000
 
-# The scenario's rows x columns, land included, are checked before anything
-# is read: the reader builds a capacity map per group and a polygon per
+# The scenario's rows x columns, land included, which the reader checks
+# before it reads a map: it builds a capacity map per group and a polygon per
 # water cell, so an uploaded database must not name an arbitrary size.
 MAX_STORED_CELLS = 40_000
 
@@ -63,14 +63,17 @@ class StoredEcospace:
 
     ``params`` has one row per group of the model, fleets included.
     ``origin`` names it in the page's notes ("the Ecospace scenario ... of
-    ..."); ``not_applied`` lists what the source holds and a run does not
-    use.
+    ..."); ``groups`` are the groups its rows belong to, so the page can
+    drop it when another model is opened; ``not_applied`` lists what the
+    source holds and a run does not use.
     """
 
     params: Any
     origin: str
     n_patches: int
     n_groups: int
+    # the model's groups the rows belong to, in order
+    groups: list = field(default_factory=list)
     scenario_name: str = ""
     cell_km: Optional[float] = None
     not_applied: list = field(default_factory=list)
@@ -130,20 +133,6 @@ def ewe_ecospace_choices(filepath: str) -> Dict[int, str]:
     return out
 
 
-def _scenario_cells(filepath: str, scenario_id: int) -> int:
-    """Rows x columns of an Ecospace scenario's grid, from its table row."""
-    from pypath.io.ewemdb import read_ewemdb_table
-
-    df = read_ewemdb_table(filepath, "EcospaceScenario")
-    ids, n_rows, n_cols = (_column(df, n) for n in ("ScenarioID", "Inrow", "Incol"))
-    if ids is None or n_rows is None or n_cols is None:
-        raise ValueError("the database's EcospaceScenario table has no grid size")
-    row = df[df[ids].astype(int) == int(scenario_id)]
-    if len(row) == 0:
-        raise ValueError(f"the database has no Ecospace scenario {scenario_id}")
-    return int(row.iloc[0][n_rows]) * int(row.iloc[0][n_cols])
-
-
 def load_stored_ecospace(
     source: dict, scenario_id, model, grid_corner: str = "north_west"
 ) -> StoredEcospace:
@@ -164,9 +153,10 @@ def load_stored_ecospace(
     Raises
     ------
     ValueError
-        When the model is not balanced, the scenario cannot be read, its
-        grid has more than ``MAX_STORED_CELLS`` cells (checked before it is
-        read) or more than ``MAX_STORED_PATCHES`` water cells.
+        When the model is not balanced or its groups are not the
+        database's in its order, the scenario cannot be read, its grid has
+        more than ``MAX_STORED_CELLS`` cells (the reader checks that before
+        it reads a map) or more than ``MAX_STORED_PATCHES`` water cells.
     """
     from pypath.io.ewemdb import read_ecospace
 
@@ -179,14 +169,16 @@ def load_stored_ecospace(
         raise ValueError(f"grid_corner must be one of {sorted(GRID_CORNERS)}")
     n_bio = int(model.NUM_LIVING) + int(model.NUM_DEAD)
     n_all = n_bio + int(model.NUM_GEARS)
-    try:
-        n_cells = _scenario_cells(source["path"], int(scenario_id))
-    except Exception as e:
-        raise ValueError(f"the Ecospace scenario could not be read: {e}") from e
-    if n_cells > MAX_STORED_CELLS:
+    # The reader places each row by the database's own group order, and the
+    # P/B below is in the model's: the two must be the same list.
+    names = [str(g).strip() for g in model.Group]
+    recorded = [str(g).strip() for g in source.get("groups", [])]
+    if names != recorded:
         raise ValueError(
-            f"the scenario's grid has {n_cells:,} cells (rows x columns); "
-            f"grids of up to {MAX_STORED_CELLS:,} cells are read"
+            "the model's groups are not the database's, in its order (a group "
+            "was added, removed, renamed or moved since the import): the "
+            "scenario's maps would go to the wrong groups. Import the "
+            "database again."
         )
     try:
         result = read_ecospace(
@@ -196,6 +188,8 @@ def load_stored_ecospace(
             ecopath_pb=[float(v) for v in np.asarray(model.PB)[:n_bio]],
             grid_corner=grid_corner,
             geometry=True,
+            # checked by the reader on the row it reads, before any map
+            max_cells=MAX_STORED_CELLS,
         )
     except Exception as e:
         raise ValueError(f"the Ecospace scenario could not be read: {e}") from e
@@ -218,6 +212,7 @@ def load_stored_ecospace(
     ]
     title = f"the Ecospace scenario '{name}'" if name else "the Ecospace scenario"
     return StoredEcospace(
+        groups=names,
         params=result.ecospace.with_group_rows(n_all),
         origin=f"{title} of {source.get('name', 'the database')}",
         n_patches=int(grid.n_patches),

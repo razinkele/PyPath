@@ -121,28 +121,44 @@ def test_a_scenario_is_not_loaded_without_a_balanced_model_or_when_too_large(
     source, params, model = pelagic
     with pytest.raises(ValueError, match="Balance the model first"):
         load_stored_ecospace(source, 1, params)
-    with pytest.raises(ValueError, match="could not be read.*no Ecospace scenario 99"):
+    with pytest.raises(ValueError, match="could not be read.*ScenarioID=99"):
         load_stored_ecospace(source, 99, model)
     monkeypatch.setattr(stored_ecospace, "MAX_STORED_PATCHES", 1000)
     with pytest.raises(ValueError, match="1,576 water cells; up to 1,000"):
         load_stored_ecospace(source, 1, model)
 
 
-def test_the_grid_size_is_checked_before_the_scenario_is_read(pelagic, monkeypatch):
+def test_the_grid_size_is_checked_before_a_map_is_read(pelagic, monkeypatch):
     """An uploaded database must not make the reader build a grid of any size."""
+    from pypath.io import ewemdb
+
     source, _, model = pelagic
-    assert stored_ecospace._scenario_cells(str(PELAGIC), 1) == 94 * 51
 
     def never(*args, **kwargs):
-        raise AssertionError("the scenario was read")
+        raise AssertionError("a map was read")
 
-    monkeypatch.setattr("pypath.io.ewemdb.read_ecospace", never)
+    monkeypatch.setattr(ewemdb, "_ewe_depth_input", never)
     monkeypatch.setattr(stored_ecospace, "MAX_STORED_CELLS", 94 * 51 - 1)
-    with pytest.raises(ValueError, match=r"4,794 cells \(rows x columns\)"):
+    with pytest.raises(ValueError, match=r"could not be read.*4,794 cells"):
         load_stored_ecospace(source, 1, model)
-    # a scenario that is not there is refused the same way, before a read
-    with pytest.raises(ValueError, match="no Ecospace scenario 99"):
-        load_stored_ecospace(source, 99, model)
+
+
+def test_a_model_whose_groups_are_not_the_databases_in_order_is_refused(pelagic):
+    """The reader places rows by the database's order, the P/B is the model's."""
+    import copy
+
+    source, _, model = pelagic
+    assert load_stored_ecospace(source, 1, model).groups == source["groups"]
+    moved = copy.copy(model)
+    moved.Group = np.asarray(
+        list(model.Group[1:2]) + list(model.Group[:1]) + list(model.Group[2:])
+    )
+    assert set(moved.Group) == set(model.Group)  # the same groups, two swapped
+    with pytest.raises(ValueError, match="not the database's, in its order"):
+        load_stored_ecospace(source, 1, moved)
+    renamed = dict(source, groups=["x"] + source["groups"][1:])
+    with pytest.raises(ValueError, match="not the database's, in its order"):
+        load_stored_ecospace(renamed, 1, model)
 
 
 def test_a_loaded_scenario_runs_in_place_of_the_page_settings(pelagic):
@@ -267,3 +283,15 @@ def test_run_times_are_worded_by_size():
     assert _duration_text(90) == "90 seconds"
     assert _duration_text(600) == "10 minutes"
     assert _duration_text(3 * 3600) == "3.0 hours"
+
+
+def test_a_loaded_scenario_is_dropped_when_another_model_is_opened():
+    """Its rows belong to the groups it was read for (source inspection)."""
+    source = inspect.getsource(ecospace.ecospace_server)
+    drop = source[source.index("def _drop_a_scenario_of_another_model") :]
+    drop = drop[: drop.index("@reactive.effect")]
+    assert "model_group_names(model) == groups" in drop
+    assert "_ecospace_params.set(None)" in drop and "_config_groups.set(None)" in drop
+    # set with the scenario, cleared for the wizard's configuration
+    assert "_config_groups.set(list(stored.groups))" in source
+    assert source.count("_config_groups.set(None)") == 2

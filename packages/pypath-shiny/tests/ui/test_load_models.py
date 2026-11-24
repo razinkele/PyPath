@@ -185,7 +185,11 @@ def test_a_database_ecospace_scenario_is_loaded_and_runs(server, browser):  # no
     page.click("a:has-text('EwE File')")
     page.wait_for_selector("#btn_import_ewemdb", state="visible", timeout=30000)
     page.set_input_files("#ewemdb_upload", str(PELAGIC))
-    time.sleep(1.0)
+    # Import reads the uploaded file: wait until it is all there
+    page.wait_for_selector(
+        "#ewemdb_upload_progress .progress-bar:has-text('Upload complete')",
+        timeout=120000,
+    )
     page.click("#btn_import_ewemdb")
     page.wait_for_selector("#btn_use_imported_ewe", state="visible", timeout=120000)
     assert _click_for_note(page, "#btn_use_imported_ewe", "Model transferred", 30), (
@@ -238,5 +242,17 @@ def test_a_database_ecospace_scenario_is_loaded_and_runs(server, browser):  # no
     assert _wait_text(page, "#spatial_run_status", "complete", 500), _text(
         page, "#spatial_run_status"
     )
+
+    # another model ends it: its rows belong to the groups it was read for
+    page.click("a[data-value='Ecosim']")
+    page.select_option("#ecosim_example_model", "Central_Baltic")
+    assert _click_for_note(
+        page, "#btn_ecosim_open_example", "is no longer used", 120
+    ), _notes(page)
+    _to_ecospace(page)
+    # the note is redrawn once the page is shown again
+    page.wait_for_selector("#ecospace_config_note", state="detached", timeout=30000)
+    assert _wait_text(page, "#stored_ecospace_hint", "has no spatial grid", 20)
+
     assert errors == []
     assert server.tracebacks() == 0
