@@ -39,6 +39,7 @@ from pypath.io.ewef import (
     ecosim_scenario_from_ewef,
     read_ewef,
     read_ewef_ecosim,
+    read_ewef_ecospace,
     read_ewef_results,
 )
 from pypath.io.ewemdb import (
@@ -132,6 +133,7 @@ __all__ = [
     # EwE-F
     "read_ewef",
     "read_ewef_ecosim",
+    "read_ewef_ecospace",
     "ecosim_scenario_from_ewef",
     "read_ewef_results",
     # Taxonomy

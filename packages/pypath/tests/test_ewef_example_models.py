@@ -260,3 +260,212 @@ def test_the_curonian_example_runs_on_its_grid():
     np.testing.assert_allclose(
         density, np.repeat(density[:, :, :1], 29, axis=2), rtol=1e-6
     )
+
+
+# --- the Curonian Lagoon's own Ecospace set-up (EPath's grid and maps) ---------
+
+
+def _curonian_ecospace(**kwargs):
+    from pypath.examples import example_ecospace
+
+    return example_ecospace("Curonian_Lagoon", **kwargs)
+
+
+def test_the_curonian_example_has_its_ecospace_set_up():
+    """The lagoon and the strait as 1,576 cells of 1 km, a row per group."""
+    model = example_model("Curonian_Lagoon")
+    assert model.ecospace_path.name == "ecospace"
+    files = sorted(p.name for p in model.ecospace_path.iterdir())
+    assert files == [
+        "Curonian_Lagoon_SpatialDistribution",
+        "Curonian_Lagoon_depth.csv",
+        "Curonian_Lagoon_georef.json",
+        "Curonian_Lagoon_grid.csv",
+        "curonian29.grd",
+    ]
+    maps = model.ecospace_path / "Curonian_Lagoon_SpatialDistribution"
+    assert sorted(p.name for p in maps.iterdir()) == sorted(
+        f"Group_{k}.csv" for k in range(1, 20)
+    )
+    ecospace = _curonian_ecospace()
+    grid = ecospace.grid
+    assert grid.n_patches == 1576 and grid.geometry is None
+    np.testing.assert_array_equal(grid.patch_areas, 1.0)  # km2
+    # a row for each of the 19 groups and the fleet
+    assert ecospace.habitat_capacity.shape == (20, 1576)
+    assert np.all(ecospace.habitat_capacity[-1] == 1.0)
+    assert ecospace.dispersal_rate[-1] == 0.0
+    # EwE's speeds for a new Ecospace group over a 1 km cell: 300 km a year,
+    # 10 for detritus
+    np.testing.assert_allclose(ecospace.dispersal_rate[:18], 300 / np.pi, rtol=1e-6)
+    assert ecospace.dispersal_rate[18] == pytest.approx(10 / np.pi, rel=1e-6)
+    # the cell depths: the lagoon is shallow, the dredged strait 12 m
+    depth = grid.cell_metadata["depth"].to_numpy()
+    assert depth.min() > 0 and depth.max() == pytest.approx(12.0)
+    assert depth.mean() == pytest.approx(3.29, abs=0.01)
+    # the cells lie where the case's own georeference puts them, to 0.001
+    # degrees (the builder spreads the columns by 1 / cos of the middle
+    # latitude; the georeference rounds the steps to 0.009 and 0.0158)
+    import json
+
+    with open(model.ecospace_path / "Curonian_Lagoon_georef.json") as fh:
+        georef = json.load(fh)
+    rows = grid.cell_metadata["row"].to_numpy()
+    cols = grid.cell_metadata["col"].to_numpy()
+    lon = georef["lon_west"] + (cols + 0.5) * georef["dlon"]
+    lat = georef["lat_north"] - (rows + 0.5) * georef["dlat"]
+    assert np.abs(grid.patch_centroids[:, 0] - lon).max() < 1e-3
+    assert np.abs(grid.patch_centroids[:, 1] - lat).max() < 1e-3
+
+
+def test_the_habitat_maps_are_the_capacity_of_their_groups():
+    """Group_k.csv is the k-th group's map; EwE divides it by its largest value."""
+    import csv as _csv
+
+    model = example_model("Curonian_Lagoon")
+    ecospace = _curonian_ecospace()
+    meta = ecospace.grid.cell_metadata
+    rows, cols = meta["row"].to_numpy(), meta["col"].to_numpy()
+    names = [str(g) for g in load_example_model("Curonian_Lagoon").model["Group"]]
+    maps = model.ecospace_path / "Curonian_Lagoon_SpatialDistribution"
+    for k in (1, 6, 10, 19):  # bacteria, chironomids, gulls, detritus
+        with open(maps / f"Group_{k}.csv", newline="") as fh:
+            table = [r for r in _csv.reader(fh)][2:]
+        cells = np.array([[float(v) for v in r] for r in table])[rows, cols]
+        np.testing.assert_allclose(
+            ecospace.habitat_capacity[k - 1],
+            cells / cells.max(),
+            rtol=1e-6,
+            err_msg=names[k - 1],
+        )
+    # gulls have no preference; the plankton follow the depth
+    assert np.all(ecospace.habitat_capacity[names.index("larus")] == 1.0)
+    plankton = ecospace.habitat_capacity[names.index("Fitoplankton")]
+    assert np.corrcoef(plankton, np.minimum(meta["depth"], 6.0))[0, 1] > 0.98
+    # the groups EwE-F advects are flagged, as EwE's reader keeps the flag
+    assert [names[i] for i in np.flatnonzero(ecospace.advection_enabled)] == [
+        "Bacteria",
+        "Grazing zooplankton",
+        "Carnivorous zooplankton",
+        "Fitoplankton",
+        "Detritus",
+    ]
+    assert not ecospace.gravity_strength.any()
+
+
+def test_the_set_up_is_the_one_the_sqlite_copy_of_the_model_holds():
+    """Two routes to one model: the EwE-F files, and the scenario written into
+    the database from them. The database lists the groups in another order."""
+    from pypath.io.ewemdb import read_ecospace, read_ewemdb
+
+    db = Path(__file__).resolve().parents[3] / "Data" / "curonian_pelagic.sqlite"
+    if not db.exists():
+        pytest.skip("the Curonian pelagic database is not here")
+    ecospace = _curonian_ecospace()
+    stored = read_ecospace(str(db), n_groups=19, cell_placement="ground").ecospace
+    case = [
+        str(g).strip() for g in load_example_model("Curonian_Lagoon").model["Group"]
+    ]
+    database = [str(g).strip() for g in read_ewemdb(str(db)).model["Group"]]
+    assert case[:19] != database[:19] and set(case[:19]) == set(database[:19])
+    order = [database.index(name) for name in case[:19]]
+    np.testing.assert_array_equal(
+        ecospace.grid.patch_centroids, stored.grid.patch_centroids
+    )
+    assert (ecospace.grid.adjacency_matrix != stored.grid.adjacency_matrix).nnz == 0
+    np.testing.assert_array_equal(
+        ecospace.habitat_capacity[:19], stored.habitat_capacity[order]
+    )
+    np.testing.assert_array_equal(
+        ecospace.dispersal_rate[:19], stored.dispersal_rate[order]
+    )
+    np.testing.assert_array_equal(
+        ecospace.advection_enabled[:19], stored.advection_enabled[order]
+    )
+
+
+def test_the_curonian_example_runs_on_its_own_grid():
+    from pypath.spatial import rsim_run_spatial
+
+    scenario = example_ecosim_scenario("Curonian_Lagoon", years=range(1, 3))
+    ecospace = _curonian_ecospace()
+    assert ecospace.habitat_capacity.shape[0] == scenario.params.NUM_GROUPS
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 2))
+    biomass = out.out_Biomass_spatial
+    assert biomass.shape == (13, 21, 1576) and np.isfinite(biomass).all()
+    # the start is each group's Ecopath biomass spread by its capacity
+    start = biomass[0, 1:20].sum(axis=1)
+    np.testing.assert_allclose(
+        start, np.asarray(scenario.start_state.Biomass)[1:20], rtol=1e-6
+    )
+
+
+def test_the_placement_and_polygons_of_the_set_up():
+    pytest.importorskip("geopandas")
+    ground = _curonian_ecospace(geometry=True)
+    ewe = _curonian_ecospace(cell_placement="ewe")
+    assert len(ground.grid.geometry) == 1576
+    west, south, east, north = ground.grid.geometry.total_bounds
+    # the lagoon: its eastern shore is past 21.25 E
+    assert 20.5 < west < 20.56 and 21.25 < east < 21.32
+    assert 54.88 < south < 54.9 and 55.71 < north < 55.73
+    assert ewe.grid.patch_centroids[:, 0].max() < 21.0
+    np.testing.assert_array_equal(ground.habitat_capacity, ewe.habitat_capacity)
+
+
+def test_examples_without_an_ecospace_set_up_say_which_has_one():
+    from pypath.examples import example_ecospace
+
+    for name in ("Central_Baltic", "Lithuanian_Coast"):
+        assert example_model(name).ecospace_path is None
+        with pytest.raises(ValueError, match="with one are: Curonian_Lagoon"):
+            example_ecospace(name)
+
+
+def test_the_ecospace_reader_refuses_files_that_do_not_fit(tmp_path):
+    import shutil
+
+    from pypath.io.ewef import read_ewef_ecospace
+
+    model = example_model("Curonian_Lagoon")
+    params = load_example_model("Curonian_Lagoon")
+    with pytest.raises(FileNotFoundError, match="No EwE-F Ecospace folder"):
+        read_ewef_ecospace(tmp_path / "missing", params)
+    case = tmp_path / "ecospace"
+    shutil.copytree(model.ecospace_path, case)
+    maps = case / "Curonian_Lagoon_SpatialDistribution"
+    # a group without its map
+    (maps / "Group_19.csv").rename(tmp_path / "Group_19.csv")
+    with pytest.raises(
+        FileNotFoundError, match="no habitat map Group_19.csv.*Detritus"
+    ):
+        read_ewef_ecospace(case, params)
+    (tmp_path / "Group_19.csv").rename(maps / "Group_19.csv")
+    # a map of another shape
+    text = (maps / "Group_1.csv").read_text().split("\n")
+    (maps / "Group_1.csv").write_text("\n".join(text[:2] + text[3:]))
+    with pytest.raises(ValueError, match="Group_1.csv: expected 94 rows"):
+        read_ewef_ecospace(case, params)
+    (maps / "Group_1.csv").write_text("\n".join(text))
+    # a sea cell without a depth: the first sea cell of the grid file
+    grid_rows = (case / "Curonian_Lagoon_grid.csv").read_text().split("\n")[2:]
+    row = next(i for i, line in enumerate(grid_rows) if "1" in line.split(","))
+    col = grid_rows[row].split(",").index("1")
+    depth_lines = (case / "Curonian_Lagoon_depth.csv").read_text().split("\n")
+    cells = depth_lines[2 + row].split(",")
+    assert float(cells[col]) > 0
+    cells[col] = "-999"
+    depth_lines[2 + row] = ",".join(cells)
+    (case / "Curonian_Lagoon_depth.csv").write_text("\n".join(depth_lines))
+    with pytest.raises(ValueError, match="1 sea cells of the grid have no depth"):
+        read_ewef_ecospace(case, params)
+    # the speeds can be given, one per living and detritus group
+    with pytest.raises(ValueError, match="dispersal_kmyr needs 19 values"):
+        read_ewef_ecospace(model.ecospace_path, params, dispersal_kmyr=[300.0] * 5)
+    slow = read_ewef_ecospace(
+        model.ecospace_path, params, dispersal_kmyr=[30.0] * 19, cell_length_km=2.0
+    )
+    np.testing.assert_allclose(slow.dispersal_rate, 30 / (np.pi * 2.0), rtol=1e-6)
+    np.testing.assert_array_equal(slow.grid.patch_areas, 4.0)

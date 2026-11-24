@@ -1,0 +1,18 @@
+{
+ "lon_west": 20.5084,
+ "lat_north": 55.728,
+ "dlon": 0.0158,
+ "dlat": 0.009,
+ "nlat": 94,
+ "nlon": 51,
+ "extent": [
+  20.5084,
+  21.3142,
+  54.882,
+  55.728
+ ],
+ "approximate": false,
+ "row_order": "north_to_south (grid row 1 / result lat index 0 is the northern edge)",
+ "column_order": "west_to_east",
+ "method": "Lagoon and Klaip\u0117da strait, 1576 sea cells (the coastal Baltic of the model domain, 758 cells, dropped: api/scripts/curonian_lagoon_grid.py). Trimmed to the lagoon from: Exact: a 0.009 x 0.0158 degree lat/lon grid (about 1 km cells) over the 29-box Curonian Lagoon model domain (lagoon, Klaip\u0117da strait, coastal Baltic); a cell is sea when at least 50% of the 200 m water mask in it is water, plus the cells the strait thalweg crosses; only the largest connected body is kept."
+}
