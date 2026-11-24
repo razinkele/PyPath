@@ -481,6 +481,45 @@ class EcospaceParams:
     # patch; habitat_capacity stays the base map.
     monthly_capacity: Optional[object] = None
 
+    def with_group_rows(self, n_groups: int) -> "EcospaceParams":
+        """A copy with one row per Ecosim group, fleets included.
+
+        A run needs a row for every group of the scenario: living, detritus
+        and fleets (``rsim_run_spatial``). A configuration read for the
+        living and detritus groups only (``pypath.io.ewemdb.read_ecospace``)
+        is short of the fleets' rows; they are added here as groups that
+        live everywhere and do not move (preference and capacity 1, no
+        dispersal). With ``n_groups`` rows already, ``self`` is returned.
+
+        Raises
+        ------
+        ValueError
+            If there are more rows than ``n_groups``.
+        """
+        rows = int(np.shape(self.habitat_preference)[0])
+        n_groups = int(n_groups)
+        if rows == n_groups:
+            return self
+        if rows > n_groups:
+            raise ValueError(
+                f"the configuration has {rows} group rows, more than the "
+                f"{n_groups} groups asked for"
+            )
+        import dataclasses
+
+        extra, n_patches = n_groups - rows, self.grid.n_patches
+        ones = np.ones((extra, n_patches))
+        return dataclasses.replace(
+            self,
+            habitat_preference=np.vstack([self.habitat_preference, ones]),
+            habitat_capacity=np.vstack([self.habitat_capacity, ones]),
+            dispersal_rate=np.concatenate([self.dispersal_rate, np.zeros(extra)]),
+            advection_enabled=np.concatenate(
+                [self.advection_enabled, np.zeros(extra, dtype=bool)]
+            ),
+            gravity_strength=np.concatenate([self.gravity_strength, np.zeros(extra)]),
+        )
+
     def __post_init__(self):
         """Validate spatial parameters."""
         n_patches = self.grid.n_patches

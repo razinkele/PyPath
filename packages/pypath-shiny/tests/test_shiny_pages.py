@@ -109,8 +109,9 @@ class TestEcopathPage:
             sig = inspect.signature(ecopath.ecopath_server)
             params = list(sig.parameters.keys())
 
-            # input, output, session, model_data, rebalance_mark
-            assert len(params) == 5
+            # input, output, session, model_data, rebalance_mark,
+            # balance_request (a model another page opened to be balanced)
+            assert len(params) == 6
             assert "model_data" in params
         except ImportError:
             pytest.skip("Ecopath page module not available")
@@ -140,8 +141,9 @@ class TestEcosimPage:
             params = list(sig.parameters.keys())
 
             # input, output, session, model_data, sim_results, sim_scenario,
-            # ewe_source (the imported EwE database), rebalance_mark
-            assert len(params) == 8
+            # ewe_source (the imported EwE database), rebalance_mark,
+            # balance_request (the page's example picker)
+            assert len(params) == 9
             assert any(p.lstrip("_") == "model_data" for p in params)
             assert any(p.lstrip("_") == "sim_results" for p in params)
             assert any(p.lstrip("_") == "sim_scenario" for p in params)

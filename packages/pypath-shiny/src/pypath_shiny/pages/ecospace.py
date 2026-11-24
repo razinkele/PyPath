@@ -39,6 +39,11 @@ from shiny_deckgl import CARTO_DARK, MapWidget
 
 from pypath_shiny.config import SPATIAL
 from pypath_shiny.pages.ecosim import month_progress_tags
+from pypath_shiny.pages.ewe_scenario import (
+    EXAMPLE_KIND,
+    ewe_source_matches,
+    model_group_names,
+)
 from pypath_shiny.services.background_runs import (
     SpatialOutcome,
     run_spatial_checked,
@@ -91,6 +96,11 @@ from pypath_shiny.services.notifications import (
     notify_warning,
 )
 from pypath_shiny.services.prey_switching import summary, summary_line
+from pypath_shiny.services.stored_ecospace import (
+    GRID_CORNERS,
+    load_example_grid,
+    load_stored_ecospace,
+)
 from pypath_shiny.services.tasks import (
     TaskState,
     TaskStatus,
@@ -210,14 +220,38 @@ def habitat_for_display(wizard_params, grid, page_vector, n_groups=None):
     return np.asarray(active.habitat_preference, dtype=float).mean(axis=0)
 
 
-def run_ecospace_params(current_grid, n_groups, page_arrays, wizard_params=None):
+# A whole configuration (grid, habitat, movement) the page runs instead of its
+# own controls comes from the Ecospace Wizard or is loaded from an imported
+# database (``services.stored_ecospace``); its origin is named in the notes.
+WIZARD_ORIGIN = "the Ecospace Wizard's configuration"
+
+
+def _duration_text(seconds: float) -> str:
+    """A run time for a note: seconds below two minutes, then minutes, hours."""
+    if seconds < 120:
+        return f"{max(seconds, 1):.0f} seconds"
+    if seconds < 2 * 3600:
+        return f"{seconds / 60:.0f} minutes"
+    return f"{seconds / 3600:.1f} hours"
+
+
+def _renew_hint(origin: str) -> str:
+    if origin == WIZARD_ORIGIN:
+        return "Build the wizard configuration again for this model."
+    return "Load it again for this model."
+
+
+def run_ecospace_params(
+    current_grid, n_groups, page_arrays, wizard_params=None, origin=WIZARD_ORIGIN
+):
     """The EcospaceParams a run on this page uses, and a note for the user.
 
-    The Ecospace Wizard's configuration is used while it applies
+    A whole configuration (the Ecospace Wizard's, or one loaded from an
+    imported database; ``origin`` names it) is used while it applies
     (``wizard_params_on_grid``) and has one row per scenario group. Otherwise
     the page's controls apply: ``page_arrays``, from ``page_ecospace_arrays``.
     The note (None when there is nothing to say) tells which was used, or why
-    the wizard's configuration was not.
+    the configuration was not.
     """
     from pypath.spatial import EcospaceParams
 
@@ -228,11 +262,11 @@ def run_ecospace_params(current_grid, n_groups, page_arrays, wizard_params=None)
     n_wizard = wizard.habitat_preference.shape[0]
     if n_wizard != n_groups:
         return page, (
-            f"The Ecospace Wizard's configuration has {n_wizard} groups but "
+            f"{origin[0].upper()}{origin[1:]} has {n_wizard} groups but "
             f"this scenario has {n_groups}, so this page's settings are used. "
-            "Build the wizard configuration again for this model."
+            + _renew_hint(origin)
         )
-    return wizard, "Running with the Ecospace Wizard's configuration."
+    return wizard, f"Running with {origin}."
 
 
 def parse_habitat_csv(path, n_patches):
@@ -585,6 +619,10 @@ def ecospace_ui():
         ui.layout_sidebar(
             ui.sidebar(
                 ui.h4("ECOSPACE Configuration", class_="mb-3"),
+                # A stored configuration of the model that is open: the
+                # Ecospace scenario of an imported database, or an example's
+                # grid
+                ui.output_ui("stored_ecospace_ui"),
                 # Grid setup
                 ui.accordion(
                     ui.accordion_panel(
@@ -1057,13 +1095,24 @@ def ecospace_server(
     _sim_results: reactive.Value,
     _sim_scenario: reactive.Value = None,
     wizard_params: reactive.Value = None,
+    ewe_source: reactive.Value = None,
 ):
-    """Server logic for ECOSPACE page."""
+    """Server logic for ECOSPACE page.
+
+    ``ewe_source``, when given, is the record of the imported EwE database
+    or of the example model that is open: its Ecospace scenarios, or its
+    grid, are offered to load while the current model has its groups.
+    """
 
     # Reactive values for spatial state
     grid = reactive.Value(None)
     boundary_polygon = reactive.Value(None)  # Store uploaded boundary for visualization
     _ecospace_params = reactive.Value(None)
+    # where _ecospace_params comes from, as the notes name it
+    _config_origin = reactive.Value(WIZARD_ORIGIN)
+    # the groups a loaded scenario's rows belong to, in order (None for the
+    # wizard's configuration, which is built for the model that is open)
+    _config_groups = reactive.Value(None)
     _spatial_results = reactive.Value(None)
     _spatial_switching = reactive.Value(None)
     # what the shown run did with the water transport: (css class, text) lines
@@ -1079,6 +1128,8 @@ def ecospace_server(
         if params_obj is None:
             return
         _ecospace_params.set(params_obj)
+        _config_origin.set(WIZARD_ORIGIN)
+        _config_groups.set(None)
         wizard_grid = getattr(params_obj, "grid", None)
         if wizard_grid is not None:
             grid.set(wizard_grid)
@@ -1102,21 +1153,230 @@ def ecospace_server(
         if wizard is None:
             return None
         n_groups = _scenario_n_groups()
-        if wizard_params_on_grid(wizard, grid(), n_groups) is None:
+        origin = _config_origin()
+        if (
+            n_groups is not None
+            and wizard_params_on_grid(wizard, grid(), n_groups) is None
+        ):
             return ui.div(
                 ui.tags.i(class_="bi bi-exclamation-triangle me-2"),
-                f"The Ecospace Wizard's configuration has "
+                f"{origin[0].upper()}{origin[1:]} has "
                 f"{wizard.habitat_preference.shape[0]} groups but the scenario "
-                f"has {n_groups}, so runs use this page's settings. Build the "
-                "wizard configuration again for this model.",
+                f"has {n_groups}, so runs use this page's settings. "
+                + _renew_hint(origin),
                 class_="alert alert-warning small mt-2 mb-0",
+            )
+        if origin == WIZARD_ORIGIN:
+            used = (
+                "Runs use the Ecospace Wizard's habitat preferences and "
+                "movement settings for this grid."
+            )
+        else:
+            used = (
+                f"Runs use the grid, habitat capacity and dispersal rates of {origin}."
             )
         return ui.div(
             ui.tags.i(class_="bi bi-magic me-2"),
-            "Runs use the Ecospace Wizard's habitat preferences and movement "
-            "settings for this grid. The Habitat Preferences and Movement & "
+            f"{used} The Habitat Preferences and Movement & "
             "Dispersal controls apply after you create a new grid here.",
+            id="ecospace_config_note",
             class_="alert alert-info small mt-2 mb-0",
+        )
+
+    # --- a stored configuration of the open model --------------------------
+
+    def _matching_source():
+        """The source record, while the current model has its groups."""
+        if ewe_source is None:
+            return None
+        source = ewe_source.get()
+        return source if ewe_source_matches(source, _model_data.get()) else None
+
+    @render.ui
+    def stored_ecospace_ui():
+        """Offer the open model's stored Ecospace scenario, or its grid."""
+        source = _matching_source()
+        if source is None:
+            return ui.p(
+                "To load a spatial model: import an EwE database that holds an "
+                "Ecospace scenario (Data Import), or open the Curonian Lagoon "
+                "example (Ecosim page), which brings its 29-box grid. Either "
+                "is then offered here.",
+                id="stored_ecospace_hint",
+                class_="text-muted small",
+            )
+        if source.get("kind") == EXAMPLE_KIND:
+            if not source.get("ecospace_grid"):
+                return ui.p(
+                    f"The example {source['name']} has no spatial grid: build "
+                    "one below.",
+                    id="stored_ecospace_hint",
+                    class_="text-muted small",
+                )
+            return ui.div(
+                ui.h5("Example Grid"),
+                ui.input_action_button(
+                    "btn_load_example_grid",
+                    ui.TagList(
+                        ui.tags.i(class_="bi bi-grid-3x3-gap me-2"),
+                        "Load the example's grid",
+                    ),
+                    class_="btn btn-outline-primary btn-sm w-100",
+                ),
+                ui.p(
+                    "The boxes of the lagoon's hydrodynamic box model, one "
+                    "patch each. Only the grid is loaded: habitat and "
+                    "movement are this page's settings, and the habitat "
+                    "pattern is set to uniform. The box model's output fits "
+                    "this grid (Hydrodynamic Model).",
+                    class_="text-muted small mt-2",
+                ),
+                ui.tags.hr(),
+                id="stored_ecospace_block",
+            )
+        scenarios = {
+            str(k): v for k, v in (source.get("ecospace_scenarios") or {}).items()
+        }
+        if not scenarios:
+            return ui.p(
+                f"{source['name']} holds no Ecospace scenario with a grid: "
+                "build the grid below.",
+                id="stored_ecospace_hint",
+                class_="text-muted small",
+            )
+        return ui.div(
+            ui.h5("Stored Ecospace Scenario"),
+            ui.input_select("stored_ecospace_id", f"In {source['name']}", scenarios),
+            ui.input_select(
+                "stored_ecospace_corner",
+                "The scenario's coordinates give the grid's",
+                GRID_CORNERS,
+                selected="north_west",
+            ),
+            ui.input_action_button(
+                "btn_load_stored_ecospace",
+                ui.TagList(
+                    ui.tags.i(class_="bi bi-box-arrow-in-down me-2"),
+                    "Load this scenario",
+                ),
+                class_="btn btn-outline-primary btn-sm w-100",
+            ),
+            ui.p(
+                "Loads the scenario's grid (the water cells of its depth map), "
+                "each group's habitat capacity and its dispersal rates, and "
+                "runs with them. Not used in a run here: environmental "
+                "drivers, migration and monthly maps, the fleets' habitat "
+                "rules, protected areas and ports.",
+                class_="text-muted small mt-2",
+            ),
+            ui.p(
+                "The grid is drawn at the scenario's own coordinates. EwE "
+                "takes its cells as square in degrees, so a grid of km "
+                "cells looks narrower on the map than it is on the ground; "
+                "areas and distances in the run are the scenario's km.",
+                class_="text-muted small",
+            ),
+            ui.tags.hr(),
+            id="stored_ecospace_block",
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_load_stored_ecospace)
+    def _load_stored_ecospace():
+        """Load the chosen Ecospace scenario of the imported database."""
+        source = _matching_source()
+        if source is None:
+            _notify_legacy(
+                "The imported database no longer matches the model that is open.",
+                type="warning",
+            )
+            return
+        try:
+            stored = load_stored_ecospace(
+                source,
+                input.stored_ecospace_id(),
+                _model_data.get(),
+                grid_corner=input.stored_ecospace_corner() or "north_west",
+            )
+        except Exception as e:
+            logger.debug("Stored Ecospace scenario not loaded: %s", e)
+            _notify_legacy(
+                f"Could not load the scenario: {e!s}", type="error", duration=10
+            )
+            return
+        _ecospace_params.set(stored.params)
+        _config_origin.set(stored.origin)
+        _config_groups.set(list(stored.groups))
+        grid.set(stored.params.grid)
+        _spatial_results.set(None)
+        _spatial_switching.set(None)
+        scenario = _sim_scenario() if _sim_scenario is not None else None
+        months = getattr(getattr(scenario, "fishing", None), "ForcedEffort", None)
+        years = months.shape[0] / 12.0 if months is not None else 1.0
+        seconds = estimated_run_seconds(stored.n_patches, stored.n_groups, years)
+        span = f"{years:g} years" if months is not None else "a simulated year"
+        skipped = (
+            " Not used here: " + ", ".join(stored.not_applied) + "."
+            if stored.not_applied
+            else ""
+        )
+        _notify_legacy(
+            f"Loaded {stored.origin}: {stored.summary}. A run of {span} takes "
+            f"about {_duration_text(seconds)}.{skipped}",
+            type="message",
+            duration=12,
+        )
+
+    @reactive.effect
+    def _drop_a_scenario_of_another_model():
+        """A loaded scenario's rows belong to the groups it was read for.
+
+        Another model, or the same one with a group added, removed, renamed
+        or moved, must not run with them: a re-balance of the same groups
+        keeps the scenario.
+        """
+        model = _model_data.get()
+        with reactive.isolate():
+            groups = _config_groups.get()
+            origin = _config_origin.get()
+        if groups is None or model_group_names(model) == groups:
+            return
+        _ecospace_params.set(None)
+        _config_origin.set(WIZARD_ORIGIN)
+        _config_groups.set(None)
+        _spatial_results.set(None)
+        _spatial_switching.set(None)
+        _notify_legacy(
+            f"{origin[0].upper()}{origin[1:]} was loaded for another set of "
+            "groups and is no longer used: this page's settings apply. Load "
+            "it again for the model that is open.",
+            type="warning",
+            duration=10,
+        )
+
+    @reactive.effect
+    @reactive.event(input.btn_load_example_grid)
+    def _load_example_grid():
+        """Load the grid shipped with the example model that is open."""
+        source = _matching_source()
+        try:
+            new_grid = load_example_grid(source)
+        except Exception as e:
+            logger.debug("Example grid not loaded: %s", e)
+            _notify_legacy(f"Could not load the example's grid: {e!s}", type="error")
+            return
+        grid.set(new_grid)
+        _spatial_results.set(None)
+        _spatial_switching.set(None)
+        # the default west-to-east gradient would leave the western boxes
+        # with no habitat at all
+        ui.update_select("habitat_pattern", selected="uniform")
+        _notify_legacy(
+            f"Loaded the grid of {source['name']}: {new_grid.n_patches} patches "
+            f"({new_grid.patch_areas.sum():,.0f} km²). The habitat pattern is "
+            "set to uniform.",
+            type="message",
+            duration=8,
         )
 
     # Load and display boundary polygon immediately on file upload
@@ -2073,6 +2333,7 @@ def ecospace_server(
                     gravity=input.gravity_strength(),
                 ),
                 wizard_params=_ecospace_params.get(),
+                origin=_config_origin.get(),
             )
             if config_note:
                 _notify_legacy(config_note, type="message", duration=6)
@@ -2472,7 +2733,12 @@ def ecospace_server(
         wizard = _ecospace_params()
         n_groups = _scenario_n_groups()
         habitat = habitat_for_display(wizard, g, _compute_habitat_vector(g), n_groups)
-        if wizard_params_on_grid(wizard, g, n_groups) is not None:
+        active = wizard_params_on_grid(wizard, g, n_groups)
+        if active is not None and _config_origin() != WIZARD_ORIGIN:
+            # a stored scenario carries its pattern in the capacity
+            habitat = np.asarray(active.habitat_capacity, dtype=float).mean(axis=0)
+            pattern = "stored scenario's capacity, mean over groups"
+        elif active is not None:
             pattern = "Ecospace Wizard, mean over groups"
         else:
             pattern = input.habitat_pattern().replace("_", " ")

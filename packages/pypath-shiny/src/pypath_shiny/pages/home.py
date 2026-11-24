@@ -265,8 +265,8 @@ def build_example_params():
     return params
 
 
-def _example_choices() -> dict:
-    """The shipped example models for the Home page picker."""
+def example_choices() -> dict:
+    """The shipped example models for the Home and the Ecosim page pickers."""
     from pypath.examples import list_example_models
 
     choices = {"": "Open a real model..."}
@@ -292,6 +292,38 @@ def open_example_model(name: str):
         warnings.simplefilter("ignore")
         rpath(params)  # raises if the model cannot be balanced
     return params, example_source_record(name, params)
+
+
+def publish_example_model(
+    name: str,
+    *,
+    model_data,
+    ewe_source=None,
+    sim_results=None,
+    balance_request=None,
+):
+    """Open a shipped example and put it on the app's shared state.
+
+    The Home page and the Ecosim page open examples through this, so both
+    drop the previous model's simulation and record the example's Ecosim
+    source the same way. With ``balance_request`` the model is handed to the
+    Ecopath page to adopt and balance in one step (the Ecosim page's
+    route); without it the unbalanced model is published, for the user to
+    look at and balance on the Ecopath page (the Home page's route).
+
+    Returns the source record. Raises whatever reading or balancing the
+    example raises; nothing is published then.
+    """
+    params, record = open_example_model(name)
+    if sim_results is not None:
+        sim_results.set(None)
+    if ewe_source is not None:
+        ewe_source.set(record)
+    if balance_request is not None:
+        balance_request.set(params)
+    else:
+        model_data.set(params)
+    return record
 
 
 def home_ui():
@@ -328,7 +360,7 @@ def home_ui():
                         ui.input_select(
                             "example_model",
                             None,
-                            _example_choices(),
+                            example_choices(),
                             selected="",
                         ),
                         ui.input_action_button(
@@ -651,16 +683,16 @@ def home_server(
             _notify_legacy("Choose a model to open first.", type="warning")
             return
         try:
-            params, record = open_example_model(name)
+            record = publish_example_model(
+                name,
+                model_data=model_data,
+                ewe_source=ewe_source,
+                sim_results=sim_results,
+            )
         except Exception as e:  # report any reader or balance failure
             logger.exception("Opening the example model %s failed", name)
             _notify_legacy(f"Could not open {name}: {e}", type="error")
             return
-        model_data.set(params)
-        if sim_results is not None:
-            sim_results.set(None)
-        if ewe_source is not None:
-            ewe_source.set(record)
         _notify_legacy(
             f"{record['name']} opened. Its Ecosim settings are the starting "
             "scenario on the Ecosim page.",

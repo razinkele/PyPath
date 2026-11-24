@@ -3,7 +3,9 @@
 Three EwE-F models from EPath's test cases, each with its Ecopath inputs
 (scenario, diet, detritus fate, growth) and its Ecosim settings
 (vulnerabilities, group settings, fishing forcing). Each model's folder has a
-README with its source and the changes made to it.
+README with its source and the changes made to it. The Curonian Lagoon model
+also has a spatial grid for Ecospace: the 29 boxes of a SHYFEM box model
+(``example_ecospace_grid``).
 
 Examples
 --------
@@ -22,6 +24,7 @@ from typing import TYPE_CHECKING, List, Optional
 if TYPE_CHECKING:
     from pypath.core.ecosim import RsimScenario
     from pypath.core.params import RpathParams
+    from pypath.spatial import EcospaceGrid
 
 DATA = Path(__file__).parent / "data"
 
@@ -61,6 +64,12 @@ class ExampleModel:
     def ecosim_path(self) -> Path:
         """The EwE-F Ecosim inputs (folder with the ``filenames.nml``)."""
         return self.path / "ecosim"
+
+    @property
+    def grid_path(self) -> Optional[Path]:
+        """The model's SHYFEM mesh (``.grd``) for Ecospace, or None."""
+        meshes = sorted((self.path / "ecospace").glob("*.grd"))
+        return meshes[0] if meshes else None
 
 
 _CATALOG = (
@@ -183,4 +192,47 @@ def example_ecosim_scenario(
         model.ecosim_path,
         years=years,
         fast_group_rule=fast_group_rule,
+    )
+
+
+def example_ecospace_grid(
+    name: str, patches: str = "type", geometry: bool = False
+) -> "EcospaceGrid":
+    """An example's spatial grid for Ecospace, from its SHYFEM mesh.
+
+    Only the grid is shipped: habitat maps and dispersal rates are yours to
+    set (``EcospaceParams``). The element types of the mesh are the boxes of
+    the hydrodynamic box model, so the model's box output
+    (``pypath.io.shyfem.read_box_series``) fits the grid as it is.
+
+    Parameters
+    ----------
+    name : str
+        An example's name (see :func:`list_example_models`).
+    patches : {'type', 'element'}
+        One patch per element type (the boxes; default) or per element.
+    geometry : bool
+        Also make the patches' polygons (needs geopandas and shapely).
+
+    Returns
+    -------
+    EcospaceGrid
+        From :meth:`pypath.spatial.EcospaceGrid.from_shyfem_grd`.
+
+    Raises
+    ------
+    ValueError
+        If the example has no grid; the message names those that have one.
+    """
+    from pypath.spatial import EcospaceGrid
+
+    model = example_model(name)
+    if model.grid_path is None:
+        with_grid = ", ".join(m.name for m in _CATALOG if m.grid_path is not None)
+        raise ValueError(
+            f"The example {model.name} has no spatial grid; the examples with "
+            f"one are: {with_grid}"
+        )
+    return EcospaceGrid.from_shyfem_grd(
+        model.grid_path, patches=patches, geometry=geometry
     )

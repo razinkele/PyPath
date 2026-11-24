@@ -134,13 +134,20 @@ def ewe_source_matches(source: Optional[dict], model: Any) -> bool:
 def ewe_source_record(
     filepath: str, filename: str, scenario: int, params: Any
 ) -> Dict[str, Any]:
-    """What the Data Import page stores about an EwE database it read."""
+    """What the Data Import page stores about an EwE database it read.
+
+    ``ecospace_scenarios`` are the database's Ecospace scenarios that have a
+    grid, which the Ecospace page offers to load.
+    """
+    from pypath_shiny.services.stored_ecospace import ewe_ecospace_choices
+
     return {
         "path": filepath,
         "name": filename,
         "scenario": int(scenario),
         "groups": [str(g).strip() for g in params.model["Group"]],
         **ewe_ecosim_choices(filepath),
+        "ecospace_scenarios": ewe_ecospace_choices(filepath),
     }
 
 
@@ -164,6 +171,8 @@ def example_source_record(name: str, params: Any) -> Dict[str, Any]:
         "groups": [str(g).strip() for g in params.model["Group"]],
         "scenarios": {1: "EwE-F Ecosim settings"},
         "datasets": {},
+        # the Ecospace page offers the example's grid, when it ships one
+        "ecospace_grid": model.grid_path is not None,
     }
 
 

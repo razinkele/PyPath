@@ -110,8 +110,8 @@ class TestEcosimControls:
         import pypath_shiny.app as app_module
 
         src = inspect.getsource(app_module)
-        # Data Import and Home set it, Ecosim reads it
-        assert src.count("ewe_source=ewe_source") == 3
+        # Data Import and Home set it, Ecosim and Ecospace read it
+        assert src.count("ewe_source=ewe_source") == 4
 
     @pytest.mark.parametrize("rule, steps", [("ewe", 1), ("rpath", 4)])
     def test_model_scenario_uses_the_chosen_rule(

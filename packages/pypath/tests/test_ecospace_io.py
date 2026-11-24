@@ -498,3 +498,87 @@ class TestReadEcospace:
         result = self._read_with_mocks(table_map, n_groups=0)
         assert result.ecospace.habitat_preference.shape == (0, 1)
         assert result.ecospace.dispersal_rate.shape == (0,)
+
+
+# --- a read configuration made ready for a run --------------------------------
+
+
+def test_the_fallback_grid_keeps_its_cells_as_polygons_when_asked():
+    pytest.importorskip("geopandas")
+    from pypath.io.ewemdb import _EWE_DEGREE_KM, _build_fallback_grid
+
+    depth = np.array([[1.0, 0.0, 2.0], [3.0, 4.0, 0.0]])
+    plain = _build_fallback_grid(2, 3, 10.0, min_lon=20.0, min_lat=55.0, depth=depth)
+    assert plain.geometry is None
+    grid = _build_fallback_grid(
+        2, 3, 10.0, min_lon=20.0, min_lat=55.0, depth=depth, geometry=True
+    )
+    assert len(grid.geometry) == grid.n_patches == 4
+    assert str(grid.geometry.crs) == "EPSG:4326"
+    side = 10.0 / _EWE_DEGREE_KM
+    for shape, (lon, lat) in zip(grid.geometry.geometry, grid.patch_centroids):
+        assert shape.centroid.x == pytest.approx(lon)
+        assert shape.centroid.y == pytest.approx(lat)
+        assert shape.area == pytest.approx(side * side)
+    # the north-west corner is where the scenario says, rows running south
+    west, south, east, north = grid.geometry.total_bounds
+    assert (west, north) == pytest.approx((20.0, 55.0))
+    assert (east, south) == pytest.approx((20.0 + 3 * side, 55.0 - 2 * side))
+    np.testing.assert_array_equal(
+        plain.adjacency_matrix.toarray(), grid.adjacency_matrix.toarray()
+    )
+
+
+def test_rows_for_the_fleets_are_added_as_groups_that_stay_put():
+    from pypath.io.ewemdb import _build_fallback_grid
+    from pypath.spatial import EcospaceParams
+
+    grid = _build_fallback_grid(1, 3, 10.0)
+    read = EcospaceParams(
+        grid=grid,
+        habitat_preference=np.full((2, 3), 0.5),
+        habitat_capacity=np.array([[0.2, 1.0, 0.4], [1.0, 1.0, 1.0]]),
+        dispersal_rate=np.array([3.0, 0.0]),
+        advection_enabled=np.array([True, False]),
+        gravity_strength=np.array([0.3, 0.0]),
+        new_multi_stanza=False,
+        detritus_pass_on=True,
+    )
+    assert read.with_group_rows(2) is read
+    full = read.with_group_rows(4)
+    assert full is not read and full.grid is grid
+    assert full.habitat_preference.shape == full.habitat_capacity.shape == (4, 3)
+    np.testing.assert_array_equal(full.habitat_capacity[:2], read.habitat_capacity)
+    np.testing.assert_array_equal(full.habitat_preference[:2], 0.5)
+    np.testing.assert_array_equal(full.habitat_capacity[2:], 1.0)
+    np.testing.assert_array_equal(full.habitat_preference[2:], 1.0)
+    np.testing.assert_array_equal(full.dispersal_rate, [3.0, 0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(full.advection_enabled, [True, False, False, False])
+    np.testing.assert_array_equal(full.gravity_strength, [0.3, 0.0, 0.0, 0.0])
+    assert full.new_multi_stanza is False and full.detritus_pass_on is True
+    assert read.habitat_capacity.shape == (2, 3)  # the original is not changed
+    with pytest.raises(ValueError, match="more than the 1 groups"):
+        read.with_group_rows(1)
+
+
+def test_a_grid_larger_than_asked_for_is_refused_before_its_maps_are_read(
+    monkeypatch,
+):
+    """For a database from someone else: its size is checked on the row read."""
+    from pathlib import Path
+
+    from pypath.io import ewemdb
+    from pypath.io.ewemdb import EwEDatabaseError, read_ecospace
+
+    db = Path(__file__).resolve().parents[3] / "Data" / "curonian_pelagic.sqlite"
+    if not db.exists():
+        pytest.skip("the Curonian pelagic database is not here")
+    full = read_ecospace(str(db), n_groups=19, max_cells=94 * 51)
+    assert full.ecospace.grid.n_patches == 1576
+
+    def never(*args, **kwargs):
+        raise AssertionError("a map was read")
+
+    monkeypatch.setattr(ewemdb, "_ewe_depth_input", never)
+    with pytest.raises(EwEDatabaseError, match=r"4,794 cells \(94 x 51\); up to 4,793"):
+        read_ecospace(str(db), n_groups=19, max_cells=94 * 51 - 1)

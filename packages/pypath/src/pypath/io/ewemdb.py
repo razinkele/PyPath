@@ -5538,6 +5538,8 @@ def read_ecospace(
     grid: "Optional[EcospaceGrid]" = None,
     ecopath_pb: Optional[Sequence[float]] = None,
     grid_corner: str = "north_west",
+    geometry: bool = False,
+    max_cells: Optional[int] = None,
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
@@ -5578,16 +5580,28 @@ def read_ecospace(
         corner instead (the Black Sea EwE-F test case): "south_west" places
         their grid where it belongs. Only the position changes, not the
         cells or the dynamics.
+    geometry : bool
+        Keep the cells of the grid built here as polygons, for maps (needs
+        geopandas and shapely). A user grid is left as it is.
+    max_cells : int, optional
+        Refuse a scenario whose grid has more cells than this (Inrow x
+        Incol, land included), before its maps are read: for a database
+        from someone else, whose size is not known. Not applied with a user
+        grid.
 
     Returns
     -------
     EcospaceReadResult
+        Its ``ecospace`` has a row for each living and detritus group; a
+        run also needs the fleets' rows:
+        ``result.ecospace.with_group_rows(scenario.params.NUM_GROUPS)``.
 
     Raises
     ------
     EwEDatabaseError
         If EcospaceScenario table is missing, a depth or exclusion map
-        cannot be read, or the maps leave no water cell.
+        cannot be read, the maps leave no water cell, or the grid has more
+        than ``max_cells`` cells.
     """
     from pypath.spatial.ecospace_params import EcospaceParams
 
@@ -5633,6 +5647,12 @@ def read_ecospace(
                 f"Ecospace scenario {scenario_id} has no grid "
                 f"(Inrow x Incol = {n_rows} x {n_cols}); pass grid="
             )
+        if max_cells is not None and n_rows * n_cols > int(max_cells):
+            raise EwEDatabaseError(
+                f"Ecospace scenario {scenario_id} has a grid of "
+                f"{n_rows * n_cols:,} cells ({n_rows} x {n_cols}); up to "
+                f"{int(max_cells):,} cells are read"
+            )
         depth_input = _ewe_depth_input(scenario_row, n_rows, n_cols)
         depth = _ewe_depth_map(scenario_row, n_rows, n_cols, depth_input)
         n_water = int((depth > 0).sum())
@@ -5656,6 +5676,7 @@ def read_ecospace(
             min_lat,
             depth=depth,
             corner=grid_corner,
+            geometry=geometry,
         )
         ewe_depth = depth
         ewe_water_input = depth_input > 0
@@ -6389,6 +6410,7 @@ def _build_fallback_grid(
     min_lat: float = 0.0,
     depth: Optional[np.ndarray] = None,
     corner: str = "north_west",
+    geometry: bool = False,
 ) -> "EcospaceGrid":
     """Build a regular raster grid from EwE scenario dimensions.
 
@@ -6411,6 +6433,9 @@ def _build_fallback_grid(
     south-west corner instead, as some databases store them (the Black Sea
     EwE-F test case): the grid then lies ``n_rows`` cells further north.
     Cells, links, areas and distances are the same either way.
+
+    With ``geometry`` the cells' squares are kept as polygons (longitude,
+    latitude), for maps; it needs geopandas and shapely.
     """
     import scipy.sparse
 
@@ -6474,6 +6499,25 @@ def _build_fallback_grid(
         }
     )
 
+    geo = None
+    if geometry:
+        try:
+            import geopandas as gpd
+            from shapely.geometry import box
+        except ImportError as e:
+            raise ImportError(
+                "geometry=True needs geopandas and shapely: pip install "
+                "geopandas shapely"
+            ) from e
+        half = cell_size / 2.0
+        geo = gpd.GeoDataFrame(
+            {"id": patch_ids},
+            geometry=[
+                box(x - half, y - half, x + half, y + half) for x, y in centroids
+            ],
+            crs="EPSG:4326",
+        )
+
     return EcospaceGrid(
         n_patches=n_patches,
         patch_ids=patch_ids,
@@ -6481,6 +6525,7 @@ def _build_fallback_grid(
         patch_centroids=centroids,
         adjacency_matrix=adjacency,
         edge_lengths=edge_lengths,
+        geometry=geo,
         cell_metadata=meta,
     )
 

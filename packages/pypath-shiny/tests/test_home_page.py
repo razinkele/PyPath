@@ -30,7 +30,12 @@ def test_loading_a_model_from_home_clears_old_simulation_results():
     import pypath_shiny.app as app_module
     from pypath_shiny.pages import home
 
-    assert inspect.getsource(home.home_server).count("sim_results.set(None)") == 2
+    # the hero example clears it in the server; the example picker through
+    # the helper it shares with the Ecosim page
+    server = inspect.getsource(home.home_server)
+    assert server.count("sim_results.set(None)") == 1
+    assert "sim_results=sim_results" in server
+    assert "sim_results.set(None)" in inspect.getsource(home.publish_example_model)
     assert re.search(
         r"home\.home_server\([^)]*sim_results=sim_results",
         inspect.getsource(app_module),
