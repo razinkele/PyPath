@@ -688,9 +688,17 @@ def _read_ewef_map(path: Path) -> np.ndarray:
             f"two count lines, found {len(data)} rows"
         )
     try:
-        return np.array([[float(v) for v in r] for r in data])
+        values = np.array([[float(v) for v in r] for r in data])
     except ValueError as e:
         raise ValueError(f"{path.name}: a cell is not a number ({e})") from e
+    # "nan" and "inf" parse as numbers: a sea cell without a depth would be
+    # dropped from the grid, and one such value flattens a group's map
+    if not np.all(np.isfinite(values)):
+        raise ValueError(
+            f"{path.name}: {int(np.sum(~np.isfinite(values)))} cells are not "
+            "finite numbers (nan or inf)"
+        )
+    return values
 
 
 def _one_file(folder: Path, pattern: str) -> Path:

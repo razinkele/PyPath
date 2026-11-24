@@ -461,6 +461,23 @@ def test_the_ecospace_reader_refuses_files_that_do_not_fit(tmp_path):
     (case / "Curonian_Lagoon_depth.csv").write_text("\n".join(depth_lines))
     with pytest.raises(ValueError, match="1 sea cells of the grid have no depth"):
         read_ewef_ecospace(case, params)
+    # "nan" parses as a number: refused, in the depth map and in a habitat map
+    shutil.rmtree(case)
+    shutil.copytree(model.ecospace_path, case)
+    for name in (
+        "Curonian_Lagoon_depth.csv",
+        "Curonian_Lagoon_SpatialDistribution/Group_3.csv",
+    ):
+        original = (case / name).read_text()
+        lines = original.split("\n")
+        cells = lines[2 + row].split(",")
+        cells[col] = "nan"
+        lines[2 + row] = ",".join(cells)
+        (case / name).write_text("\n".join(lines))
+        with pytest.raises(ValueError, match="1 cells are not finite numbers"):
+            read_ewef_ecospace(case, params)
+        (case / name).write_text(original)
+    assert read_ewef_ecospace(case, params).grid.n_patches == 1576
     # the speeds can be given, one per living and detritus group
     with pytest.raises(ValueError, match="dispersal_kmyr needs 19 values"):
         read_ewef_ecospace(model.ecospace_path, params, dispersal_kmyr=[300.0] * 5)
