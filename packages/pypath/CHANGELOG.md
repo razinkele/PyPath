@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.23.0 (2026-11-24)
+
+### Bug Fixes
+
+- **examples**: The Curonian Lagoon example's diets include what is eaten outside the lagoon
+  ([`78c0d70`](https://github.com/razinkele/PyPath/commit/78c0d70fe46240ee034f729e6d321a9c0a18f7c4))
+
+- **io**: Refuse map values that are not finite in an EwE-F Ecospace case
+  ([`9c9e15a`](https://github.com/razinkele/PyPath/commit/9c9e15af869fa7a85a98f1d902b543be5dbf4d46))
+
+### Features
+
+- **examples**: The Curonian Lagoon example's own Ecospace set-up, from EPath's EwE-F case
+  ([`0b2a5a8`](https://github.com/razinkele/PyPath/commit/0b2a5a8fa39b5fd619ff4c2a594d29dba239bb38))
+
+
 ## v1.22.0 (2026-11-24)
 
 ### Features
