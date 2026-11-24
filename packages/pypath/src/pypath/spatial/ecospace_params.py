@@ -442,16 +442,19 @@ class EcospaceParams:
         Relative primary production of each patch [n_patches], not
         negative: EwE's relative primary production map (``RelPP``). Only
         its pattern matters; a run divides it by its area-weighted mean, so
-        the map as a whole produces what Ecopath does. In a patch the total
-        nutrient is the map-wide total times the patch's value
+        the map as a whole holds the nutrient Ecopath's does. In a patch
+        the total nutrient is the map-wide total times the patch's value
         (``cSpaceSolver.vb`` 570, 860), and the producers' production
         follows the free nutrient, at most doubling: with nearly all the
         nutrient free (EwE's default) a value s scales production by
-        2s / (1 + s). It is the way to put producers on a pattern without
-        cutting their total, where a habitat capacity below 1 caps their
-        production (see the parity register, B-prod). It needs the EwE
-        rule's nutrient limitation and applies to every producer. None
-        (default): no map, as a map of 1 everywhere.
+        2s / (1 + s). The nutrient is kept, the production is not: that
+        response bends, so a map that varies leaves the producers' total
+        below Ecopath's (cells of 1, 0.6 and 0.2: about 0.87). The same
+        pattern as a habitat capacity, which caps their production, cuts
+        it further (about 0.67; see the parity register, B-prod and
+        B-relpp). It needs the EwE rule's nutrient limitation and applies
+        to every producer. None (default): no map, as a map of 1
+        everywhere.
     environmental_drivers : Optional[object]
         Time-varying environmental drivers (EnvironmentalDrivers instance).
         A run does not evaluate them: make a capacity from them with
