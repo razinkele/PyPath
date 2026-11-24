@@ -97,6 +97,7 @@ from pypath_shiny.services.notifications import (
 )
 from pypath_shiny.services.prey_switching import summary, summary_line
 from pypath_shiny.services.stored_ecospace import (
+    CELL_PLACEMENTS,
     GRID_CORNERS,
     load_example_grid,
     load_stored_ecospace,
@@ -1253,6 +1254,12 @@ def ecospace_server(
                 GRID_CORNERS,
                 selected="north_west",
             ),
+            ui.input_select(
+                "stored_ecospace_placement",
+                "Draw the cells",
+                CELL_PLACEMENTS,
+                selected="ground",
+            ),
             ui.input_action_button(
                 "btn_load_stored_ecospace",
                 ui.TagList(
@@ -1270,10 +1277,11 @@ def ecospace_server(
                 class_="text-muted small mt-2",
             ),
             ui.p(
-                "The grid is drawn at the scenario's own coordinates. EwE "
-                "takes its cells as square in degrees, so a grid of km "
-                "cells looks narrower on the map than it is on the ground; "
-                "areas and distances in the run are the scenario's km.",
+                "EwE takes a cell as the same number of degrees each way, "
+                "which draws a grid of km cells too narrow east to west (by "
+                "the cosine of the latitude: about half as wide at 55° N). "
+                "The cells are drawn where they lie on the ground unless you "
+                "choose EwE's coordinates; the run is the same either way.",
                 class_="text-muted small",
             ),
             ui.tags.hr(),
@@ -1297,6 +1305,7 @@ def ecospace_server(
                 input.stored_ecospace_id(),
                 _model_data.get(),
                 grid_corner=input.stored_ecospace_corner() or "north_west",
+                cell_placement=input.stored_ecospace_placement() or "ground",
             )
         except Exception as e:
             logger.debug("Stored Ecospace scenario not loaded: %s", e)

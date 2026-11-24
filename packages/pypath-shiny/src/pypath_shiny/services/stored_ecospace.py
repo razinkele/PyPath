@@ -22,6 +22,7 @@ from pypath_shiny.pages.utils import is_balanced_model
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "CELL_PLACEMENTS",
     "GRID_CORNERS",
     "MAX_STORED_CELLS",
     "MAX_STORED_PATCHES",
@@ -44,6 +45,16 @@ MAX_STORED_CELLS = 40_000
 GRID_CORNERS = {
     "north_west": "North-west corner (as EwE reads them)",
     "south_west": "South-west corner",
+}
+
+# Where the grid's cells are drawn. EwE takes a cell as the same number of
+# degrees each way, which draws a grid of km cells too narrow east to west;
+# on the ground is where both the Curonian Lagoon scenarios and the Black Sea
+# test case belong (pypath.io.ewemdb.read_ecospace, cell_placement). The run
+# is the same either way.
+CELL_PLACEMENTS = {
+    "ground": "On the ground (cells in km)",
+    "ewe": "At EwE's coordinates (in degrees)",
 }
 
 # What an EwE Ecospace scenario can hold beyond the grid, the capacity and
@@ -134,7 +145,11 @@ def ewe_ecospace_choices(filepath: str) -> Dict[int, str]:
 
 
 def load_stored_ecospace(
-    source: dict, scenario_id, model, grid_corner: str = "north_west"
+    source: dict,
+    scenario_id,
+    model,
+    grid_corner: str = "north_west",
+    cell_placement: str = "ground",
 ) -> StoredEcospace:
     """The Ecospace scenario of an imported EwE database, ready for a run.
 
@@ -149,6 +164,9 @@ def load_stored_ecospace(
         is what EwE's low-capacity gradient uses.
     grid_corner : {"north_west", "south_west"}
         Which corner the scenario's MinLat / MinLon give.
+    cell_placement : {"ground", "ewe"}
+        Where the cells are drawn (``CELL_PLACEMENTS``); the run is the
+        same either way.
 
     Raises
     ------
@@ -167,6 +185,8 @@ def load_stored_ecospace(
         )
     if grid_corner not in GRID_CORNERS:
         raise ValueError(f"grid_corner must be one of {sorted(GRID_CORNERS)}")
+    if cell_placement not in CELL_PLACEMENTS:
+        raise ValueError(f"cell_placement must be one of {sorted(CELL_PLACEMENTS)}")
     n_bio = int(model.NUM_LIVING) + int(model.NUM_DEAD)
     n_all = n_bio + int(model.NUM_GEARS)
     # The reader places each row by the database's own group order, and the
@@ -187,6 +207,7 @@ def load_stored_ecospace(
             scenario_id=int(scenario_id),
             ecopath_pb=[float(v) for v in np.asarray(model.PB)[:n_bio]],
             grid_corner=grid_corner,
+            cell_placement=cell_placement,
             geometry=True,
             # checked by the reader on the row it reads, before any map
             max_cells=MAX_STORED_CELLS,
