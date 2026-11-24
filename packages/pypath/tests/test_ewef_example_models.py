@@ -152,3 +152,71 @@ def test_each_example_runs_with_its_ecosim_settings(model):
     assert biomass.shape[0] == 12 * len(years) + 1  # with the starting state
     living = biomass[:, 1 : scenario.params.NUM_LIVING + 1]
     assert np.isfinite(living).all() and (living > 0).all()
+
+
+# --- the Curonian Lagoon grid for Ecospace ----------------------------------
+
+
+def test_the_curonian_example_has_the_29_boxes_as_its_grid():
+    from pypath.examples import example_ecospace_grid
+    from pypath.spatial.zone_fields import patch_zones
+
+    assert example_model("Curonian_Lagoon").grid_path.name == "curonian29.grd"
+    grid = example_ecospace_grid("curonian_lagoon")
+    assert grid.n_patches == 29 and grid.geometry is None
+    assert sorted(patch_zones(grid).tolist()) == list(range(1, 30))
+    # lagoon, strait and the sea boxes off the coast
+    assert grid.patch_areas.sum() == pytest.approx(2296.0, rel=0.01)
+    assert (grid.adjacency_matrix != grid.adjacency_matrix.T).nnz == 0
+    cells = example_ecospace_grid("Curonian_Lagoon", patches="element")
+    assert cells.n_patches == 2027
+    assert cells.patch_areas.sum() == pytest.approx(grid.patch_areas.sum())
+
+
+def test_the_grid_file_holds_nodes_and_elements_only():
+    """Nothing of the project it comes from: no comments, paths or names."""
+    lines = example_model("Curonian_Lagoon").grid_path.read_text().split("\n")
+    kinds = {line.split()[0] for line in lines if line.strip()}
+    assert kinds == {"1", "2"}
+    assert all(
+        part.replace(".", "", 1).replace("-", "", 1).isdigit()
+        for line in lines
+        for part in line.split()
+    )
+
+
+def test_examples_without_a_grid_say_which_have_one():
+    from pypath.examples import example_ecospace_grid
+
+    for name in ("Central_Baltic", "Lithuanian_Coast"):
+        assert example_model(name).grid_path is None
+        with pytest.raises(ValueError, match="one are: Curonian_Lagoon"):
+            example_ecospace_grid(name)
+
+
+def test_the_curonian_example_runs_on_its_grid():
+    from pypath.examples import example_ecospace_grid
+    from pypath.spatial import EcospaceParams, rsim_run_spatial
+
+    scenario = example_ecosim_scenario("Curonian_Lagoon", years=range(1, 3))
+    grid = example_ecospace_grid("Curonian_Lagoon")
+    n = scenario.params.NUM_GROUPS
+    ecospace = EcospaceParams(
+        grid=grid,
+        habitat_preference=np.ones((n, 29)),
+        habitat_capacity=np.ones((n, 29)),
+        dispersal_rate=np.full(n, 1.0),
+        advection_enabled=np.zeros(n, dtype=bool),
+        gravity_strength=np.zeros(n),
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
+    biomass = out.out_Biomass_spatial
+    assert np.isfinite(biomass).all() and biomass.shape[2] == 29
+    # on a uniform map every box holds the same biomass per km2
+    n_bio = scenario.params.NUM_LIVING + scenario.params.NUM_DEAD
+    density = biomass[:, 1 : n_bio + 1] / grid.patch_areas
+    np.testing.assert_allclose(
+        density, np.repeat(density[:, :, :1], 29, axis=2), rtol=1e-6
+    )
