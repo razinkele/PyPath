@@ -35,12 +35,17 @@ from pypath.core.stanzas import (
     split_update,
     stanza_group_indices,
 )
+from pypath.spatial.batched import batch_supported, deriv_batched
 from pypath.spatial.calibration import ewe_space_calibration
 from pypath.spatial.fishing import SpatialFishing, effort_multipliers
 
 logger = logging.getLogger(__name__)
 
 _MISSING = object()  # stands for a key the caller's params did not have
+
+# Evaluate all patches in one batched computation when supported
+# (pypath.spatial.batched); False forces the per-patch path.
+USE_BATCHED_DERIV = True
 
 
 def _restore_keys(params: dict, saved: dict) -> None:
@@ -589,8 +594,59 @@ def deriv_vector_spatial(
     _pool = params.get("_patch_pool")
     if ibm_spatial_contexts:
         _pool = None
+    _batched_ok = (
+        USE_BATCHED_DERIV
+        and patch_share is not None
+        and not ibm_spatial_contexts
+        and batch_supported(params, forcing, () if rates_out is None else rates_out)
+    )
     try:
-        if _pool is not None:
+        if _batched_ok:
+            # All patches in one array computation, bit-identical to the
+            # per-patch loop below (pypath.spatial.batched)
+            _w = np.asarray(patch_share, dtype=float)
+            _dens = state_spatial.T / _w[:, None]
+            _bb_p = _qq_p = None
+            if params_need_modification:
+                _bb_p = np.ascontiguousarray(b_base_ref_patches.T)
+                if capacity_overlap is not None:
+                    _qq_p = np.stack([_patch_qq_base(p) for p in range(n_patches)])
+            _effort_p = None
+            if patch_effort_mask is not None:
+                _base_eff = np.asarray(forcing["ForcedEffort"], dtype=float)
+                _effort_p = np.tile(_base_eff, (n_patches, 1))
+                _n_mask_fleets = patch_effort_mask.shape[1]
+                _effort_p[:, 1 : _n_mask_fleets + 1] *= patch_effort_mask
+            _ratio_p = None
+            if stanza_pred_ratio is not None:
+                _ratio_p = np.ascontiguousarray(np.asarray(stanza_pred_ratio).T)
+            elif forcing.get("StanzaPredRatio") is not None:
+                _ratio_p = np.tile(
+                    np.asarray(forcing["StanzaPredRatio"], dtype=float),
+                    (n_patches, 1),
+                )
+            _hden_p = None
+            if _hden_patches is not None:
+                _hden_p = np.ascontiguousarray(_hden_patches.T)
+            _d_p, _r_p = deriv_batched(
+                _dens,
+                params,
+                forcing,
+                fishing,
+                bbase=_bb_p,
+                qqbase=_qq_p,
+                hden=_hden_p,
+                patch_effort=_effort_p,
+                stanza_ratio=_ratio_p,
+                want_rates=rates_out is not None,
+            )
+            if _hden_p is not None and not params.get("_hden_frozen", False):
+                _hden_patches[:] = _hden_p.T
+            deriv_spatial[:] = (_w[:, None] * _d_p).T
+            if rates_out is not None:
+                for _key, _out in rates_out.items():
+                    _out[:] = (_r_p[_key] * _w[:, None]).T
+        elif _pool is not None:
             executor, n_jobs = _pool
             worker_params = {
                 k: v for k, v in params.items() if k not in _NOT_FOR_WORKERS
@@ -631,7 +687,8 @@ def deriv_vector_spatial(
         # Python (deriv_vector), so threads cannot run patches in parallel
         # under the GIL; a thread pool here only added overhead and was
         # removed after profiling (2026-11-17).
-        for patch_idx in range(n_patches if _pool is not None else 0, n_patches):
+        _loop_start = n_patches if (_batched_ok or _pool is not None) else 0
+        for patch_idx in range(_loop_start, n_patches):
             state_patch = state_spatial[:, patch_idx]
             patch_forcing = _patch_forcing(patch_idx)
             rates = {} if rates_out is not None else None

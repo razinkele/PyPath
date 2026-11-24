@@ -41,6 +41,16 @@ def _first_call(monkeypatch, run):
 
     for module in (D, EC, SI):  # each imports deriv_vector by name
         monkeypatch.setattr(module, "deriv_vector", spy)
+
+    real_batched = SI.deriv_batched
+
+    def spy_batched(S, params, forcing, fishing, *a, **k):
+        # Ecospace evaluates all patches at once (pypath.spatial.batched)
+        if "P" not in cap and "ForcedPrey" in forcing:
+            cap.update(P=params, Fo=forcing, Fi=fishing, s=np.array(S[0], float))
+        return real_batched(S, params, forcing, fishing, *a, **k)
+
+    monkeypatch.setattr(SI, "deriv_batched", spy_batched)
     run()
     return cap
 
