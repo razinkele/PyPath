@@ -21,11 +21,17 @@ the API produces for any uploaded EwE database:
   Ecopath-F estimates it from the EE of 0.95 (0.536 instead of the entered 0.1685;
   with the entered B the group's EE exceeds 1). This is exactly PyPath's balance of
   the database with that B left blank (`api/tests/test_ewe_model_import.py`);
-- detritus fates from the database, no multi-stanza groups.
+- detritus fates from the database, no multi-stanza groups;
+- diet import from `EcopathGroup.ImpVar` in the Import row of `_DC.csv` (seven
+  consumers; the row was all zero in builds before 2026-11-18).
 
 Regenerate with
 
-    cd api && python -m scripts.make_curonian_testcase ../ecosim-f/testcases/Curonian_Lagoon/curonian_pelagic.eweaccdb --ecosim-years 50
+    cd api && python -m scripts.make_curonian_testcase ../ecosim-f/testcases/Curonian_Lagoon/curonian_pelagic.eweaccdb --ecosim-years 50 --outline none
+
+(`--outline none` leaves the Ecospace inputs alone: the shipped grid, habitat and
+advection files come from later steps, and the generator's own Ecospace step would
+replace them with its first-build grid.)
 
 No peer-reviewed reference is attached to the database; add it to
 `api/ewef_citations.py` (`CURONIAN`) when known.

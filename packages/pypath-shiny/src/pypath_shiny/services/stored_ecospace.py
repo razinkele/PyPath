@@ -28,6 +28,7 @@ __all__ = [
     "MAX_STORED_PATCHES",
     "StoredEcospace",
     "ewe_ecospace_choices",
+    "load_example_ecospace",
     "load_example_grid",
     "load_stored_ecospace",
 ]
@@ -241,6 +242,49 @@ def load_stored_ecospace(
         scenario_name=name,
         cell_km=cell_km,
         not_applied=held,
+    )
+
+
+def load_example_ecospace(source: dict, model) -> StoredEcospace:
+    """The Ecospace set-up shipped with an example model, ready for a run.
+
+    The example's grid, each group's habitat capacity from its habitat map
+    and EwE's dispersal speeds (``pypath.examples.example_ecospace``), with
+    the cells placed on the ground, as the example's georeference has them.
+
+    ``model`` is the model that is open: its groups must be the example's,
+    in its order, as the rows are the example's groups. It need not be
+    balanced: the set-up is read from the example's own files.
+
+    Raises ValueError when the record is not an example's, the example has
+    no Ecospace set-up, or the open model's groups are not the example's.
+    """
+    from pypath.examples import example_ecospace
+
+    from pypath_shiny.pages.ewe_scenario import model_group_names
+
+    name = source.get("example") if source else None
+    if not name:
+        raise ValueError("no example model is open")
+    names = model_group_names(model)
+    recorded = [str(g).strip() for g in source.get("groups", [])]
+    if names != recorded:
+        raise ValueError(
+            "the model's groups are not the example's, in its order (a group "
+            "was added, removed, renamed or moved since it was opened): the "
+            "set-up's maps would go to the wrong groups. Open the example again."
+        )
+    params = example_ecospace(name, geometry=True)
+    title = source.get("name", name)
+    return StoredEcospace(
+        params=params,
+        origin=f"the Ecospace set-up of the example {title}",
+        n_patches=int(params.grid.n_patches),
+        n_groups=int(params.habitat_capacity.shape[0]),
+        groups=names,
+        scenario_name=str(title),
+        cell_km=float(np.sqrt(params.grid.patch_areas[0])),
+        not_applied=["the case's advection field"],
     )
 
 

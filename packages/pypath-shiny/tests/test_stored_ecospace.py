@@ -338,3 +338,79 @@ def test_the_cells_are_drawn_on_the_ground_unless_ewes_coordinates_are_asked(pel
         )
     with pytest.raises(ValueError, match="cell_placement"):
         load_stored_ecospace(source, 1, model, cell_placement="map")
+
+
+# --- the example's own Ecospace set-up ------------------------------------------
+
+
+def test_only_the_curonian_example_offers_its_ecospace_set_up():
+    from pypath_shiny.services.stored_ecospace import load_example_ecospace
+
+    records = {
+        name: open_example_model(name)
+        for name in ("Central_Baltic", "Curonian_Lagoon", "Lithuanian_Coast")
+    }
+    assert [n for n, (_, r) in records.items() if r["ecospace_setup"]] == [
+        "Curonian_Lagoon"
+    ]
+    params, record = records["Curonian_Lagoon"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        balanced = rpath(params)
+    # the model as opened or as balanced: its groups are what is checked
+    for model in (params, balanced):
+        stored = load_example_ecospace(record, model)
+        assert (stored.n_patches, stored.n_groups) == (1576, 20)
+        assert stored.groups == record["groups"] and len(stored.groups) == 20
+        assert stored.origin == (
+            "the Ecospace set-up of the example Curonian Lagoon pelagic food web, "
+            "2005-2007"
+        )
+        assert "1,576 water cells of 1 km, 20 groups" in stored.summary
+        assert stored.not_applied == ["the case's advection field"]
+    grid = stored.params.grid
+    assert len(grid.geometry) == 1576
+    west, south, east, north = grid.geometry.total_bounds
+    assert 20.5 < west < 20.56 and 21.25 < east < 21.32  # on the lagoon
+    assert stored.params.habitat_capacity.shape == (20, 1576)
+    # an example without one, a record that is no example's, another model
+    lt_params, lt_record = records["Lithuanian_Coast"]
+    with pytest.raises(ValueError, match="no Ecospace set-up"):
+        load_example_ecospace(lt_record, lt_params)
+    with pytest.raises(ValueError, match="no example model is open"):
+        load_example_ecospace({"path": "x", "name": "a database"}, params)
+    with pytest.raises(ValueError, match="not the example's, in its order"):
+        load_example_ecospace(record, lt_params)
+
+
+def test_the_examples_set_up_runs_in_place_of_the_page_settings():
+    from pypath_shiny.services.stored_ecospace import load_example_ecospace
+
+    params, record = open_example_model("Curonian_Lagoon")
+    stored = load_example_ecospace(record, params)
+    grid = stored.params.grid
+    page = page_ecospace_arrays(np.ones(grid.n_patches), 20, 5.0, True, 0.5)
+    used, note = run_ecospace_params(
+        grid, 20, page, wizard_params=stored.params, origin=stored.origin
+    )
+    assert used is stored.params
+    assert note.startswith("Running with the Ecospace set-up of the example")
+
+
+def test_the_page_offers_the_examples_set_up_and_its_grid():
+    source = inspect.getsource(ecospace.ecospace_server)
+    block = source[source.index("def stored_ecospace_ui") :]
+    block = block[: block.index("def _load_stored_ecospace")]
+    assert '"btn_load_example_ecospace"' in block and '"btn_load_example_grid"' in block
+    assert 'source.get("ecospace_setup")' in block
+    # both loaders put a configuration on the page the same way
+    assert source.count("        _adopt_stored(stored)\n") == 2
+    adopt = source[source.index("def _adopt_stored") :]
+    adopt = adopt[: adopt.index("@reactive.effect")]
+    for line in (
+        "_ecospace_params.set(stored.params)",
+        "_config_origin.set(stored.origin)",
+        "_config_groups.set(list(stored.groups))",
+        "grid.set(stored.params.grid)",
+    ):
+        assert line in adopt

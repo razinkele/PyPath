@@ -26,13 +26,18 @@ Files, all written by `api/scripts/make_curonian_testcase.py`:
 | `Curonian_Lagoon_georef.json` | exact georeference of the grid (`approximate: false`) for the maps |
 
 The EwE 6 database holds no Ecosim scenario, time series or fitted vulnerabilities,
-so this is a near-equilibrium baseline: only Demersal fish and Predatory fish carry
-landings. A 50-year run with these settings stays finite and positive; the largest
-excursions are chironomids rising to 1.39x and Predatory fish falling to 0.29x
-their Ecopath biomass (birds settle at 0.35x; `python -m scripts.make_curonian_testcase
-... --ecosim-years 50` prints the check). PyPath's own Ecosim demo on this
-model reports a zooplankton crash after year 12; EwE-F with these settings does
-not show it.
+so this is an equilibrium baseline: only Demersal fish and Predatory fish carry
+landings. A 50-year run with these settings stays at the Ecopath biomasses (the
+largest departure is Predatory fish at 0.9993x; `python -m scripts.make_curonian_testcase
+... --ecosim-years 50` prints the check). Seven consumers take part of their diet as
+import (`EcopathGroup.ImpVar`: Demersal fish 0.345, the five bird groups 0.2 each,
+Predatory fish 0.306), carried in the Import row of the Ecopath diet file. Until
+2026-11-18 the case was built without that row (PyPath read no diet import when it was
+made), the diets of those groups did not sum to 1, and the same run drifted: the birds
+settled at 0.35x, Predatory fish fell to 0.29x and chironomids rose to 1.39x. The
+Ecopath biomasses, EE and the other results are the same in both builds; only the
+diet matrix differs. PyPath's own Ecosim demo on this model reports a zooplankton
+crash after year 12; EwE-F with these settings does not show it.
 
 ## Ecospace
 

@@ -99,6 +99,7 @@ from pypath_shiny.services.prey_switching import summary, summary_line
 from pypath_shiny.services.stored_ecospace import (
     CELL_PLACEMENTS,
     GRID_CORNERS,
+    load_example_ecospace,
     load_example_grid,
     load_stored_ecospace,
 )
@@ -1201,40 +1202,64 @@ def ecospace_server(
             return ui.p(
                 "To load a spatial model: import an EwE database that holds an "
                 "Ecospace scenario (Data Import), or open the Curonian Lagoon "
-                "example (Ecosim page), which brings its 29-box grid. Either "
-                "is then offered here.",
+                "example (Ecosim page), which brings its own Ecospace set-up "
+                "and a 29-box grid. Either is then offered here.",
                 id="stored_ecospace_hint",
                 class_="text-muted small",
             )
         if source.get("kind") == EXAMPLE_KIND:
-            if not source.get("ecospace_grid"):
+            has_setup = bool(source.get("ecospace_setup"))
+            has_grid = bool(source.get("ecospace_grid"))
+            if not (has_setup or has_grid):
                 return ui.p(
                     f"The example {source['name']} has no spatial grid: build "
                     "one below.",
                     id="stored_ecospace_hint",
                     class_="text-muted small",
                 )
-            return ui.div(
-                ui.h5("Example Grid"),
-                ui.input_action_button(
-                    "btn_load_example_grid",
-                    ui.TagList(
-                        ui.tags.i(class_="bi bi-grid-3x3-gap me-2"),
-                        "Load the example's grid",
+            parts = [ui.h5("Example Ecospace")]
+            if has_setup:
+                parts += [
+                    ui.input_action_button(
+                        "btn_load_example_ecospace",
+                        ui.TagList(
+                            ui.tags.i(class_="bi bi-box-arrow-in-down me-2"),
+                            "Load the example's Ecospace set-up",
+                        ),
+                        class_="btn btn-outline-primary btn-sm w-100",
                     ),
-                    class_="btn btn-outline-primary btn-sm w-100",
-                ),
-                ui.p(
-                    "The boxes of the lagoon's hydrodynamic box model, one "
-                    "patch each. Only the grid is loaded: habitat and "
-                    "movement are this page's settings, and the habitat "
-                    "pattern is set to uniform. The box model's output fits "
-                    "this grid (Hydrodynamic Model).",
-                    class_="text-muted small mt-2",
-                ),
-                ui.tags.hr(),
-                id="stored_ecospace_block",
-            )
+                    ui.p(
+                        "The example's own grid (the lagoon and the strait as "
+                        "cells of 1 km), each group's habitat capacity from "
+                        "its habitat map, and EwE's default dispersal speeds "
+                        "(300 km a year, 10 for detritus). Runs then use "
+                        "them. The case's advection field is not applied. In "
+                        "a spatial run the totals settle at about 0.6 of the "
+                        "Ecopath biomass, as the phytoplankton map's capacity "
+                        "is 0.59 on average (the example's README).",
+                        class_="text-muted small mt-2",
+                    ),
+                ]
+            if has_grid:
+                parts += [
+                    ui.input_action_button(
+                        "btn_load_example_grid",
+                        ui.TagList(
+                            ui.tags.i(class_="bi bi-grid-3x3-gap me-2"),
+                            "Load the example's grid",
+                        ),
+                        class_="btn btn-outline-primary btn-sm w-100",
+                    ),
+                    ui.p(
+                        "The boxes of the lagoon's hydrodynamic box model, one "
+                        "patch each. Only the grid is loaded: habitat and "
+                        "movement are this page's settings, and the habitat "
+                        "pattern is set to uniform. The box model's output fits "
+                        "this grid (Hydrodynamic Model).",
+                        class_="text-muted small mt-2",
+                    ),
+                ]
+            return ui.div(*parts, ui.tags.hr(), id="stored_ecospace_block")
         scenarios = {
             str(k): v for k, v in (source.get("ecospace_scenarios") or {}).items()
         }
@@ -1313,6 +1338,10 @@ def ecospace_server(
                 f"Could not load the scenario: {e!s}", type="error", duration=10
             )
             return
+        _adopt_stored(stored)
+
+    def _adopt_stored(stored) -> None:
+        """Put a loaded configuration on the page and say what a run takes."""
         _ecospace_params.set(stored.params)
         _config_origin.set(stored.origin)
         _config_groups.set(list(stored.groups))
@@ -1342,6 +1371,23 @@ def ecospace_server(
             type="message",
             duration=12,
         )
+
+    @reactive.effect
+    @reactive.event(input.btn_load_example_ecospace)
+    def _load_example_ecospace():
+        """Load the Ecospace set-up shipped with the example that is open."""
+        source = _matching_source()
+        try:
+            stored = load_example_ecospace(source, _model_data.get())
+        except Exception as e:
+            logger.debug("Example Ecospace set-up not loaded: %s", e)
+            _notify_legacy(
+                f"Could not load the example's Ecospace set-up: {e!s}",
+                type="error",
+                duration=10,
+            )
+            return
+        _adopt_stored(stored)
 
     @reactive.effect
     def _drop_a_scenario_of_another_model():
@@ -2755,7 +2801,7 @@ def ecospace_server(
         if active is not None and _config_origin() != WIZARD_ORIGIN:
             # a stored scenario carries its pattern in the capacity
             habitat = np.asarray(active.habitat_capacity, dtype=float).mean(axis=0)
-            pattern = "stored scenario's capacity, mean over groups"
+            pattern = "loaded set-up's capacity, mean over groups"
         elif active is not None:
             pattern = "Ecospace Wizard, mean over groups"
         else:

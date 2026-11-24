@@ -171,7 +171,9 @@ def example_source_record(name: str, params: Any) -> Dict[str, Any]:
         "groups": [str(g).strip() for g in params.model["Group"]],
         "scenarios": {1: "EwE-F Ecosim settings"},
         "datasets": {},
-        # the Ecospace page offers the example's grid, when it ships one
+        # the Ecospace page offers the example's own Ecospace set-up and its
+        # alternative grid, when it ships them
+        "ecospace_setup": model.ecospace_path is not None,
         "ecospace_grid": model.grid_path is not None,
     }
 

@@ -17,11 +17,14 @@ source, the changes made to it and the files included: the EwE-F Ecopath
 inputs and the Ecosim settings (vulnerabilities, group settings, fishing
 forcing). PyPath's balance of each matches Ecopath-F's.
 
-The Curonian Lagoon model also ships a spatial grid for Ecospace: the 29
-boxes of a SHYFEM box model of the lagoon (`example_ecospace_grid`). Only the
-grid: habitat maps and dispersal rates are yours to set. In the app, the
-Ecospace page offers it as **Load the example's grid** while the example is
-open.
+The Curonian Lagoon model is also a spatial model. It ships its own Ecospace
+set-up, from the same EwE-F case: a grid of 1,576 cells of 1 km (the lagoon
+and the Klaipėda strait) with the cells' depth and a habitat map per group
+(`example_ecospace`). As an alternative grid it has the 29 boxes of a SHYFEM
+box model of the lagoon (`example_ecospace_grid`), for which habitat maps and
+dispersal rates are yours to set. In the app, the Ecospace page offers both
+while the example is open: **Load the example's Ecospace set-up** and **Load
+the example's grid**.
 
 ## Balance and run one
 
@@ -37,6 +40,34 @@ years = range(1, 11)
 scenario = example_ecosim_scenario("Lithuanian_Coast", years=years)
 result = rsim_run(scenario, method="RK4", years=years)
 ```
+
+## The Curonian Lagoon on its own grid
+
+```python
+from pypath.examples import example_ecosim_scenario, example_ecospace
+from pypath.spatial import rsim_run_spatial
+
+years = range(1, 3)
+scenario = example_ecosim_scenario("Curonian_Lagoon", years=years)
+ecospace = example_ecospace("Curonian_Lagoon")  # 1,576 cells, 20 group rows
+result = rsim_run_spatial(scenario, ecospace=ecospace, years=years)
+```
+
+The configuration is PyPath's Ecospace on the case's grid and habitat maps:
+each map, over its largest value, is its group's habitat capacity, and every
+group disperses at EwE's speed for a new Ecospace group (300 km a year, 10
+for detritus) over cells of 1 km. Those two are chosen, as the EwE-F files do
+not hold them; `pypath.io.ewef.read_ewef_ecospace` takes others. EwE-F's own
+movement, and the case's advection field, are not reproduced.
+
+!!! note "The spatial run settles below the Ecopath biomasses"
+    Over ten years the map totals settle at about 0.6 of the start for most
+    groups. The phytoplankton map is the cause: it follows depth, a map is
+    divided by its largest value (EwE 6's rule), and over the lagoon its
+    capacity is then 0.59 on average. With every map uniform the totals stay
+    at 1.000; with only the phytoplankton map uniform they stay near the
+    start. There is no EwE 6 run of this model to compare with. The example's
+    README has the figures.
 
 ## The Curonian Lagoon on its 29 boxes
 

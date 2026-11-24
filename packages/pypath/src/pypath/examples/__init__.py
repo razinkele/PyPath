@@ -4,8 +4,9 @@ Three EwE-F models from EPath's test cases, each with its Ecopath inputs
 (scenario, diet, detritus fate, growth) and its Ecosim settings
 (vulnerabilities, group settings, fishing forcing). Each model's folder has a
 README with its source and the changes made to it. The Curonian Lagoon model
-also has a spatial grid for Ecospace: the 29 boxes of a SHYFEM box model
-(``example_ecospace_grid``).
+is also a spatial model: its own Ecospace set-up on a grid of 1 km cells
+with a habitat map per group (``example_ecospace``), and as an alternative
+grid the 29 boxes of a SHYFEM box model (``example_ecospace_grid``).
 
 Examples
 --------
@@ -24,7 +25,7 @@ from typing import TYPE_CHECKING, List, Optional
 if TYPE_CHECKING:
     from pypath.core.ecosim import RsimScenario
     from pypath.core.params import RpathParams
-    from pypath.spatial import EcospaceGrid
+    from pypath.spatial import EcospaceGrid, EcospaceParams
 
 DATA = Path(__file__).parent / "data"
 
@@ -64,6 +65,12 @@ class ExampleModel:
     def ecosim_path(self) -> Path:
         """The EwE-F Ecosim inputs (folder with the ``filenames.nml``)."""
         return self.path / "ecosim"
+
+    @property
+    def ecospace_path(self) -> Optional[Path]:
+        """The EwE-F Ecospace inputs (grid, depth, habitat maps), or None."""
+        folder = self.path / "ecospace"
+        return folder if any(folder.glob("*_grid.csv")) else None
 
     @property
     def grid_path(self) -> Optional[Path]:
@@ -195,13 +202,71 @@ def example_ecosim_scenario(
     )
 
 
+def example_ecospace(
+    name: str, geometry: bool = False, cell_placement: str = "ground"
+) -> "EcospaceParams":
+    """An example's own Ecospace set-up, ready for a spatial run.
+
+    The grid's water cells as patches, each group's habitat capacity from
+    its habitat map, and a dispersal rate per group, with a row for every
+    group of the model (fleets included). Use it with
+    :func:`example_ecosim_scenario`:
+
+    >>> scenario = example_ecosim_scenario("Curonian_Lagoon")
+    >>> ecospace = example_ecospace("Curonian_Lagoon")
+    >>> out = rsim_run_spatial(scenario, ecospace=ecospace)  # doctest: +SKIP
+
+    It is PyPath's Ecospace on the case's grid and maps
+    (:func:`pypath.io.ewef.read_ewef_ecospace` says what is read and what
+    is chosen), not EwE-F's own movement.
+
+    Parameters
+    ----------
+    name : str
+        An example's name (see :func:`list_example_models`).
+    geometry : bool
+        Keep the cells as polygons, for maps (needs geopandas and shapely).
+    cell_placement : {"ground", "ewe"}
+        Where the cells are put; the run is the same either way.
+
+    Returns
+    -------
+    EcospaceParams
+
+    Raises
+    ------
+    ValueError
+        If the example has no Ecospace set-up; the message names those
+        that have one.
+    """
+    from pypath.io.ewef import read_ewef, read_ewef_ecospace
+
+    model = example_model(name)
+    if model.ecospace_path is None:
+        with_one = ", ".join(m.name for m in _CATALOG if m.ecospace_path is not None)
+        raise ValueError(
+            f"The example {model.name} has no Ecospace set-up; the examples "
+            f"with one are: {with_one}"
+        )
+    params = read_ewef(model.ecopath_path)
+    ecospace = read_ewef_ecospace(
+        model.ecospace_path,
+        params,
+        ecosim_path=model.ecosim_path,
+        cell_placement=cell_placement,
+        geometry=geometry,
+    )
+    return ecospace.with_group_rows(len(params.model))
+
+
 def example_ecospace_grid(
     name: str, patches: str = "type", geometry: bool = False
 ) -> "EcospaceGrid":
-    """An example's spatial grid for Ecospace, from its SHYFEM mesh.
+    """An example's alternative grid for Ecospace, from its SHYFEM mesh.
 
-    Only the grid is shipped: habitat maps and dispersal rates are yours to
-    set (``EcospaceParams``). The element types of the mesh are the boxes of
+    The boxes of a hydrodynamic box model, not the grid of the example's
+    own Ecospace set-up (:func:`example_ecospace`). Only the grid: habitat
+    maps and dispersal rates are yours to set (``EcospaceParams``). The element types of the mesh are the boxes of
     the hydrodynamic box model, so the model's box output
     (``pypath.io.shyfem.read_box_series``) fits the grid as it is.
 

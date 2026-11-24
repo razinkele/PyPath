@@ -28,6 +28,7 @@ them in Ecosim; PyPath, like EwE 6, keeps them at the default vulnerability).
 from __future__ import annotations
 
 import csv
+import json
 import logging
 import re
 import warnings
@@ -656,6 +657,247 @@ def ecosim_scenario_from_ewef(
 
 
 # --- results ----------------------------------------------------------------------
+
+
+# --- Ecospace inputs -------------------------------------------------------------
+
+# EwE's defaults for a group of a new Ecospace scenario
+# (cDBDataSource.AddEcospaceGroup): the dispersal speed in km per year.
+EWE_DISPERSAL_KMYR = 300.0
+EWE_DETRITUS_DISPERSAL_KMYR = 10.0
+
+
+def _read_ewef_map(path: Path) -> np.ndarray:
+    """An EwE-F map file: two count lines, then one row of the grid per line.
+
+    Rows run north to south and columns west to east, as EwE-F writes them.
+    """
+    with open(path, newline="", encoding="utf-8-sig", errors="replace") as fh:
+        rows = [r for r in csv.reader(fh) if any(c.strip() for c in r)]
+    try:
+        n_lat, n_lon = int(float(rows[0][1])), int(float(rows[1][1]))
+    except (IndexError, ValueError) as e:
+        raise ValueError(
+            f"{path.name}: the first two lines must give the numbers of "
+            "latitude and longitude points"
+        ) from e
+    data = rows[2:]
+    if len(data) != n_lat or any(len(r) != n_lon for r in data):
+        raise ValueError(
+            f"{path.name}: expected {n_lat} rows of {n_lon} values after the "
+            f"two count lines, found {len(data)} rows"
+        )
+    try:
+        values = np.array([[float(v) for v in r] for r in data])
+    except ValueError as e:
+        raise ValueError(f"{path.name}: a cell is not a number ({e})") from e
+    # "nan" and "inf" parse as numbers: a sea cell without a depth would be
+    # dropped from the grid, and one such value flattens a group's map
+    if not np.all(np.isfinite(values)):
+        raise ValueError(
+            f"{path.name}: {int(np.sum(~np.isfinite(values)))} cells are not "
+            "finite numbers (nan or inf)"
+        )
+    return values
+
+
+def _one_file(folder: Path, pattern: str) -> Path:
+    found = sorted(folder.glob(pattern))
+    if len(found) != 1:
+        raise FileNotFoundError(
+            f"expected one file {pattern} in {folder}, found "
+            f"{[f.name for f in found] or 'none'}"
+        )
+    return found[0]
+
+
+def read_ewef_ecospace(
+    path: PathLike,
+    params: RpathParams,
+    *,
+    ecosim_path: Optional[PathLike] = None,
+    cell_length_km: Optional[float] = None,
+    dispersal_kmyr: Optional[Sequence[float]] = None,
+    cell_placement: str = "ground",
+    geometry: bool = False,
+):
+    """An Ecospace configuration from an EwE-F case's spatial inputs.
+
+    Reads the case's grid, depth and habitat maps and makes of them what
+    PyPath's Ecospace runs on: the grid's water cells as patches, each
+    group's habitat capacity as EwE sets it from an input map, and a
+    dispersal rate per group. It is PyPath's Ecospace (EwE 6's movement)
+    on the case's grid and maps, not EwE-F's own movement: EwE-F moves
+    biomass by fixed fractions and a direction field unless a run gives it
+    a cell length, and the direction field (``*_Advection.csv``) has no
+    counterpart here and is not read.
+
+    Parameters
+    ----------
+    path : str or Path
+        The folder with ``*_grid.csv`` (1 = sea, 0 = land), ``*_depth.csv``
+        (metres; land -999), ``*_georef.json`` (``lon_west``, ``lat_north``,
+        ``dlon``, ``dlat``) and ``*SpatialDistribution/Group_<k>.csv``, the
+        habitat map of the k-th group of the model. Rows run north to south.
+    params : RpathParams
+        The model (from :func:`read_ewef`): its living and detritus groups,
+        in order, are the maps' groups, and its P/B is what EwE's
+        low-capacity gradient uses.
+    ecosim_path : str or Path, optional
+        The case's Ecosim inputs: the "Advected?" column of its group
+        settings is kept in ``advection_enabled`` (it has no effect on a
+        run here; ``pypath.io.ewemdb.read_ecospace`` keeps EwE's flag the
+        same way).
+    cell_length_km : float, optional
+        The cells' side in km. Default: the georeference's latitude step,
+        to two decimals (1 km for 0.009 degrees). EwE-F's files do not hold
+        it.
+    dispersal_kmyr : sequence of float, optional
+        Dispersal speed of each living and detritus group, km per year.
+        Default: EwE's for a new Ecospace group, 300, and 10 for detritus.
+        EwE-F's files do not hold them.
+    cell_placement : {"ground", "ewe"}
+        Where the cells are put (``pypath.io.ewemdb.read_ecospace``). The
+        default places them on the ground, which is what the case's own
+        georeference describes (its longitude step is the latitude step
+        over cos(latitude)); the run is the same either way.
+    geometry : bool
+        Keep the cells as polygons, for maps (needs geopandas and shapely).
+
+    Returns
+    -------
+    EcospaceParams
+        With a row for each living and detritus group; a run also needs
+        the fleets' rows: ``.with_group_rows(scenario.params.NUM_GROUPS)``.
+        The grid's ``cell_metadata`` holds each cell's row, column and
+        depth.
+
+    Raises
+    ------
+    FileNotFoundError, ValueError
+        When a file is missing, the maps do not have the grid's shape, a
+        sea cell has no depth, or a group has no map.
+    """
+    from pypath.io.ewemdb import (
+        _EWE_NULL_VALUE,
+        _build_fallback_grid,
+        _ewe_habitat_capacity,
+        _ewe_movement_rate,
+    )
+    from pypath.spatial.ecospace_params import EcospaceParams
+
+    folder = Path(path)
+    if not folder.is_dir():
+        raise FileNotFoundError(f"No EwE-F Ecospace folder at {folder}")
+    mask = _read_ewef_map(_one_file(folder, "*_grid.csv")) > 0
+    depth = _read_ewef_map(_one_file(folder, "*_depth.csv"))
+    with open(_one_file(folder, "*_georef.json"), encoding="utf-8") as fh:
+        georef = json.load(fh)
+    if depth.shape != mask.shape:
+        raise ValueError(
+            f"the depth map is {depth.shape}, the grid {mask.shape} (rows, columns)"
+        )
+    if np.any(depth[mask] <= 0):
+        raise ValueError(
+            f"{int(np.sum(depth[mask] <= 0))} sea cells of the grid have no depth"
+        )
+    depth = np.where(mask, depth, 0.0)
+
+    names = [str(g).strip() for g in params.model["Group"]]
+    types = np.asarray(params.model["Type"], dtype=float)
+    groups = [i for i, t in enumerate(types) if t < 3]  # living and detritus
+    n_groups = len(groups)
+    maps_dir = _one_file(folder, "*SpatialDistribution")
+    capacity_input = np.empty((n_groups,) + mask.shape)
+    for k in range(n_groups):
+        map_path = maps_dir / f"Group_{k + 1}.csv"
+        if not map_path.is_file():
+            raise FileNotFoundError(
+                f"no habitat map {map_path.name} for group {names[groups[k]]!r} "
+                f"in {maps_dir}"
+            )
+        habitat = _read_ewef_map(map_path)
+        if habitat.shape != mask.shape:
+            raise ValueError(
+                f"{map_path.name} is {habitat.shape}, the grid {mask.shape}"
+            )
+        capacity_input[k] = habitat
+
+    if cell_length_km is None:
+        cell_length_km = round(float(georef["dlat"]) * 111.19, 2)
+    detritus = types[groups] == 2
+    if dispersal_kmyr is None:
+        mvel = np.where(detritus, EWE_DETRITUS_DISPERSAL_KMYR, EWE_DISPERSAL_KMYR)
+    else:
+        mvel = np.asarray(dispersal_kmyr, dtype=float)
+        if mvel.shape != (n_groups,):
+            raise ValueError(
+                f"dispersal_kmyr needs {n_groups} values, one per living and "
+                f"detritus group, not {mvel.shape}"
+            )
+    pb = np.asarray(params.model["PB"], dtype=float)[groups]
+    pb = np.where(np.isfinite(pb) & ~detritus, pb, _EWE_NULL_VALUE)
+
+    grid = _build_fallback_grid(
+        mask.shape[0],
+        mask.shape[1],
+        float(cell_length_km),
+        min_lon=float(georef["lon_west"]),
+        min_lat=float(georef["lat_north"]),
+        depth=depth,
+        corner="north_west",
+        geometry=geometry,
+        placement=cell_placement,
+    )
+    # the map is the capacity input, as EwE's CapacityCalType 0
+    capacity = _ewe_habitat_capacity(
+        depth,
+        capacity_input,
+        np.zeros(n_groups, dtype=int),
+        np.ones((n_groups, 1)),
+        np.ones((1,) + mask.shape),
+        mvel,
+        pb,
+        float(cell_length_km),
+        gradient=True,
+        names=[names[i] for i in groups],
+    )
+    meta = grid.cell_metadata
+    rows, cols = meta["row"].to_numpy(), meta["col"].to_numpy()
+
+    advected = np.zeros(n_groups, dtype=bool)
+    if ecosim_path is not None:
+        nml_path = _find_namelist(ecosim_path)
+        info_path = _resolve(
+            nml_path, read_ewef_namelist(nml_path).get("GroupInfo_fname")
+        )
+        if info_path is not None:
+            header, table = _read_table(info_path, "Groups")
+            column = next(
+                (
+                    j
+                    for j, label in enumerate(header)
+                    if label.lower().startswith("advected")
+                ),
+                None,
+            )
+            if column is not None:
+                where = {names[i]: k for k, i in enumerate(groups)}
+                for row in table:
+                    k = where.get(row[0].strip())
+                    if k is not None and column < len(row):
+                        advected[k] = _number(row[column]) == 1
+
+    return EcospaceParams(
+        grid=grid,
+        habitat_preference=np.ones((n_groups, grid.n_patches)),
+        habitat_capacity=capacity[:, rows, cols],
+        dispersal_rate=np.array(
+            [_ewe_movement_rate(v, float(cell_length_km), False) for v in mvel]
+        ),
+        advection_enabled=advected,
+        gravity_strength=np.zeros(n_groups),
+    )
 
 
 def read_ewef_results(

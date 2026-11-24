@@ -98,6 +98,8 @@ pypath = [
     "io/templates/*.eweaccdb",
     "examples/data/*/README.md",
     "examples/data/*/*/*",
+    # an example's habitat maps: ecospace/<case>_SpatialDistribution/Group_<k>.csv
+    "examples/data/*/*/*/*",
 ]
 
 [tool.pytest.ini_options]

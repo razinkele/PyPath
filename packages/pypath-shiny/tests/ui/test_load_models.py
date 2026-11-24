@@ -174,6 +174,53 @@ def test_the_curonian_example_brings_its_grid_and_runs(server, browser):  # noqa
     assert server.tracebacks() == 0
 
 
+def test_the_curonian_example_brings_its_own_ecospace_set_up(server, browser):  # noqa: F811
+    """The lagoon as 1,576 cells of 1 km with a habitat map per group."""
+    errors: list[str] = []
+    page = _new_page(browser, errors)
+    _connect(page, server.url)
+    _open_on_ecosim(page, "Curonian_Lagoon")
+    # a short scenario: two years on the 1,576 cells take about a minute
+    page.check("input[name='scenario_source'][value='model']")
+    page.fill("#sim_years", "2")
+    time.sleep(0.5)
+    assert _click_for_note(
+        page, "#btn_create_scenario", "Scenario created successfully", 90
+    ), _notes(page)
+    _to_ecospace(page)
+    page.wait_for_selector("#btn_load_example_ecospace", state="visible", timeout=30000)
+    # the 29-box grid is offered beside it
+    assert page.locator("#btn_load_example_grid").count() == 1
+    assert _click_for_note(
+        page,
+        "#btn_load_example_ecospace",
+        "Loaded the Ecospace set-up of the example",
+        90,
+    ), _notes(page)
+    note = " ".join(_notes(page))
+    assert "1,576 water cells of 1 km, 20 groups" in note
+    assert "the case's advection field" in note and "takes about" in note
+    assert _wait_text(page, "#grid_info", "1576", 30) or _patches(page) == 1576
+    assert _wait_text(
+        page, "#ecospace_config_note", "habitat capacity and dispersal rates of", 20
+    ), _text(page, "#wizard_config_note")
+    page.click("#ecospace_tabs a:has-text('Habitat Map')")
+    page.wait_for_selector(
+        "#ecospace_habitat_map canvas", state="attached", timeout=30000
+    )
+    page.wait_for_timeout(2500)
+    _shot(page, "ecospace_example_set_up.png")
+
+    assert _click_for_note(
+        page, "#run_spatial_sim", "Running with the Ecospace set-up of the example", 60
+    ), _notes(page)
+    assert _wait_text(page, "#spatial_run_status", "complete", 500), _text(
+        page, "#spatial_run_status"
+    )
+    assert errors == []
+    assert server.tracebacks() == 0
+
+
 def test_a_database_ecospace_scenario_is_loaded_and_runs(server, browser):  # noqa: F811
     if not PELAGIC.exists():
         pytest.skip("the Curonian pelagic database is not here")
