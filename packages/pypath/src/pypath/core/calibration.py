@@ -221,6 +221,66 @@ def ewe_sum_of_squares(output, timeseries, *, warn: bool = True) -> EweSSResult:
     return result
 
 
+_FAILED_SS = 1e10  # objective value for failed / non-finite simulations
+
+
+class _CalibrationObjective:
+    """EwE6 sum of squares of a VV parameter vector (picklable, so that
+    differential evolution can evaluate it in worker processes)."""
+
+    def __init__(self, scenario, timeseries, link_indices, fit_vv, verbose=False):
+        self.scenario = scenario
+        self.timeseries = timeseries
+        self.link_indices = list(link_indices)
+        self.fit_vv = fit_vv
+        self.verbose = verbose
+        self.n_ok = 0  # successful evaluations made in this process
+
+    def __call__(self, param_vector):
+        from pypath.core.ecosim import rsim_run
+
+        if self.fit_vv:
+            for j, link_idx in enumerate(self.link_indices):
+                self.scenario.params.VV[link_idx] = param_vector[j]
+        try:
+            output = rsim_run(self.scenario)
+        except (RuntimeError, ValueError, FloatingPointError) as e:
+            logger.warning("Simulation failed during optimization: %s", e)
+            return _FAILED_SS
+        ss = ewe_sum_of_squares(output, self.timeseries, warn=False).total
+        if not np.isfinite(ss):
+            return _FAILED_SS
+        self.n_ok += 1
+        if self.verbose and self.n_ok % 50 == 0:
+            logger.info("Iteration %d: SS = %.6f", self.n_ok, ss)
+        return ss
+
+
+_WORKER_OBJECTIVE = None
+
+
+def _init_worker(objective):
+    """Pool initializer: each worker process keeps its own objective copy."""
+    global _WORKER_OBJECTIVE
+    _WORKER_OBJECTIVE = objective
+
+
+def _worker_eval(x):
+    return _WORKER_OBJECTIVE(x)
+
+
+def _resolve_workers(workers) -> int:
+    import os
+
+    if workers is None or workers == 1:
+        return 1
+    if workers == -1:
+        return max(os.cpu_count() or 1, 1)
+    if int(workers) < 1:
+        raise ValueError("workers must be a positive integer or -1 (all cores)")
+    return int(workers)
+
+
 def fit_to_timeseries(
     rpath_model,
     params,
@@ -234,6 +294,7 @@ def fit_to_timeseries(
     method: str = "differential_evolution",
     max_iterations: int = 1000,
     verbose: bool = False,
+    workers: int = 1,
 ) -> CalibrationResult:
     """Fit Ecosim parameters to observed time series data.
 
@@ -262,6 +323,16 @@ def fit_to_timeseries(
         Maximum optimizer iterations.
     verbose : bool
         Print progress.
+    workers : int
+        Processes used to evaluate differential evolution candidates in
+        parallel (default 1: serial, exactly as before). ``-1`` uses all CPU
+        cores. Parallel evaluation switches SciPy to ``updating="deferred"``
+        (the population is updated once per generation), so the search
+        follows a different, equally valid path: fitted values differ from a
+        serial run, but are reproducible for a given seed whatever the number
+        of workers. Ignored by ``method="minimize"``. On Windows, scripts that
+        call this with ``workers != 1`` need an
+        ``if __name__ == "__main__":`` guard.
 
     Returns
     -------
@@ -343,44 +414,55 @@ def fit_to_timeseries(
         bounds.extend([vv_bounds] * len(link_indices))
 
     n_vv = len(link_indices) if fit_vv else 0
-    iteration_count = [0]
-
-    def objective(param_vector):
-        if fit_vv:
-            for j, link_idx in enumerate(link_indices):
-                scenario.params.VV[link_idx] = param_vector[j]
-
-        try:
-            output = rsim_run(scenario)
-        except (RuntimeError, ValueError, FloatingPointError) as e:
-            logger.warning("Simulation failed during optimization: %s", e)
-            return 1e10
-
-        ss = ewe_sum_of_squares(output, timeseries, warn=False).total
-        if not np.isfinite(ss):
-            return 1e10
-
-        iteration_count[0] += 1
-        if verbose and iteration_count[0] % 50 == 0:
-            logger.info("Iteration %d: SS = %.6f", iteration_count[0], ss)
-
-        return ss
+    objective = _CalibrationObjective(
+        scenario, timeseries, link_indices, fit_vv, verbose=verbose
+    )
+    n_workers = _resolve_workers(workers)
+    worker_ok = [0]  # successful evaluations counted from worker results
 
     if method == "differential_evolution":
         from scipy.optimize import differential_evolution
 
-        result = differential_evolution(
-            objective,
-            bounds=bounds,
-            maxiter=max_iterations,
-            seed=42,
-            tol=1e-6,
-            polish=True,
-        )
+        if n_workers == 1:
+            result = differential_evolution(
+                objective,
+                bounds=bounds,
+                maxiter=max_iterations,
+                seed=42,
+                tol=1e-6,
+                polish=True,
+            )
+        else:
+            import multiprocessing as mp
+
+            # "spawn" everywhere: fork can deadlock when the parent has threads,
+            # and it is what Windows uses anyway.
+            with mp.get_context("spawn").Pool(
+                n_workers, initializer=_init_worker, initargs=(objective,)
+            ) as pool:
+
+                def _parallel_map(_func, population):
+                    # The workers hold their own copy of ``objective``;
+                    # SciPy's ``_func`` wraps that same callable (no args).
+                    population = list(population)
+                    chunk = max(1, len(population) // (4 * n_workers))
+                    values = pool.map(_worker_eval, population, chunksize=chunk)
+                    worker_ok[0] += sum(1 for v in values if v != _FAILED_SS)
+                    return values
+
+                result = differential_evolution(
+                    objective,
+                    bounds=bounds,
+                    maxiter=max_iterations,
+                    seed=42,
+                    tol=1e-6,
+                    polish=True,
+                    updating="deferred",
+                    workers=_parallel_map,
+                )
         best_params = result.x
         converged = result.success
         final_ss = result.fun
-
     elif method == "minimize":
         from scipy.optimize import minimize
 
@@ -421,7 +503,7 @@ def fit_to_timeseries(
         best_pp=None,
         ss=final_ss,
         ss_by_group=ss_by_group,
-        n_iterations=iteration_count[0],
+        n_iterations=objective.n_ok + worker_ok[0],
         converged=converged,
         fitted_scenario=scenario,
         link_map=link_map,

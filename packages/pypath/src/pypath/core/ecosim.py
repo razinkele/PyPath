@@ -4330,15 +4330,19 @@ def _compute_Q_matrix(
                     ActiveLink[prey, pred] = True
 
     # preyYY and predYY
+    _bbase = np.asarray(Bbase, dtype=float)
+    _safe = np.where(_bbase > 0, _bbase, 1.0)
     preyYY = np.zeros(NUM_GROUPS + 1)
-    for i in range(1, NUM_GROUPS + 1):
-        if Bbase[i] > 0:
-            preyYY[i] = BB[i] / Bbase[i] * ForcedPrey[i]
+    _g = slice(1, NUM_GROUPS + 1)
+    preyYY[_g] = np.where(
+        _bbase[_g] > 0, BB[_g] / _safe[_g] * np.asarray(ForcedPrey)[_g], 0.0
+    )
 
     predYY = np.zeros(NUM_GROUPS + 1)
-    for i in range(1, NUM_LIVING + 1):
-        if Bbase[i] > 0:
-            predYY[i] = Ftime[i] * BB[i] / Bbase[i]
+    _l = slice(1, NUM_LIVING + 1)
+    predYY[_l] = np.where(
+        _bbase[_l] > 0, np.asarray(Ftime)[_l] * BB[_l] / _safe[_l], 0.0
+    )
     # consumer search-rate forcing, as in deriv_vector
     _forced_search = forcing.get("ForcedSearch")
     if _forced_search is not None:
@@ -4356,28 +4360,31 @@ def _compute_Q_matrix(
 
     QQ = np.zeros((NUM_GROUPS + 1, NUM_GROUPS + 1))
 
-    for pred in range(1, NUM_LIVING + 1):
-        if BB[pred] <= 0:
-            continue
-        for prey in range(1, NUM_GROUPS + 1):
-            if not ActiveLink[prey, pred]:
-                continue
-            if BB[prey] <= 0:
-                continue
-            vv = VV[prey, pred]
-            dd = DD[prey, pred]
-            qbase = QQbase[prey, pred]
-            if qbase <= 0:
-                continue
-            PYY = preyYY[prey]
-            PDY = predYY[pred]
-            # No special case at DD = 1 or VV = 1: the closed form gives
-            # prey-independent (handling-limited) and donor-controlled
-            # consumption there, which is what those settings mean in EwE.
-            dd_term = dd / max(dd - 1.0 + max(PYY, 1e-10), 1e-10)
-            vv_term = vv / max(vv - 1.0 + max(PDY, 1e-10), 1e-10)
-            Q_calc = qbase * PDY * PYY * dd_term * vv_term
-            QQ[prey, pred] = max(Q_calc, 0.0)
+    # Vectorised over all active (prey, pred) links; same arithmetic order as
+    # the per-link loop it replaces, so results are bit-identical.
+    _bb = np.asarray(BB, dtype=float)
+    _link = (
+        np.asarray(ActiveLink[1:, 1 : NUM_LIVING + 1], dtype=bool)
+        & (_bb[1:, None] > 0)
+        & (_bb[None, 1 : NUM_LIVING + 1] > 0)
+        & (QQbase[1:, 1 : NUM_LIVING + 1] > 0)
+    )
+    _prey, _pred = np.nonzero(_link)
+    if _prey.size:
+        _prey = _prey + 1
+        _pred = _pred + 1
+        vv = VV[_prey, _pred]
+        dd = DD[_prey, _pred]
+        qbase = QQbase[_prey, _pred]
+        PYY = preyYY[_prey]
+        PDY = predYY[_pred]
+        # No special case at DD = 1 or VV = 1: the closed form gives
+        # prey-independent (handling-limited) and donor-controlled
+        # consumption there, which is what those settings mean in EwE.
+        dd_term = dd / np.maximum(dd - 1.0 + np.maximum(PYY, 1e-10), 1e-10)
+        vv_term = vv / np.maximum(vv - 1.0 + np.maximum(PDY, 1e-10), 1e-10)
+        Q_calc = qbase * PDY * PYY * dd_term * vv_term
+        QQ[_prey, _pred] = np.maximum(Q_calc, 0.0)
 
     # Imported diet, as deriv_vector credits it: QB * import * B, which
     # rsim_params stores as the link from group 0 (QQbase[0, i] at Bbase)

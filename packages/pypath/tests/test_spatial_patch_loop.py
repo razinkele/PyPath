@@ -92,6 +92,8 @@ def test_patches_run_on_the_calling_thread(spatial_scenario, monkeypatch):
         return original(*a, **k)
 
     monkeypatch.setattr(integ, "_local_deriv", spy)
+    # the per-patch loop (the batched path evaluates no patch on its own)
+    monkeypatch.setattr(integ, "USE_BATCHED_DERIV", False)
     integ.deriv_vector_spatial(*args, **kwargs)
 
     assert len(threads) == N_PATCHES

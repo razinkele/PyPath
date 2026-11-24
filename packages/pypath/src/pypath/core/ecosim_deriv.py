@@ -1312,7 +1312,10 @@ else:
     _compute_detritus_derivs_numba = None
 
 
-def _rpath_detritus_derivs(
+_DETRITUS_VECTORIZE_MIN_LINKS = 80  # measured crossover ~75 links
+
+
+def _rpath_detritus_derivs_loop(
     deriv,
     QQ,
     BB,
@@ -1437,6 +1440,238 @@ def _rpath_detritus_derivs(
             continue  # EwE6 discards from living groups only (vb 3154-3176)
         if NUM_LIVING < dest <= n_bio:
             fish_gain[dest] += link_fish_rate[k] * BB[src]
+    gain = det_gain + fish_gain
+    if det_input is not None:
+        dead = slice(NUM_LIVING + 1, n_bio + 1)
+        gain[dead] += np.asarray(det_input, dtype=float)[dead]
+    loss = det_loss.copy()
+    for d in range(NUM_LIVING + 1, n_bio + 1):
+        loss[d] += QQ[d, 1 : NUM_LIVING + 1].sum()
+    if fish_mort is not None and not ewe:
+        # Rpath: a fished pool loses its catch (gear links and forced F)
+        dead = slice(NUM_LIVING + 1, n_bio + 1)
+        f_dead = np.asarray(fish_mort, dtype=float)[dead]
+        if np.any(f_dead != 0.0):
+            loss[dead] += f_dead * BB[dead]
+    if ewe:
+        dead = slice(NUM_LIVING + 1, n_bio + 1)
+        if det_out is None:
+            det_out = np.full(n_bio + 1, np.nan)
+        out = det_out[: n_bio + 1]  # a view: rates set here are kept
+        unset = np.zeros(n_bio + 1, dtype=bool)
+        unset[dead] = np.isnan(out[dead])
+        emig = np.zeros(n_bio + 1)
+        if det_emig is not None:
+            emig[dead] = np.asarray(det_emig, dtype=float)[dead]
+        if unset.any():
+            out[unset] = _ewe_detritus_out(
+                gain[unset],
+                loss[unset],
+                np.asarray(det_ba, dtype=float)[: n_bio + 1][unset],
+                BB[: n_bio + 1][unset],
+                emig[unset],
+            )
+        loss[dead] += (emig[dead] + out[dead]) * BB[dead]
+        if export is not None:
+            passed = np.asarray(det_passed_prop, dtype=float)[dead]
+            export[dead] += (out[dead] - passed) * BB[dead]
+    for d in range(NUM_LIVING + 1, n_bio + 1):
+        deriv[d] = gain[d] - loss[d]
+    if flows is not None:
+        flows["Discards"] = fish_gain.copy()
+        flows["DetExport"] = export
+    return gain, loss
+
+
+def _rpath_detritus_derivs(
+    deriv,
+    QQ,
+    BB,
+    M0_arr,
+    Unassim,
+    det_from,
+    det_to,
+    det_frac,
+    fish_from,
+    fish_to,
+    link_fish_rate,
+    NUM_LIVING,
+    NUM_DEAD,
+    import_q=None,
+    det_input=None,
+    det_passed_prop=None,
+    det_ba=None,
+    det_out=None,
+    det_emig=None,
+    pass_on=True,
+    df_once=False,
+    flows: Optional[dict] = None,
+    fish_mort=None,
+):
+    """Detritus derivatives as in Rpath ``deriv_vector`` (link based).
+
+    Every source group (living or dead) sends ``DetFrac * (M0*B +
+    unassimilated consumption)`` along each of its detritus links; a dead
+    source loses that flow. Discards gain the catch of every fishing link
+    whose ``FishTo`` is that pool. Detritivore consumption is the food loss.
+    ``fish_mort`` is F per group (``fishing_mortality``): without
+    ``det_passed_prop`` a fished pool loses ``fish_mort x B``, its catch, as
+    in Rpath (``FishingLoss`` is in every group's ``LossPropToB``,
+    ``ecosim.cpp``); under the EwE rule it is ignored, as EwE6's detritus
+    Derivt has no fishing term (cEcoSimModel.vb:3121), and the discards of a
+    catch from a pool reach no pool, as EwE6 sends discards to detritus from
+    living groups only (SimDetritusMT, vb 3154-3176).
+    ``import_q`` is each consumer's intake of imported diet, which is
+    unassimilated like any other food. ``det_input`` is a constant import per
+    group (EwE DetInFlow, cEcoSimModel.vb:3119-3124), counted as gain so the
+    fast-equilibrium biomeq includes it as EwE's does (:3126).
+
+    With ``det_passed_prop`` (the EwE rule, audit P7) a dead source follows
+    EwE6 instead (SimDetritusMT and Derivt, cEcoSimModel.vb 3115-3209): it
+    sends DetPassedProp x B x DF along each link to another pool (DF counts
+    twice, as in EwE: DetPassedProp already holds it), nothing to itself
+    or out, and loses DetritusOut x B besides consumption. ``det_out`` holds
+    DetritusOut; NaN entries are set from this call so that the pool grows at
+    ``det_ba`` (EwE's FirstTime, vb 3202-3207), and are kept from then on.
+    Without ``det_out`` every call sets it afresh. ``det_emig`` is a pool's
+    emigration rate under the EwE rule (Emig, vb 3121, 4535): the pool loses
+    (Emig + DetritusOut) x B, and DetritusOut is set Emig lower, at least
+    1e-20 (vb 3206). A pool's immigration comes in ``det_input``.
+
+    ``pass_on=False`` drops what a pool receives from another detritus pool,
+    as EwE 6.7.144's Ecospace does (cSpaceSolver.vb 1519-1526 loops over group
+    indices 1 to nDet, living groups); the donor's losses and a pool's flow
+    to itself are unchanged.
+
+    ``df_once=True`` (EwE rule) counts DF once: DetPassedProp already holds a
+    pool's passed share, so a flow to another pool is DetPassedProp x B x
+    DF / s, s being the sum of the source's DF to pools other than itself.
+    It acts independently of ``pass_on``.
+
+    ``flows``, when a dict, receives ``"Discards"`` (the catch reaching each
+    pool) and ``"DetExport"`` per source group (size NUM_LIVING+NUM_DEAD+1),
+    the detritus leaving the system, from the parameters and never from the
+    flows the pools are credited with: a link's flow to a destination outside
+    1..NUM_LIVING+NUM_DEAD and, under the EwE rule, a dead source's
+    (DetritusOut - DetPassedProp) x B (negative when DetPassedProp exceeds
+    DetritusOut). A flow between pools that is passed at another scale (DF
+    twice) or dropped (``pass_on``) is therefore not export. The derivative
+    is unchanged.
+
+    Returns ``(gain, loss)`` arrays (size NUM_LIVING+NUM_DEAD+1) so callers
+    can build Rpath's TotGain / TotLoss for the dead groups.
+    """
+    if len(det_from) + len(fish_from) < _DETRITUS_VECTORIZE_MIN_LINKS:
+        return _rpath_detritus_derivs_loop(
+            deriv,
+            QQ,
+            BB,
+            M0_arr,
+            Unassim,
+            det_from,
+            det_to,
+            det_frac,
+            fish_from,
+            fish_to,
+            link_fish_rate,
+            NUM_LIVING,
+            NUM_DEAD,
+            import_q=import_q,
+            det_input=det_input,
+            det_passed_prop=det_passed_prop,
+            det_ba=det_ba,
+            det_out=det_out,
+            det_emig=det_emig,
+            pass_on=pass_on,
+            df_once=df_once,
+            flows=flows,
+            fish_mort=fish_mort,
+        )
+    n_bio = NUM_LIVING + NUM_DEAD
+    mzero_loss = np.zeros(n_bio + 1)
+    mzero_loss[1:] = M0_arr[1 : n_bio + 1] * BB[1 : n_bio + 1]
+    consumption = QQ[1:, 1 : NUM_LIVING + 1].sum(axis=0)
+    if import_q is not None:
+        consumption = consumption + import_q[1 : NUM_LIVING + 1]
+    unassim_loss = np.zeros(n_bio + 1)
+    unassim_loss[1 : NUM_LIVING + 1] = consumption * Unassim[1 : NUM_LIVING + 1]
+    ewe = det_passed_prop is not None
+    det_gain = np.zeros(n_bio + 1)
+    det_loss = np.zeros(n_bio + 1)
+    export = None if flows is None else np.zeros(n_bio + 1)
+    other_df = np.zeros(n_bio + 1)
+    # Vectorised over the detritus and fishing links. Every target receives
+    # its terms through one np.add.at call in link order, so the sums are
+    # those of the loop form, bit for bit.
+    if len(det_from) > 1:
+        _src = np.asarray(det_from[1:]).astype(np.int64)
+        _dst = np.asarray(det_to[1:]).astype(np.int64)
+        _frac = np.asarray(det_frac[1:], dtype=float)
+        if ewe and df_once:
+            _odf = (
+                (_src > NUM_LIVING)
+                & (_src <= n_bio)
+                & (_dst > NUM_LIVING)
+                & (_dst <= n_bio)
+                & (_dst != _src)
+            )
+            if _odf.any():
+                np.add.at(other_df, _src[_odf], _frac[_odf])
+        _ok = (_src >= 1) & (_src <= n_bio)  # gear rows carry no flow
+        _src, _dst, _frac = _src[_ok], _dst[_ok], _frac[_ok]
+        _dead_src = _src > NUM_LIVING
+        _received = pass_on | (~_dead_src) | (_dst == _src)
+        _dst_bio = (_dst > 0) & (_dst <= n_bio)
+        _flow = _frac * (mzero_loss[_src] + unassim_loss[_src])
+        if ewe:
+            _ewe_link = _dead_src
+            _share = _frac
+            if df_once:
+                _od = other_df[_src]
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    _share = np.where(_od > 0, _frac / np.where(_od > 0, _od, 1.0), 0.0)
+            _ewe_flow = (
+                np.asarray(det_passed_prop, dtype=float)[_src]
+                * _share
+                * np.asarray(BB, dtype=float)[_src]
+            )
+            _ewe_gain = (
+                _ewe_link
+                & (_dst != _src)
+                & (_dst > NUM_LIVING)
+                & (_dst <= n_bio)
+                & _received
+            )
+            _val = np.where(_ewe_link, _ewe_flow, _flow)
+            _to_gain = np.where(_ewe_link, _ewe_gain, _dst_bio & _received)
+        else:
+            _ewe_link = np.zeros(_src.shape, dtype=bool)
+            _val = _flow
+            _to_gain = _dst_bio & _received
+        if _to_gain.any():
+            np.add.at(det_gain, _dst[_to_gain], _val[_to_gain])
+        if export is not None:
+            _to_exp = (~_ewe_link) & ~(_dst_bio & _received) & ~_dst_bio
+            if _to_exp.any():
+                np.add.at(export, _src[_to_exp], _flow[_to_exp])
+        _to_loss = _dead_src & ~_ewe_link
+        if _to_loss.any():
+            np.add.at(det_loss, _src[_to_loss], _flow[_to_loss])
+    fish_gain = np.zeros(n_bio + 1)
+    _n_fk = min(len(fish_from), len(fish_to), len(link_fish_rate))
+    if _n_fk > 1:
+        _f_to = np.asarray(fish_to[1:_n_fk]).astype(np.int64)
+        _f_from = np.asarray(fish_from[1:_n_fk]).astype(np.int64)
+        _f_ok = (_f_to > NUM_LIVING) & (_f_to <= n_bio)
+        if ewe:
+            _f_ok &= ~((_f_from > NUM_LIVING) & (_f_from <= n_bio))
+        if _f_ok.any():
+            np.add.at(
+                fish_gain,
+                _f_to[_f_ok],
+                np.asarray(link_fish_rate[1:_n_fk], dtype=float)[_f_ok]
+                * np.asarray(BB, dtype=float)[_f_from[_f_ok]],
+            )
     gain = det_gain + fish_gain
     if det_input is not None:
         dead = slice(NUM_LIVING + 1, n_bio + 1)
@@ -2109,13 +2344,18 @@ def _fishing_links(fishing) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     )
 
 
-def fishing_mortality(
+_FISHING_VECTORIZE_MIN_LINKS = 16  # measured crossover ~15 links
+
+
+def _fishing_mortality_loop(
     params: dict,
     forcing: dict,
     fishing: dict,
     fleet_med: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Fishing mortality per group (per year) under one month's forcing.
+    """Per-link loop form of :func:`fishing_mortality` (faster for few links).
+
+    Fishing mortality per group (per year) under one month's forcing.
 
     The gears' FishQ x effort (``forcing["ForcedEffort"]``, times the fleet
     mediation multipliers when given) plus the forced fishing of the month
@@ -2187,6 +2427,102 @@ def fishing_mortality(
                     if int(FishFrom[i]) == grp:
                         _link_fish_rate[i] = 0.0
             FishMort[grp] += _ff[grp]
+    return FishMort, _link_fish_rate
+
+
+def fishing_mortality(
+    params: dict,
+    forcing: dict,
+    fishing: dict,
+    fleet_med: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fishing mortality per group (per year) under one month's forcing.
+
+    The gears' FishQ x effort (``forcing["ForcedEffort"]``, times the fleet
+    mediation multipliers when given) plus the forced fishing of the month
+    (``forcing["ForcedF"]``, which replaces the gears where
+    ``ForcedFReplace`` is set). This is the F ``deriv_vector`` applies, EwE6's
+    FishTime. Returns ``(FishMort, link_fish_rate)``: F by group
+    (``NUM_GROUPS + 1``) and the per-biomass catch rate of each fishing link.
+    """
+    if len(_fishing_links(fishing)[0]) < _FISHING_VECTORIZE_MIN_LINKS:
+        return _fishing_mortality_loop(params, forcing, fishing, fleet_med)
+    NUM_GROUPS = params["NUM_GROUPS"]
+    NUM_LIVING = params["NUM_LIVING"]
+    NUM_DEAD = params["NUM_DEAD"]
+    NUM_GEARS = params.get("NUM_GEARS", 0)
+    FishMort = np.zeros(NUM_GROUPS + 1)
+
+    ForcedEffort = forcing.get("ForcedEffort", np.ones(max(NUM_GEARS + 1, 1)))
+    FishFrom, FishThrough, FishQ = _fishing_links(fishing)
+
+    # fleet_idx: 0-based array of fleet group indices, used to resolve gear
+    # indices from FishThrough values without assuming canonical group ordering.
+    if isinstance(params, dict):
+        fleet_idx = params.get("fleet_idx", None)
+    else:
+        fleet_idx = getattr(params, "fleet_idx", None)
+
+    # Build a fast lookup from 0-based group index to 1-based gear index.
+    # Falls back to the legacy arithmetic when fleet_idx is not available.
+    _gear_lookup = {}
+    if fleet_idx is not None:
+        for pos, grp_0 in enumerate(fleet_idx):
+            _gear_lookup[int(grp_0)] = pos + 1  # 1-based gear index
+
+    # Calculate fishing mortality with effort scaling per gear
+    # FishThrough contains 1-based GROUP indices of fleets.
+    # _link_fish_rate[i] is the per-biomass catch rate of fishing link i
+    # (Rpath: caught = FishQ * Effort * B), used for discards to FishTo.
+    # Vectorised over fishing links (index 0 is a placeholder). np.add.at
+    # accumulates sequentially in link order, as the loop form does, so the
+    # results are bit-for-bit identical.
+    n_fl = len(FishFrom)
+    _link_fish_rate = np.zeros(n_fl)
+    if n_fl > 1:
+        _from = np.asarray(FishFrom[1:]).astype(np.int64)
+        _through = np.asarray(FishThrough[1:]).astype(np.int64)
+        _q = np.asarray(FishQ[1:], dtype=float)
+        if _gear_lookup:
+            # dict.get(g, 0) for every link, as an array lookup table
+            _lut = np.zeros(max(_gear_lookup) + 1, dtype=np.int64)
+            _lut[list(_gear_lookup)] = list(_gear_lookup.values())
+            _g0 = _through - 1
+            _valid = (_g0 >= 0) & (_g0 < len(_lut))
+            gear_idx = np.zeros(n_fl - 1, dtype=np.int64)
+            gear_idx[_valid] = _lut[_g0[_valid]]
+        else:
+            gear_idx = _through - NUM_LIVING - NUM_DEAD
+        _fe = np.asarray(ForcedEffort, dtype=float)
+        _in = (gear_idx > 0) & (gear_idx < len(_fe))
+        effort_mult = np.ones(n_fl - 1)
+        effort_mult[_in] = _fe[gear_idx[_in]]
+        if fleet_med is not None:
+            _fm = np.asarray(fleet_med, dtype=float)
+            _okm = (gear_idx > 0) & (gear_idx <= len(_fm))
+            effort_mult[_okm] = effort_mult[_okm] * _fm[gear_idx[_okm] - 1]
+        rate = _q * effort_mult
+        np.add.at(FishMort, _from, rate)
+        _link_fish_rate[1:] = rate
+    _forced_f = forcing.get("ForcedF")
+    if _forced_f is not None:
+        _ff = np.asarray(_forced_f, dtype=float)
+        _replace = np.asarray(
+            forcing.get("ForcedFReplace", np.zeros(len(_ff), dtype=bool)), dtype=bool
+        )
+        n_bio_groups = NUM_LIVING + NUM_DEAD
+        hi = min(len(_ff), n_bio_groups + 1)
+        if hi > 1:
+            grps = np.arange(1, hi)
+            rep = grps[grps < len(_replace)]
+            rep = rep[_replace[rep]]
+            if rep.size:
+                FishMort[rep] = 0.0
+                if n_fl > 1:
+                    _mark = np.zeros(NUM_GROUPS + 2, dtype=bool)
+                    _mark[rep] = True
+                    _link_fish_rate[1:][_mark[_from]] = 0.0
+            FishMort[1:hi] += _ff[1:hi]
     return FishMort, _link_fish_rate
 
 
