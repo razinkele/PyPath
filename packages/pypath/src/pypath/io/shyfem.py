@@ -23,8 +23,8 @@ puts the box means on the patches of a grid.
 That text holds every output record: a year of hourly output of 29 boxes is
 54 MB, and a run reads its monthly means only. ``write_box_netcdf`` keeps
 those in a monthly box file, with the minimum, maximum and spread of the
-records of each month: about 1,500 times smaller, and ``read_box_series``
-reads it back as the same series. From a shell::
+records of each month: 0.15 MB for that year, a few hundred times smaller,
+and ``read_box_series`` reads it back as the same series. From a shell::
 
     python -m pypath.io.shyfem boxes_2d.txt boxes_monthly.nc
 
@@ -927,7 +927,9 @@ def _read_box_netcdf(path, max_records: Optional[int] = None) -> ShyfemBoxSeries
     except Exception as exc:  # an attribute or table of another kind
         raise refuse(exc) from exc
     finally:
-        nc.close()
+        # the class's own: scipy sets a file's global attributes on the
+        # object, and one named "close" would stand where the method is
+        netcdf_file.close(nc)
     return ShyfemBoxSeries(**fields)
 
 

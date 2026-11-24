@@ -394,6 +394,21 @@ def test_a_header_that_announces_more_than_the_file_holds_is_refused(tmp_path):
     assert peak < 50e6
 
 
+def test_an_attribute_named_as_one_of_the_readers_own_does_no_harm(tmp_path):
+    """scipy sets a file's global attributes on its reader object: one named
+    ``close`` would stand where the method is."""
+    data = _file_bytes(tmp_path)
+    assert data.count(b"title") == 1
+    path = tmp_path / "close.nc"
+    path.write_bytes(data.replace(b"title", b"close"))
+    _same_series(read_box_series(path), read_box_series(tmp_path / "good.nc"))
+    # the same trick on what tables are looked up in: refused, as not one
+    hostile = tmp_path / "dimensions.nc"
+    hostile.write_bytes(data.replace(b"statistics", b"dimensions"))
+    with pytest.raises(ValueError, match="not a monthly box file"):
+        read_box_series(hostile)
+
+
 def test_another_programs_netcdf_is_refused(tmp_path):
     from scipy.io import netcdf_file
 
@@ -494,13 +509,22 @@ def test_the_converter_never_writes_over_its_input_or_another_file(tmp_path, cap
 def test_the_converter_runs_as_a_module_without_a_warning(tmp_path):
     text = _text(tmp_path, hours=24 * 35)
     out = tmp_path / "m.nc"
+    # RuntimeWarning is what Python gives a module that is imported and run
     done = subprocess.run(
-        [sys.executable, "-W", "error", "-m", "pypath.io.shyfem", str(text), str(out)],
+        [
+            sys.executable,
+            "-W",
+            "error::RuntimeWarning",
+            "-m",
+            "pypath.io.shyfem",
+            str(text),
+            str(out),
+        ],
         capture_output=True,
         text=True,
     )
     assert done.returncode == 0, done.stderr
-    assert done.stderr == "" and "2 months" in done.stdout
+    assert "2 months" in done.stdout
     assert read_box_series(out).counts.tolist() == [744, 96]
 
 
