@@ -119,16 +119,24 @@ def test_a_producer_follows_the_map_and_keeps_most_of_its_total(lagoon):
         cells = _run(scenario, _ecospace(scenario, grid, producer, **kwargs))[
             :, producer
         ]
-        return cells[-1].sum() / cells[0].sum(), cells[-1] / cells[-1].sum()
+        return (
+            cells[-1].sum() / cells[0].sum(),
+            cells[-1] / cells[-1].sum(),
+            cells[-1] / cells[0],
+        )
 
     s = PATTERN / PATTERN.mean()
     rule = np.maximum((3 * s - 1) / (s + 1), 0.0).mean()
     assert rule == pytest.approx(0.833, abs=1e-3)
-    as_map, share = producer_total(relative_pp=PATTERN)
+    as_map, share, level = producer_total(relative_pp=PATTERN)
+    # the middle cell is at the map's mean, so it keeps its Ecopath level:
+    # the map is divided by its mean, whatever the grazers do elsewhere
+    assert s[1] == pytest.approx(1.0)
+    assert level[1] == pytest.approx(1.0, abs=1e-2)
     # a little above the rule: the grazers thin out where production is low
     assert rule - 0.01 < as_map < rule + 0.06
     assert share[0] > share[1] > share[2] > 0.05  # it lives in every cell
-    as_capacity, share = producer_total(capacity=PATTERN)
+    as_capacity, share, _ = producer_total(capacity=PATTERN)
     assert as_capacity == pytest.approx(0.667, abs=0.02)
     assert share[2] < 1e-6  # gone where the capacity is below 0.5
     assert as_map > as_capacity + 0.15
@@ -262,3 +270,20 @@ def test_a_stored_map_is_kept_only_when_asked_and_named_otherwise(tmp_path, capl
     # everything else is as without it
     np.testing.assert_array_equal(kept.habitat_capacity, default.habitat_capacity)
     np.testing.assert_array_equal(kept.dispersal_rate, default.dispersal_rate)
+
+
+def test_a_stored_map_cannot_be_kept_for_a_grid_of_the_callers():
+    """The map is stored per EwE cell: on another grid it has no place, and
+    asking for it is refused rather than dropped."""
+    from pypath.examples import example_ecospace_grid
+    from pypath.io.ewemdb import read_ecospace
+
+    if not PELAGIC.exists():
+        pytest.skip("the Curonian pelagic database is not here")
+    mesh = example_ecospace_grid("Curonian_Lagoon")
+    with pytest.raises(ValueError, match="relative_pp=True needs the grid"):
+        read_ecospace(str(PELAGIC), n_groups=19, grid=mesh, relative_pp=True)
+    # without the flag the caller's grid is read as before
+    assert (
+        read_ecospace(str(PELAGIC), n_groups=19, grid=mesh).ecospace.relative_pp is None
+    )

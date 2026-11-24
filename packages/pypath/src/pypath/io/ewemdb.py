@@ -5606,7 +5606,7 @@ def read_ecospace(
         does. Off by default: a run then treats the map as 1 everywhere,
         as before, and a map that varies is named in a warning. No EwE run
         with such a map has been compared with PyPath's. Only for the grid
-        built here.
+        built here: with ``grid`` given it raises ValueError.
 
     Returns
     -------
@@ -5655,6 +5655,12 @@ def read_ecospace(
 
     # 2. Grid construction
     ewe_depth = None
+    if relative_pp and grid is not None:
+        raise ValueError(
+            "relative_pp=True needs the grid built from the database (leave "
+            "grid out): the relative primary production map is stored per "
+            "EwE cell and has no place on another grid"
+        )
     if grid is None:
         n_rows = int(scenario_row.get("Inrow", 1))
         n_cols = int(scenario_row.get("Incol", 1))
