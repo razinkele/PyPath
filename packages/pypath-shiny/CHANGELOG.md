@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.20.0 (2026-11-24)
+
+### Bug Fixes
+
+- **shiny**: The run-time estimate counts the sub-steps a month
+  ([`29b109e`](https://github.com/razinkele/PyPath/commit/29b109e5c6ed7cfedf40b9bbbf5fdd71bc5d2b4c))
+
+- **shiny**: The spatial run-time estimate follows measured runs
+  ([`74f288e`](https://github.com/razinkele/PyPath/commit/74f288e9a2561ea0c1fedf2f95d5d2d4c78cbf6c))
+
+### Features
+
+- **shiny**: Draw a stored Ecospace scenario's cells where they lie on the ground
+  ([`fd2357d`](https://github.com/razinkele/PyPath/commit/fd2357d8fb870bb96fa4795aa655ad0b9c225488))
+
+
 ## v1.19.0 (2026-11-24)
 
 ### Bug Fixes
