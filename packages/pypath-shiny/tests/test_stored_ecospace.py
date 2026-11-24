@@ -121,11 +121,28 @@ def test_a_scenario_is_not_loaded_without_a_balanced_model_or_when_too_large(
     source, params, model = pelagic
     with pytest.raises(ValueError, match="Balance the model first"):
         load_stored_ecospace(source, 1, params)
-    with pytest.raises(ValueError, match="could not be read"):
+    with pytest.raises(ValueError, match="could not be read.*no Ecospace scenario 99"):
         load_stored_ecospace(source, 99, model)
     monkeypatch.setattr(stored_ecospace, "MAX_STORED_PATCHES", 1000)
     with pytest.raises(ValueError, match="1,576 water cells; up to 1,000"):
         load_stored_ecospace(source, 1, model)
+
+
+def test_the_grid_size_is_checked_before_the_scenario_is_read(pelagic, monkeypatch):
+    """An uploaded database must not make the reader build a grid of any size."""
+    source, _, model = pelagic
+    assert stored_ecospace._scenario_cells(str(PELAGIC), 1) == 94 * 51
+
+    def never(*args, **kwargs):
+        raise AssertionError("the scenario was read")
+
+    monkeypatch.setattr("pypath.io.ewemdb.read_ecospace", never)
+    monkeypatch.setattr(stored_ecospace, "MAX_STORED_CELLS", 94 * 51 - 1)
+    with pytest.raises(ValueError, match=r"4,794 cells \(rows x columns\)"):
+        load_stored_ecospace(source, 1, model)
+    # a scenario that is not there is refused the same way, before a read
+    with pytest.raises(ValueError, match="no Ecospace scenario 99"):
+        load_stored_ecospace(source, 99, model)
 
 
 def test_a_loaded_scenario_runs_in_place_of_the_page_settings(pelagic):
