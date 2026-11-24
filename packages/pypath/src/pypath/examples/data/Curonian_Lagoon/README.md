@@ -22,6 +22,27 @@ Seven consumers take part of their diet from outside the lagoon (`EcopathGroup.I
 
 The Ecopath and Ecosim files are copied from EPath (EwE-F) test cases `ecopath-f/testcases/Curonian_Lagoon` and `ecosim-f/testcases/Curonian_Lagoon` at EPath commit 5bdbeb9 (24 November 2026; the case itself was last built on 18 November, EPath e725905). The namelists' paths are EPath's; PyPath finds the files beside them.
 
+## What a spatial run does, and how to read EPath's note
+
+On its own grid the model does not stay at its Ecopath biomasses. In a ten-year run (PyPath's Ecospace, the set-up as shipped) the map totals settle at about 0.6 of the start for most groups: phytoplankton, zooplankton, bacteria and detritus at 0.60 to 0.62, the fish at 0.61 to 0.68, the birds at 0.57 to 0.63, the bivalves at 0.47. The cause is the phytoplankton map, shown by three-year runs on the same grid:
+
+| Habitat maps | Map total after 3 years, over the start |
+|---|---|
+| all uniform | 1.000 for every group |
+| phytoplankton uniform, the others as shipped | 0.82 to 1.19, median 0.98 |
+| phytoplankton as shipped, the others uniform | 0.53 to 0.92, median 0.61; phytoplankton 0.593 |
+| as shipped | 0.56 to 0.92, median 0.68; phytoplankton 0.592 |
+
+The phytoplankton map follows depth, and EwE 6's rule, which PyPath follows, divides a map by its largest value: over the lagoon the capacity is then 0.593 on average, and the producer's total settles there, with the food web behind it. No EwE 6 run of this model exists to compare with, so this is unverified against EwE; in the one case where PyPath's Ecospace is compared with EwE's own run (a Black Sea model, where the producer's map also varies), EwE's totals also end far from their start.
+
+`ecosim/README.md` is EPath's note, copied as it is. Three of its statements describe EwE-F and do not hold for this set-up in PyPath:
+
+- "Ecospace rescales each map to a mean of 1 over sea cells, so only the relative pattern matters": EwE-F does. Here a map is divided by its largest value, so its mean matters, as the table shows.
+- "the sea means stay within 3 % of the non-spatial run": that is EwE-F's run, with its own movement and the advection field.
+- "PyPath's own Ecosim demo on this model reports a zooplankton crash after year 12": not so for the files here. `example_ecosim_scenario("Curonian_Lagoon")` run for 50 years stays within 0.03 % of its start.
+
+Its *Advection* section, and the files it lists that are not named above, concern EwE-F only.
+
 ## Use
 
 ```python

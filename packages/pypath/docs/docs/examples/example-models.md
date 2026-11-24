@@ -60,6 +60,15 @@ for detritus) over cells of 1 km. Those two are chosen, as the EwE-F files do
 not hold them; `pypath.io.ewef.read_ewef_ecospace` takes others. EwE-F's own
 movement, and the case's advection field, are not reproduced.
 
+!!! note "The spatial run settles below the Ecopath biomasses"
+    Over ten years the map totals settle at about 0.6 of the start for most
+    groups. The phytoplankton map is the cause: it follows depth, a map is
+    divided by its largest value (EwE 6's rule), and over the lagoon its
+    capacity is then 0.59 on average. With every map uniform the totals stay
+    at 1.000; with only the phytoplankton map uniform they stay near the
+    start. There is no EwE 6 run of this model to compare with. The example's
+    README has the figures.
+
 ## The Curonian Lagoon on its 29 boxes
 
 ```python

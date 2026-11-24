@@ -1202,8 +1202,8 @@ def ecospace_server(
             return ui.p(
                 "To load a spatial model: import an EwE database that holds an "
                 "Ecospace scenario (Data Import), or open the Curonian Lagoon "
-                "example (Ecosim page), which brings its 29-box grid. Either "
-                "is then offered here.",
+                "example (Ecosim page), which brings its own Ecospace set-up "
+                "and a 29-box grid. Either is then offered here.",
                 id="stored_ecospace_hint",
                 class_="text-muted small",
             )
@@ -1233,7 +1233,10 @@ def ecospace_server(
                         "cells of 1 km), each group's habitat capacity from "
                         "its habitat map, and EwE's default dispersal speeds "
                         "(300 km a year, 10 for detritus). Runs then use "
-                        "them. The case's advection field is not applied.",
+                        "them. The case's advection field is not applied. In "
+                        "a spatial run the totals settle at about 0.6 of the "
+                        "Ecopath biomass, as the phytoplankton map's capacity "
+                        "is 0.59 on average (the example's README).",
                         class_="text-muted small mt-2",
                     ),
                 ]

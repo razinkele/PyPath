@@ -469,3 +469,36 @@ def test_the_ecospace_reader_refuses_files_that_do_not_fit(tmp_path):
     )
     np.testing.assert_allclose(slow.dispersal_rate, 30 / (np.pi * 2.0), rtol=1e-6)
     np.testing.assert_array_equal(slow.grid.patch_areas, 4.0)
+
+
+@pytest.mark.slow
+def test_the_phytoplankton_map_sets_the_level_of_the_spatial_run():
+    """What the README says of the run: uniform maps keep the Ecopath totals,
+    and with the phytoplankton map alone its total settles at the map's mean
+    capacity (0.593), the food web behind it."""
+    import dataclasses
+
+    from pypath.spatial import rsim_run_spatial
+
+    years = range(1, 3)
+    scenario = example_ecosim_scenario("Curonian_Lagoon", years=years)
+    shipped = _curonian_ecospace()
+    names = [str(n).strip() for n in scenario.params.spname]
+    phyto = names.index("Fitoplankton")
+    assert shipped.habitat_capacity[phyto - 1].mean() == pytest.approx(0.593, abs=2e-3)
+
+    def totals(capacity):
+        ecospace = dataclasses.replace(shipped, habitat_capacity=capacity)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            out = rsim_run_spatial(scenario, ecospace=ecospace, years=years)
+        total = out.out_Biomass_spatial.sum(axis=2)
+        return total[-1, 1:20] / total[0, 1:20]
+
+    uniform = np.ones_like(shipped.habitat_capacity)
+    np.testing.assert_allclose(totals(uniform), 1.0, atol=2e-3)
+    only_phyto = uniform.copy()
+    only_phyto[phyto - 1] = shipped.habitat_capacity[phyto - 1]
+    ratio = totals(only_phyto)
+    assert ratio[phyto - 1] == pytest.approx(0.593, abs=0.02)
+    assert 0.5 < np.median(ratio) < 0.7
