@@ -1235,8 +1235,10 @@ def ecospace_server(
                         "(300 km a year, 10 for detritus). Runs then use "
                         "them. The case's advection field is not applied. In "
                         "a spatial run the totals settle at about 0.6 of the "
-                        "Ecopath biomass, as the phytoplankton map's capacity "
-                        "is 0.59 on average (the example's README).",
+                        "Ecopath biomass: as in EwE 6, a producer cannot "
+                        "sustain itself where its capacity is below 0.5, "
+                        "which the phytoplankton map is in 43 % of the cells "
+                        "(the example's README).",
                         class_="text-muted small mt-2",
                     ),
                 ]

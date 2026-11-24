@@ -62,12 +62,18 @@ movement, and the case's advection field, are not reproduced.
 
 !!! note "The spatial run settles below the Ecopath biomasses"
     Over ten years the map totals settle at about 0.6 of the start for most
-    groups. The phytoplankton map is the cause: it follows depth, a map is
-    divided by its largest value (EwE 6's rule), and over the lagoon its
-    capacity is then 0.59 on average. With every map uniform the totals stay
-    at 1.000; with only the phytoplankton map uniform they stay near the
-    start. There is no EwE 6 run of this model to compare with. The example's
-    README has the figures.
+    groups. The phytoplankton map is the cause. In EwE 6's Ecospace, which
+    PyPath follows, a producer's production in a cell is its capacity there
+    times what it would be without it, and can rise only to the group's
+    maximum relative P/B (2 by default): at capacity c the producer settles
+    at (2c - 1) of its level at capacity 1, and at nothing where c is below
+    0.5. The map follows depth and is divided by its largest value, which
+    puts 43 % of the lagoon's cells below 0.5. With every map uniform the
+    totals stay at 1.000; with phytoplankton's maximum relative P/B at 5
+    they end between 0.82 and 0.97. This is what EwE 6's equations give for
+    these maps, checked against EwE's source; there is no EwE 6 run of this
+    model to compare numbers with. The maps were drawn for EwE-F, which
+    rescales each to a mean of 1. The example's README has the figures.
 
 ## The Curonian Lagoon on its 29 boxes
 
