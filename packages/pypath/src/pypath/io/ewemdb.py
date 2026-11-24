@@ -5541,6 +5541,7 @@ def read_ecospace(
     geometry: bool = False,
     max_cells: Optional[int] = None,
     cell_placement: str = "ewe",
+    relative_pp: bool = False,
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
@@ -5598,6 +5599,14 @@ def read_ecospace(
         Curonian Lagoon scenarios by 0.57, the Black Sea test case by
         0.72). Only the position changes: the distances a run reads stay
         those of EwE's placement, so the run is the same.
+    relative_pp : bool
+        Keep the scenario's relative primary production map
+        (EcospaceScenario.RelPPMap) as ``EcospaceParams.relative_pp`` when
+        it varies over the water cells, so that a run applies it as EwE
+        does. Off by default: a run then treats the map as 1 everywhere,
+        as before, and a map that varies is named in a warning. No EwE run
+        with such a map has been compared with PyPath's. Only for the grid
+        built here.
 
     Returns
     -------
@@ -5875,6 +5884,37 @@ def read_ecospace(
                         weight,
                     )
 
+    # 7d. Relative primary production (RelPPMap), stored for the water cells
+    # like the capacity maps, 1 where the string has no value
+    relative_pp_map = None
+    if ewe_depth is not None and not _is_missing(scenario_row.get("RelPPMap")):
+        try:
+            rel = _ewe_map_from_string(
+                scenario_row.get("RelPPMap"),
+                ewe_depth.shape[0],
+                ewe_depth.shape[1],
+                fill=1.0,
+                name="RelPPMap",
+                water=ewe_water_input,
+            )
+            meta = grid.cell_metadata
+            cells = rel[meta["row"].to_numpy(), meta["col"].to_numpy()]
+            if cells.size and not np.all(cells == cells[0]):
+                if relative_pp:
+                    relative_pp_map = np.maximum(cells, 0.0)
+                else:
+                    logger.warning(
+                        "Ecospace scenario %s stores a relative primary "
+                        "production map that varies between cells (%.3g to "
+                        "%.3g); it is not applied. Pass relative_pp=True to "
+                        "read_ecospace to keep it.",
+                        scenario_id,
+                        float(cells.min()),
+                        float(cells.max()),
+                    )
+        except (EwEDatabaseError, KeyError, ValueError, TypeError) as e:
+            logger.warning("Failed to read the relative primary production map: %s", e)
+
     # 8. Build EcospaceParams
     ecospace = EcospaceParams(
         grid=grid,
@@ -5884,6 +5924,7 @@ def read_ecospace(
         advection_enabled=advection_enabled,
         gravity_strength=gravity_strength,
         new_multi_stanza=_uses_new_multi_stanza(scenario_row.get("ModelType")),
+        relative_pp=relative_pp_map,
     )
 
     return EcospaceReadResult(
