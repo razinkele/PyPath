@@ -6,6 +6,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.24.0 (2026-11-24)
+
+### Features
+
+- Batched Ecospace derivative, vectorised Ecosim kernels, parallel calibration
+  ([`5d7f6c3`](https://github.com/razinkele/PyPath/commit/5d7f6c3e7a60698da6465c349220428f09919263))
+
+- **calibration**: Opt-in parallel workers for fit_to_timeseries
+  ([`5d7f6c3`](https://github.com/razinkele/PyPath/commit/5d7f6c3e7a60698da6465c349220428f09919263))
+
+### Performance Improvements
+
+- **ecosim**: Vectorise fishing, detritus and Q-matrix loops
+  ([`5d7f6c3`](https://github.com/razinkele/PyPath/commit/5d7f6c3e7a60698da6465c349220428f09919263))
+
+
 ## v1.23.1 (2026-11-24)
 
 
