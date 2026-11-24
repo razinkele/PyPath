@@ -5538,6 +5538,7 @@ def read_ecospace(
     grid: "Optional[EcospaceGrid]" = None,
     ecopath_pb: Optional[Sequence[float]] = None,
     grid_corner: str = "north_west",
+    geometry: bool = False,
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
@@ -5578,10 +5579,16 @@ def read_ecospace(
         corner instead (the Black Sea EwE-F test case): "south_west" places
         their grid where it belongs. Only the position changes, not the
         cells or the dynamics.
+    geometry : bool
+        Keep the cells of the grid built here as polygons, for maps (needs
+        geopandas and shapely). A user grid is left as it is.
 
     Returns
     -------
     EcospaceReadResult
+        Its ``ecospace`` has a row for each living and detritus group; a
+        run also needs the fleets' rows:
+        ``result.ecospace.with_group_rows(scenario.params.NUM_GROUPS)``.
 
     Raises
     ------
@@ -5656,6 +5663,7 @@ def read_ecospace(
             min_lat,
             depth=depth,
             corner=grid_corner,
+            geometry=geometry,
         )
         ewe_depth = depth
         ewe_water_input = depth_input > 0
@@ -6389,6 +6397,7 @@ def _build_fallback_grid(
     min_lat: float = 0.0,
     depth: Optional[np.ndarray] = None,
     corner: str = "north_west",
+    geometry: bool = False,
 ) -> "EcospaceGrid":
     """Build a regular raster grid from EwE scenario dimensions.
 
@@ -6411,6 +6420,9 @@ def _build_fallback_grid(
     south-west corner instead, as some databases store them (the Black Sea
     EwE-F test case): the grid then lies ``n_rows`` cells further north.
     Cells, links, areas and distances are the same either way.
+
+    With ``geometry`` the cells' squares are kept as polygons (longitude,
+    latitude), for maps; it needs geopandas and shapely.
     """
     import scipy.sparse
 
@@ -6474,6 +6486,25 @@ def _build_fallback_grid(
         }
     )
 
+    geo = None
+    if geometry:
+        try:
+            import geopandas as gpd
+            from shapely.geometry import box
+        except ImportError as e:
+            raise ImportError(
+                "geometry=True needs geopandas and shapely: pip install "
+                "geopandas shapely"
+            ) from e
+        half = cell_size / 2.0
+        geo = gpd.GeoDataFrame(
+            {"id": patch_ids},
+            geometry=[
+                box(x - half, y - half, x + half, y + half) for x, y in centroids
+            ],
+            crs="EPSG:4326",
+        )
+
     return EcospaceGrid(
         n_patches=n_patches,
         patch_ids=patch_ids,
@@ -6481,6 +6512,7 @@ def _build_fallback_grid(
         patch_centroids=centroids,
         adjacency_matrix=adjacency,
         edge_lengths=edge_lengths,
+        geometry=geo,
         cell_metadata=meta,
     )
 
