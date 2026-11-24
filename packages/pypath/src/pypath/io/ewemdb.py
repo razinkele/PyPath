@@ -5540,6 +5540,7 @@ def read_ecospace(
     grid_corner: str = "north_west",
     geometry: bool = False,
     max_cells: Optional[int] = None,
+    cell_placement: str = "ewe",
 ) -> EcospaceReadResult:
     """Read Ecospace configuration from an EwE database.
 
@@ -5588,6 +5589,15 @@ def read_ecospace(
         Incol, land included), before its maps are read: for a database
         from someone else, whose size is not known. Not applied with a user
         grid.
+    cell_placement : {"ewe", "ground"}
+        Where the cells of the grid built here are put. "ewe" (default)
+        takes a cell as CellLength / DegreeToKm degrees each way, as EwE's
+        basemap does. "ground" spreads the columns by 1 / cos(latitude), so
+        that cells of CellLength km lie where they are on the ground: a
+        grid of km cells is otherwise drawn too narrow east to west (the
+        Curonian Lagoon scenarios by 0.57, the Black Sea test case by
+        0.72). Only the position changes: the distances a run reads stay
+        those of EwE's placement, so the run is the same.
 
     Returns
     -------
@@ -5677,6 +5687,7 @@ def read_ecospace(
             depth=depth,
             corner=grid_corner,
             geometry=geometry,
+            placement=cell_placement,
         )
         ewe_depth = depth
         ewe_water_input = depth_input > 0
@@ -6411,6 +6422,7 @@ def _build_fallback_grid(
     depth: Optional[np.ndarray] = None,
     corner: str = "north_west",
     geometry: bool = False,
+    placement: str = "ewe",
 ) -> "EcospaceGrid":
     """Build a regular raster grid from EwE scenario dimensions.
 
@@ -6436,6 +6448,26 @@ def _build_fallback_grid(
 
     With ``geometry`` the cells' squares are kept as polygons (longitude,
     latitude), for maps; it needs geopandas and shapely.
+
+    ``placement="ground"`` puts the cells where they lie on the ground when
+    they are ``cell_length`` km on each side: a degree of longitude is
+    shorter than one of latitude, so a column is ``cell_length /
+    (DegreeToKm x cos(latitude))`` degrees wide, at the latitude of the
+    grid's middle row. EwE's placement (the default) takes a cell as the
+    same number of degrees each way, which draws a grid of km cells too
+    narrow east to west: by cos(latitude), 0.57 at 55 N. Only the position
+    changes. The distances a run reads are carried on the grid as they are
+    under EwE's placement (``edge_distances``, bit for bit, and
+    ``centroid_km``, the same plane in km), so a run on either placement
+    is the same run.
+
+    One helper that no run reads does differ:
+    ``pypath.spatial.build_distance_matrix(method="haversine")`` (and
+    ``find_k_nearest_neighbors``, which uses it) measures great circles
+    between the centroids of a grid without ``centroid_km``, and returns
+    the carried plane for one with it. Under EwE's placement it therefore
+    gives the squeezed map's distances (a 10 km cell's east neighbour at
+    5.6 km at 55 N), under the ground placement the cell's own 10 km.
     """
     import scipy.sparse
 
@@ -6445,6 +6477,8 @@ def _build_fallback_grid(
         raise ValueError(
             f"corner must be 'north_west' (EwE) or 'south_west', got {corner!r}"
         )
+    if placement not in ("ewe", "ground"):
+        raise ValueError(f"placement must be 'ewe' or 'ground', got {placement!r}")
 
     if depth is None:
         water = np.ones((n_rows, n_cols), dtype=bool)
@@ -6485,6 +6519,31 @@ def _build_fallback_grid(
         (data, (row_idx, col_idx)), shape=(n_patches, n_patches)
     )
 
+    # Where the cells lie on the ground: the columns spread by 1 / cos of the
+    # grid's middle latitude. The distances are kept as EwE's placement gives
+    # them: each neighbour pair's with the arithmetic the dispersal uses for a
+    # grid without them (pypath.spatial.dispersal._edge_distances), and the
+    # plane the fishing and connectivity distances are taken on.
+    half_lon = cell_size / 2.0
+    centroid_km = edge_distances = None
+    if placement == "ground":
+        ewe_centroids = centroids
+        mid_lat = top_lat - n_rows * cell_size / 2.0
+        stretch = 1.0 / np.cos(np.radians(mid_lat))
+        centroids = np.column_stack(
+            [min_lon + (cols_arr + 0.5) * cell_size * stretch, lat]
+        )
+        half_lon = cell_size * stretch / 2.0
+        centroid_km = ewe_centroids * 111.0
+        edge_distances = {}
+        if edge_lengths:
+            pairs = np.array(list(edge_lengths), dtype=int)
+            delta = ewe_centroids[pairs[:, 0]] - ewe_centroids[pairs[:, 1]]
+            lengths = np.sqrt((delta * delta).sum(axis=1)) * 111.0
+            for (a, b), km in zip(pairs, lengths):
+                edge_distances[(int(a), int(b))] = float(km)
+                edge_distances[(int(b), int(a))] = float(km)
+
     # Cell metadata for round-tripping
     meta = pd.DataFrame(
         {
@@ -6513,7 +6572,8 @@ def _build_fallback_grid(
         geo = gpd.GeoDataFrame(
             {"id": patch_ids},
             geometry=[
-                box(x - half, y - half, x + half, y + half) for x, y in centroids
+                box(x - half_lon, y - half, x + half_lon, y + half)
+                for x, y in centroids
             ],
             crs="EPSG:4326",
         )
@@ -6527,6 +6587,8 @@ def _build_fallback_grid(
         edge_lengths=edge_lengths,
         geometry=geo,
         cell_metadata=meta,
+        centroid_km=centroid_km,
+        edge_distances=edge_distances,
     )
 
 

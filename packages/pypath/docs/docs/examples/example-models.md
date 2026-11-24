@@ -81,8 +81,24 @@ read = read_ecospace("model.eweaccdb", n_groups=p.NUM_LIVING + p.NUM_DEAD)
 ecospace = read.ecospace.with_group_rows(p.NUM_GROUPS)
 ```
 
+EwE places a cell as the same number of degrees each way, which draws a grid
+of km cells too narrow east to west (by cos(latitude): 0.57 at 55 N).
+`cell_placement="ground"` puts the cells where they lie on the ground instead;
+`geometry=True` keeps them as polygons for a map. Only the position changes:
+the run is the same on either placement.
+
+```python
+read = read_ecospace(
+    "model.eweaccdb",
+    n_groups=p.NUM_LIVING + p.NUM_DEAD,
+    cell_placement="ground",
+    geometry=True,
+)
+```
+
 In the app, the Ecospace page offers the scenarios of the database you
-imported under **Stored Ecospace Scenario**.
+imported under **Stored Ecospace Scenario**, placed on the ground unless you
+choose EwE's coordinates.
 
 ## API
 

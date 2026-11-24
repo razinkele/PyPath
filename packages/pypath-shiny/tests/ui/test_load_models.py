@@ -202,6 +202,9 @@ def test_a_database_ecospace_scenario_is_loaded_and_runs(server, browser):  # no
     _to_ecospace(page)
     page.wait_for_selector("#btn_load_stored_ecospace", state="visible", timeout=30000)
     assert "94 x 51 cells of 1 km" in _text(page, "#stored_ecospace_ui")
+    # the cells are drawn where they lie on the ground unless EwE's
+    # coordinates are chosen
+    assert page.input_value("#stored_ecospace_placement") == "ground"
     assert _click_for_note(
         page, "#btn_load_stored_ecospace", "Balance the model first", 30
     ), _notes(page)

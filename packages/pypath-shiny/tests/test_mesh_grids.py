@@ -88,6 +88,42 @@ def test_run_time_estimate_grows_with_patches_groups_and_years():
     assert 0.5 < small < 3.0  # measured: 1.3 s
     assert 40 < estimated_run_seconds(2027, 5, 3) < 150  # measured: 85 s
     assert estimated_run_seconds(58, 5, 3) == pytest.approx(2 * small)
+    assert estimated_run_seconds(29, 5, 6) == pytest.approx(2 * small)
+    assert estimated_run_seconds(29, 50, 3) > small
+
+
+@pytest.mark.parametrize(
+    "patches, groups, years, substeps, fast, measured",
+    [
+        (2027, 5, 1, 1, True, 28.0),  # the 5-group test model
+        (29, 20, 5, 1, True, 2.6),  # the Curonian Lagoon example on its 29 boxes
+        (2027, 20, 1, 1, True, 33.5),  # ... on the mesh's elements
+        (2027, 20, 1, 2, True, 67.1),  # ... at 2 sub-steps a month
+        (2027, 20, 1, 4, True, 132.9),  # ... at 4
+        (2027, 20, 1, 4, False, 57.7),  # ... under the Rpath rule
+        (29, 45, 5, 1, True, 3.4),  # the Lithuanian Coast example
+        (2027, 45, 1, 1, True, 47.2),
+        (304, 23, 2, 1, True, 11.4),  # the Black Sea scenario
+        (1576, 20, 1, 1, True, 26.2),  # the Curonian pelagic scenario
+        (1576, 73, 1, 1, True, 55.2),  # the Curonian cohorts scenario
+    ],
+)
+def test_the_estimate_is_just_above_the_runs_it_was_measured_on(
+    patches, groups, years, substeps, fast, measured
+):
+    """Seconds on the server, 2026-11-24: a quarter above at most, never below."""
+    estimate = estimated_run_seconds(
+        patches, groups, years, substeps=substeps, fast_equilibrium=fast
+    )
+    assert measured <= estimate <= 1.25 * measured
+
+
+def test_the_estimate_grows_with_the_substeps():
+    one = estimated_run_seconds(100, 20, 1)
+    assert estimated_run_seconds(100, 20, 1, substeps=4) == pytest.approx(4 * one)
+    assert estimated_run_seconds(100, 20, 1, substeps=0) == pytest.approx(one)
+    rpath_rule = estimated_run_seconds(100, 20, 1, substeps=4, fast_equilibrium=False)
+    assert one < rpath_rule < 2 * one
 
 
 def test_the_page_offers_the_mesh_grid_type_and_builds_it_through_the_service():

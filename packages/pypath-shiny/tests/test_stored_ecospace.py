@@ -89,11 +89,13 @@ def test_a_stored_scenario_is_read_ready_for_a_run(pelagic):
     # the groups' own capacity maps vary
     varying = [not np.allclose(row, row[0]) for row in params.habitat_capacity[:-1]]
     assert sum(varying) >= 15
-    # polygons for the maps, one square per water cell, in the lagoon
+    # polygons for the maps, one per water cell, where the lagoon is: its
+    # eastern shore is past 21.2 E, which EwE's placement stops short of
     grid = params.grid
     assert grid.geometry is not None and len(grid.geometry) == 1576
     west, south, east, north = grid.geometry.total_bounds
-    assert 20.4 < west < east < 21.4 and 54.8 < south < north < 55.8
+    assert 20.4 < west < 20.6 and 21.25 < east < 21.4
+    assert 54.8 < south < north < 55.8
     assert stored.origin == (
         "the Ecospace scenario 'EwE-F Curonian_Lagoon' of curonian_pelagic.sqlite"
     )
@@ -103,8 +105,12 @@ def test_a_stored_scenario_is_read_ready_for_a_run(pelagic):
 
 def test_the_corner_moves_the_grid_and_nothing_else(pelagic):
     source, _, model = pelagic
-    north = load_stored_ecospace(source, 1, model)
-    south = load_stored_ecospace(source, 1, model, grid_corner="south_west")
+    # at EwE's coordinates the corner moves the rows only (on the ground the
+    # columns' width follows the latitude, so it moves them a little too)
+    north = load_stored_ecospace(source, 1, model, cell_placement="ewe")
+    south = load_stored_ecospace(
+        source, 1, model, grid_corner="south_west", cell_placement="ewe"
+    )
     np.testing.assert_array_equal(
         north.params.habitat_capacity, south.params.habitat_capacity
     )
@@ -295,3 +301,40 @@ def test_a_loaded_scenario_is_dropped_when_another_model_is_opened():
     # set with the scenario, cleared for the wizard's configuration
     assert "_config_groups.set(list(stored.groups))" in source
     assert source.count("_config_groups.set(None)") == 2
+
+
+def test_the_cells_are_drawn_on_the_ground_unless_ewes_coordinates_are_asked(pelagic):
+    """The lagoon's own mesh says where they belong; the run is the same."""
+    from pypath.examples import example_ecospace_grid
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+
+    source, _, model = pelagic
+    lagoon = unary_union(
+        list(example_ecospace_grid("Curonian_Lagoon", geometry=True).geometry.geometry)
+    ).buffer(0)
+    stored = {
+        placement: load_stored_ecospace(source, 1, model, cell_placement=placement)
+        for placement in stored_ecospace.CELL_PLACEMENTS
+    }
+    assert list(stored_ecospace.CELL_PLACEMENTS)[0] == "ground"  # the default
+    default = load_stored_ecospace(source, 1, model).params.grid
+    np.testing.assert_array_equal(
+        default.patch_centroids, stored["ground"].params.grid.patch_centroids
+    )
+    inside = {
+        placement: np.mean(
+            [lagoon.contains(Point(x, y)) for x, y in s.params.grid.patch_centroids]
+        )
+        for placement, s in stored.items()
+    }
+    assert inside["ground"] > 0.95 and inside["ewe"] < 0.5
+    east = {p: s.params.grid.geometry.total_bounds[2] for p, s in stored.items()}
+    assert east["ewe"] < 21.0 < 21.25 < east["ground"]
+    # nothing a run reads differs
+    for name in ("habitat_capacity", "dispersal_rate", "habitat_preference"):
+        np.testing.assert_array_equal(
+            getattr(stored["ground"].params, name), getattr(stored["ewe"].params, name)
+        )
+    with pytest.raises(ValueError, match="cell_placement"):
+        load_stored_ecospace(source, 1, model, cell_placement="map")

@@ -33,9 +33,20 @@ __all__ = [
 MAX_MESH_BYTES = 64 * 1024 * 1024
 MAX_MESH_ELEMENTS = 500_000
 
-# Seconds per patch, month and group of a spatial run on the server, from a
-# 5-group model on 29 and on 2027 patches (about 1.2 ms per patch-month).
-_SECONDS_PER_PATCH_MONTH_GROUP = 2.4e-4
+# Seconds of a spatial run on the server per patch and month, at one RK4
+# sub-step a month (models under the EwE rule): a part that does not depend
+# on the model, and a part per group. From runs of 5 to 73 groups on 29 to
+# 2,027 patches (measured ms per patch-month: 5 groups 1.15, 20 groups 1.4 to
+# 1.5, 23 groups 1.6, 45 groups 1.9, 73 groups 2.9); the estimate is within a
+# quarter above each of them. One rate per group, as before, was right for 5
+# groups and six times too high for 73.
+_SECONDS_PER_PATCH_MONTH = 1.05e-3
+_SECONDS_PER_PATCH_MONTH_GROUP = 3.0e-5
+# The time grows with the sub-steps a month (measured: 2 sub-steps 2.00
+# times, 4 sub-steps 3.95 times). Under the Rpath rule, which has no groups
+# to solve at equilibrium in every stage, a sub-step costs less: its 4
+# sub-steps took 1.72 times the EwE rule's one.
+_RPATH_RULE_SUBSTEP_COST = 0.43
 
 UNIT_LABELS = {"degrees": "degrees (longitude, latitude)", "m": "metres", "km": "km"}
 
@@ -144,6 +155,25 @@ def build_mesh_grid(
     )
 
 
-def estimated_run_seconds(n_patches: int, n_groups: int, years: float) -> float:
-    """A rough run time of a spatial simulation on this many patches."""
-    return _SECONDS_PER_PATCH_MONTH_GROUP * n_patches * n_groups * 12.0 * years
+def estimated_run_seconds(
+    n_patches: int,
+    n_groups: int,
+    years: float,
+    substeps: int = 1,
+    fast_equilibrium: bool = True,
+) -> float:
+    """A rough run time of a spatial simulation on this many patches.
+
+    ``substeps`` are the scenario's RK4 sub-steps a month (``RK4_STEPS``: 1
+    under the EwE rule, 4 under the Rpath rule, more when fast groups are
+    integrated) and ``fast_equilibrium`` whether it solves fast groups at
+    equilibrium (``RK4_FAST_EQUILIBRIUM``, the EwE rule). The defaults are a
+    model under the EwE rule.
+    """
+    per_patch_month = (
+        _SECONDS_PER_PATCH_MONTH + _SECONDS_PER_PATCH_MONTH_GROUP * n_groups
+    )
+    per_substep = 1.0 if fast_equilibrium else _RPATH_RULE_SUBSTEP_COST
+    return (
+        per_patch_month * n_patches * 12.0 * years * max(int(substeps), 1) * per_substep
+    )
