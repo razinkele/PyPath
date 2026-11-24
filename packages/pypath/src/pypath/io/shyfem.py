@@ -615,12 +615,15 @@ def _check_for_a_file(series: ShyfemBoxSeries) -> None:
     if not np.array_equal(times, times.astype("datetime64[D]")):
         raise ValueError("the times of a monthly series are whole days")
     names = [str(name) for name in series.variables]
-    taken = {"time", "box", "records", "section_from", "section_to"}
-    taken |= {
+    own = {"time", "box", "records", "section_from", "section_to"}
+    own |= {
         flow if stat == "mean" else f"{flow}_{stat}"
         for flow in _FLOW_NAMES
         for stat in _STATISTICS
     }
+    # every table a variable gets in the file: its mean under its own name,
+    # each statistic beside it. Two variables must not meet in any of them.
+    tables: set = set()
     for name in names:
         if not _VARIABLE_NAME.match(name):
             raise ValueError(
@@ -629,10 +632,15 @@ def _check_for_a_file(series: ShyfemBoxSeries) -> None:
             )
         if names.count(name) > 1:
             raise ValueError(f"{name!r} is named twice among the variables")
-    for name in names:
-        if name in taken:
+        if name in own:
             raise ValueError(f"{name!r} is a name the file uses itself")
-        taken |= {f"{name}_{stat}" for stat in _STATISTICS[1:]}
+        for table in [name] + [f"{name}_{stat}" for stat in _STATISTICS[1:]]:
+            if table in tables or table in own:
+                raise ValueError(
+                    f"{table!r} would name two tables in the file: a variable "
+                    "and a statistic of another"
+                )
+            tables.add(table)
     shapes = {"values": (n_months, n_boxes, len(names))}
     shapes["section_flow"] = (n_months, n_sections, 3)
     for stat in _file_statistics(series)[1:]:

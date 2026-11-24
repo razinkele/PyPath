@@ -313,7 +313,9 @@ def test_the_writer_takes_monthly_series_only(tmp_path):
     "variables, message",
     [
         (("time",), "'time' is a name the file uses itself"),
-        (("temp", "temp_min"), "'temp_min' is a name the file uses itself"),
+        (("temp", "temp_min"), "'temp_min' would name two tables"),
+        (("temp_min", "temp"), "'temp_min' would name two tables"),
+        (("a_std_max", "a_std"), "'a_std_max' would name two tables"),
         (("flow_total",), "'flow_total' is a name the file uses itself"),
         (("water temp",), "cannot be a variable's name"),
         (("9lives",), "cannot be a variable's name"),
