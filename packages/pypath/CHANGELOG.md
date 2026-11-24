@@ -6,6 +6,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.25.0 (2026-11-24)
+
+### Bug Fixes
+
+- **io**: Read_ecospace refuses relative_pp=True with a caller's grid
+  ([`ca98419`](https://github.com/razinkele/PyPath/commit/ca98419d8a2abb868c4baa2608affc149dee7b5f))
+
+### Features
+
+- **spatial**: EwE's relative primary production map in a spatial run (opt-in)
+  ([`7ae4747`](https://github.com/razinkele/PyPath/commit/7ae47471c0cfca74ec772915e5f068a25e0ba083))
+
+
 ## v1.24.0 (2026-11-24)
 
 ### Features
