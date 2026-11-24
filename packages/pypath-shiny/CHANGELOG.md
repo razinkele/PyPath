@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.21.0 (2026-11-24)
+
+### Features
+
+- **shiny**: Load the Curonian Lagoon example's own Ecospace set-up
+  ([`f3e88c0`](https://github.com/razinkele/PyPath/commit/f3e88c034cf5d116f8070fa36d41050557ba04a7))
+
+
 ## v1.20.0 (2026-11-24)
 
 ### Bug Fixes
