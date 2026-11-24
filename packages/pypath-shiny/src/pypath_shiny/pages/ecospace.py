@@ -1322,7 +1322,14 @@ def ecospace_server(
         scenario = _sim_scenario() if _sim_scenario is not None else None
         months = getattr(getattr(scenario, "fishing", None), "ForcedEffort", None)
         years = months.shape[0] / 12.0 if months is not None else 1.0
-        seconds = estimated_run_seconds(stored.n_patches, stored.n_groups, years)
+        run_params = getattr(scenario, "params", None)
+        seconds = estimated_run_seconds(
+            stored.n_patches,
+            stored.n_groups,
+            years,
+            substeps=int(getattr(run_params, "RK4_STEPS", 1) or 1),
+            fast_equilibrium=bool(getattr(run_params, "RK4_FAST_EQUILIBRIUM", True)),
+        )
         span = f"{years:g} years" if months is not None else "a simulated year"
         skipped = (
             " Not used here: " + ", ".join(stored.not_applied) + "."
@@ -1534,7 +1541,9 @@ def ecospace_server(
             notes.append(
                 ui.p(
                     f"A run on {n_patches:,} patches is slow: about "
-                    f"{minutes:,.0f} minutes for a 20-group model over 10 years.",
+                    f"{minutes:,.0f} minutes for a 20-group model over 10 years "
+                    "under the EwE rule (one sub-step a month; more sub-steps "
+                    "take that many times as long).",
                     class_="text-warning small mb-1",
                 )
             )
