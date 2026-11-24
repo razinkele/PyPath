@@ -582,3 +582,165 @@ def test_a_grid_larger_than_asked_for_is_refused_before_its_maps_are_read(
     monkeypatch.setattr(ewemdb, "_ewe_depth_input", never)
     with pytest.raises(EwEDatabaseError, match=r"4,794 cells \(94 x 51\); up to 4,793"):
         read_ecospace(str(db), n_groups=19, max_cells=94 * 51 - 1)
+
+
+# --- cells placed where they lie on the ground ---------------------------------
+
+
+def _two_placements(**kwargs):
+    depth = np.array(
+        [
+            [1.0, 2.0, 0.0, 4.0, 5.0],
+            [1.0, 2.0, 3.0, 4.0, 0.0],
+            [0.0, 2.0, 3.0, 4.0, 5.0],
+            [1.0, 2.0, 3.0, 0.0, 5.0],
+        ]
+    )
+    common = dict(
+        n_rows=4, n_cols=5, cell_length=10.0, min_lon=20.5, min_lat=55.7, depth=depth
+    )
+    common.update(kwargs)
+    from pypath.io.ewemdb import _build_fallback_grid as build
+
+    return build(**common), build(placement="ground", **common)
+
+
+def test_ground_placement_spreads_the_columns_and_keeps_the_rows():
+    from pypath.io.ewemdb import _EWE_DEGREE_KM
+
+    ewe, ground = _two_placements()
+    side = 10.0 / _EWE_DEGREE_KM
+    mid_lat = 55.7 - 4 * side / 2
+    stretch = 1.0 / np.cos(np.radians(mid_lat))
+    assert stretch == pytest.approx(1.774, abs=0.02)  # 55 N
+    np.testing.assert_array_equal(
+        ground.patch_centroids[:, 1], ewe.patch_centroids[:, 1]
+    )
+    np.testing.assert_allclose(
+        ground.patch_centroids[:, 0] - 20.5,
+        (ewe.patch_centroids[:, 0] - 20.5) * stretch,
+        rtol=1e-12,
+    )
+    # a column is cell_length km wide on the ground at the middle latitude
+    step = np.diff(np.unique(np.round(ground.patch_centroids[:, 0], 9)))[0]
+    assert step * _EWE_DEGREE_KM * np.cos(np.radians(mid_lat)) == pytest.approx(10.0)
+    # the cells, their links and their sizes are the same
+    np.testing.assert_array_equal(
+        ewe.adjacency_matrix.toarray(), ground.adjacency_matrix.toarray()
+    )
+    np.testing.assert_array_equal(ewe.patch_areas, ground.patch_areas)
+    assert ewe.edge_lengths == ground.edge_lengths
+    assert ewe.cell_metadata.equals(ground.cell_metadata)
+    assert ewe.centroid_km is None and ewe.edge_distances is None
+    with pytest.raises(ValueError, match="placement must be"):
+        _two_placements(placement="map")
+
+
+def test_ground_placement_keeps_the_distances_a_run_reads():
+    """Dispersal's bit for bit; fishing's and connectivity's to rounding."""
+    from pypath.spatial.connectivity import calculate_patch_distances
+    from pypath.spatial.dispersal import (
+        _edge_distances,
+        _get_diffusion_edge_data,
+        _get_upper_triangle_edges,
+    )
+    from pypath.spatial.fishing import calculate_distance_penalty
+
+    ewe, ground = _two_placements()
+    rows, cols = _get_upper_triangle_edges(ewe.adjacency_matrix)
+    assert len(rows) > 10
+    np.testing.assert_array_equal(
+        _edge_distances(ground, rows, cols), _edge_distances(ewe, rows, cols)
+    )
+    np.testing.assert_array_equal(
+        _edge_distances(ground, cols, rows), _edge_distances(ewe, rows, cols)
+    )
+    for a, b in zip(
+        _get_diffusion_edge_data(ewe, ewe.adjacency_matrix),
+        _get_diffusion_edge_data(ground, ground.adjacency_matrix),
+    ):
+        np.testing.assert_array_equal(a, b)
+    # the same plane, in km: equal to the last digits (1.3e-13 of the value
+    # at most here), not bit for bit
+    ports = np.array([0, 7])
+    for beta in (1.0, 2.0):
+        np.testing.assert_allclose(
+            calculate_distance_penalty(ground, ports, beta),
+            calculate_distance_penalty(ewe, ports, beta),
+            rtol=1e-12,
+        )
+    np.testing.assert_allclose(
+        calculate_patch_distances(ground),
+        calculate_patch_distances(ewe),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+def test_a_run_is_the_same_run_on_either_placement(spatial_scenario):
+    from pypath.spatial import EcospaceParams, rsim_run_spatial
+
+    scenario, _ = spatial_scenario
+    n = scenario.params.NUM_GROUPS
+    outs = []
+    for grid in _two_placements():
+        capacity = np.ones((n, grid.n_patches))
+        capacity[1] = np.linspace(0.3, 1.0, grid.n_patches)
+        ecospace = EcospaceParams(
+            grid=grid,
+            habitat_preference=np.ones((n, grid.n_patches)),
+            habitat_capacity=capacity,
+            dispersal_rate=np.full(n, 3.0),
+            advection_enabled=np.zeros(n, dtype=bool),
+            gravity_strength=np.zeros(n),
+        )
+        outs.append(
+            rsim_run_spatial(
+                scenario, ecospace=ecospace, years=range(1, 3)
+            ).out_Biomass_spatial
+        )
+    assert np.isfinite(outs[0]).all() and outs[0].std(axis=2).max() > 0
+    np.testing.assert_array_equal(outs[0], outs[1])
+
+
+def test_a_polygon_per_cell_follows_the_placement():
+    pytest.importorskip("geopandas")
+    ewe, ground = _two_placements(geometry=True)
+    for grid in (ewe, ground):
+        for shape, (lon, lat) in zip(grid.geometry.geometry, grid.patch_centroids):
+            assert shape.centroid.x == pytest.approx(lon)
+            assert shape.centroid.y == pytest.approx(lat)
+    west_e, south_e, east_e, north_e = ewe.geometry.total_bounds
+    west_g, south_g, east_g, north_g = ground.geometry.total_bounds
+    assert (west_g, south_g, north_g) == pytest.approx((west_e, south_e, north_e))
+    assert (east_g - west_g) / (east_e - west_e) == pytest.approx(1.774, abs=0.02)
+    # neighbours in a row still touch
+    first, second = ground.geometry.geometry[0], ground.geometry.geometry[1]
+    assert first.touches(second)
+
+
+def test_the_curonian_scenario_lies_on_the_lagoon_under_ground_placement():
+    """Its 1 km cells against the lagoon's own mesh, shipped with the example."""
+    pytest.importorskip("geopandas")
+    from pathlib import Path
+
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+
+    from pypath.examples import example_ecospace_grid
+    from pypath.io.ewemdb import read_ecospace
+
+    db = Path(__file__).resolve().parents[3] / "Data" / "curonian_pelagic.sqlite"
+    if not db.exists():
+        pytest.skip("the Curonian pelagic database is not here")
+    lagoon = unary_union(
+        list(example_ecospace_grid("Curonian_Lagoon", geometry=True).geometry.geometry)
+    ).buffer(0)
+    share, capacity = {}, {}
+    for placement in ("ewe", "ground"):
+        read = read_ecospace(str(db), n_groups=19, cell_placement=placement)
+        points = read.ecospace.grid.patch_centroids
+        share[placement] = np.mean([lagoon.contains(Point(x, y)) for x, y in points])
+        capacity[placement] = read.ecospace.habitat_capacity
+    assert share["ewe"] < 0.5 and share["ground"] > 0.95
+    np.testing.assert_array_equal(capacity["ewe"], capacity["ground"])
