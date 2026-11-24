@@ -11,6 +11,7 @@ compared with PyPath's: the tests check the rule, not parity.
 import copy
 import shutil
 import sqlite3
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -196,12 +197,25 @@ def test_the_batched_kernel_is_left_out_and_the_workers_carry_the_map(
         copy.deepcopy(scenario), _ecospace(scenario, grid, relative_pp=PATTERN)
     )
     assert calls == []  # one nutrient forcing for the whole map would not do
+
+    pools = []
+
+    class _CountingPool(ProcessPoolExecutor):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            pools.append(kwargs["max_workers"])
+
+    monkeypatch.setattr(integ, "ProcessPoolExecutor", _CountingPool)
     pooled = _run(
         copy.deepcopy(scenario),
         _ecospace(scenario, grid, relative_pp=PATTERN),
         n_jobs=2,
     )
+    assert pools == [2]  # the patches did run in workers
     np.testing.assert_array_equal(pooled, serial)
+    # and without the map the batched kernel is what runs
+    _run(copy.deepcopy(scenario), _ecospace(scenario, grid))
+    assert calls
 
 
 # --- from an EwE database ---------------------------------------------------------
