@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Callable, Mapping, Optional, Sequence, Union
 
 import numpy as np
 
+from pypath.io.shyfem import BOX_VARIABLE_UNITS as _SHYFEM_UNITS
 from pypath.spatial.environmental import EnvironmentalDrivers, EnvironmentalLayer
 
 if TYPE_CHECKING:
@@ -34,17 +35,6 @@ __all__ = [
     "shyfem_box_layers",
     "zone_series_layer",
 ]
-
-# Units of the variables SHYFEM's box model writes
-_SHYFEM_UNITS = {
-    "temp": "celsius",
-    "salt": "psu",
-    "cur_speed": "m/s",
-    "act_eta": "m",
-    "aver_eta": "m",
-    "bstress": "N/m2",
-    "volume": "m3",
-}
 
 
 def patch_zones(grid: "EcospaceGrid") -> np.ndarray:

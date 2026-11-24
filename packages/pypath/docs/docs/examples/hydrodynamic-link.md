@@ -153,6 +153,61 @@ print(
 )
 ```
 
+### A monthly box file
+
+`boxes_2d.txt` holds every output record as text: a year of hourly output
+of 29 boxes is 54 MB, and 24 years would be over a gigabyte. A run reads the
+monthly means only, so that is what a *monthly box file* keeps, with the
+minimum, the maximum and the spread of the records of each month beside
+each mean. For that year of 29 boxes it is 0.15 MB, and `read_box_series`
+reads it wherever it reads the text, as the same series.
+
+```python
+from pypath.io.shyfem import write_box_netcdf
+
+monthly_file = write_box_netcdf(
+    series, work / "boxes_monthly.nc", source="boxes_2d.txt"
+)
+again = read_box_series(monthly_file)  # a monthly series, whatever is asked
+print(
+    "text",
+    (work / "boxes_2d.txt").stat().st_size // 1000,
+    "kB, monthly file",
+    monthly_file.stat().st_size // 1000,
+    "kB; the same means:",
+    bool((again.values == series.values).all()),
+)
+print("records behind each month:", again.counts[:3], "...")
+print(
+    "salinity of the strait in July, lowest and highest record:",
+    again.variable("salt", "min")[6, 2].round(1),
+    again.variable("salt", "max")[6, 2].round(1),
+)
+```
+
+From a shell, where the text is:
+
+```bash
+python -m pypath.io.shyfem boxes_2d.txt boxes_monthly.nc
+```
+
+The file is classic NetCDF, which the usual NetCDF tools read (`ncdump -h`,
+xarray and the netCDF4 library open it, with its months as dates), and it
+names its variables as SHYFEM does (`temp`, `salt`, ..., with `_min`,
+`_max`, `_std`; `flow_total`, `flow_positive`, `flow_negative` for the
+sections). `variable(name, "min")`, `"max"` and `"std"` give the statistics
+of a monthly series; the layers, the capacity maps and the water transport
+below read the means, as before.
+
+!!! warning "Keep the text"
+    The records themselves are not in the monthly file and cannot be made
+    again from it. If anything but these statistics may be wanted later
+    (a daily series, a percentile), keep `boxes_2d.txt`.
+
+In the app, the Ecospace page's *Hydrodynamic Model* panel takes either
+file. The text is read up to 64 MB, and a server in front of the app may
+take less; a monthly box file passes both.
+
 A capacity map is made from layers and response functions. Here two marine
 groups need salt: unsuitable below 0.5, fully suitable from 6.
 

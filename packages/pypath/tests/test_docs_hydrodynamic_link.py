@@ -47,6 +47,20 @@ def page():
     return namespace
 
 
+def test_the_monthly_box_file_is_the_series_it_was_made_from(page):
+    series, again = page["series"], page["again"]
+    assert again.monthly and again.variables == series.variables
+    for name in ("times", "boxes", "values", "section_flow", "counts", "values_std"):
+        np.testing.assert_array_equal(getattr(again, name), getattr(series, name))
+    assert page["monthly_file"].read_bytes()[:3] == b"CDF"
+    assert (
+        page["monthly_file"].stat().st_size
+        < (page["work"] / "boxes_2d.txt").stat().st_size
+    )
+    low = again.variable("salt", "min")[6, 2]
+    assert low <= again.variable("salt")[6, 2] <= again.variable("salt", "max")[6, 2]
+
+
 def test_the_grids_and_layers_are_what_the_page_says(page):
     assert page["boxes"].n_patches == 4 and page["elements"].n_patches == 32
     assert page["layers"].layer_names == ["temp", "salt", "volume"]

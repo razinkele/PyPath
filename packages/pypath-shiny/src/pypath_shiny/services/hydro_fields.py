@@ -21,6 +21,7 @@ from pypath.spatial.zone_fields import patch_zones
 
 __all__ = [
     "BEYOND_CHOICES",
+    "CONVERT_COMMAND",
     "DEFAULT_SUBSTEPS",
     "MAX_BOX_BYTES",
     "MAX_BOXES",
@@ -41,9 +42,13 @@ __all__ = [
     "transport_scenario",
 ]
 
-# A year of hourly output of a 29-box model is 54 MB as text. Several years
-# do not fit: cut the file, or write SHYFEM's box output daily.
+# A year of hourly output of a 29-box model is 54 MB as text, and several
+# years do not fit. A monthly box file of the same output holds what a run
+# reads of it (pypath.io.shyfem.write_box_netcdf) in about 0.15 MB a year:
+# that is what to upload for more than a year, or through a proxy that
+# takes less than this cap.
 MAX_BOX_BYTES = 64 * 1024 * 1024
+CONVERT_COMMAND = "python -m pypath.io.shyfem boxes_2d.txt boxes_monthly.nc"
 MAX_BOXES = 5_000
 
 # The water transport keeps a flow table of months x boxes x boxes: bound
@@ -99,7 +104,11 @@ class BoxSummary:
 
 
 def read_uploaded_boxes(path) -> ShyfemBoxSeries:
-    """Read an uploaded ``boxes_2d.txt`` as monthly means.
+    """Read an uploaded box output as monthly means.
+
+    The file is a SHYFEM box model's ``boxes_2d.txt`` or a monthly box file
+    made from one; ``read_box_series`` tells them apart by their first
+    bytes, not by the name they were uploaded under.
 
     Raises ValueError for a file over ``MAX_BOX_BYTES``, one with more than
     ``MAX_BOXES`` boxes, or one ``read_box_series`` cannot read.
@@ -109,8 +118,8 @@ def read_uploaded_boxes(path) -> ShyfemBoxSeries:
         raise ValueError(
             f"the file is {size / 1e6:,.0f} MB; box output of up to "
             f"{MAX_BOX_BYTES / 1e6:,.0f} MB is read (about a year of hourly "
-            "output of a 29-box model). Cut the file, or write the box output "
-            "daily"
+            "output of a 29-box model). Make a monthly box file of it, which "
+            f"is a few hundred times smaller, and upload that: {CONVERT_COMMAND}"
         )
     series = read_box_series(path, monthly=True)
     if len(series.boxes) > MAX_BOXES:

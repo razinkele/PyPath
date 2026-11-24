@@ -70,6 +70,7 @@ from pypath_shiny.services.deckgl_maps import (
 from pypath_shiny.services.ecosim_solver import RUN_EXECUTOR, RunControl, RunSlot
 from pypath_shiny.services.hydro_fields import (
     BEYOND_CHOICES,
+    CONVERT_COMMAND,
     DEFAULT_SUBSTEPS,
     FIELD_LABELS,
     MAX_SUBSTEPS,
@@ -241,6 +242,19 @@ def _renew_hint(origin: str) -> str:
     if origin == WIZARD_ORIGIN:
         return "Build the wizard configuration again for this model."
     return "Load it again for this model."
+
+
+def _box_upload_hint():
+    """What box output the panel reads, and how to make the small file."""
+    return ui.p(
+        "Text of up to 64 MB is read, about a year of hourly output of a "
+        "29-box model. A monthly box file holds what a run reads of the same "
+        "output in about 0.15 MB a year. Make one where the text is, then "
+        "upload it: ",
+        ui.tags.code(CONVERT_COMMAND),
+        ". The file is not kept on the server.",
+        class_="text-muted small",
+    )
 
 
 def run_ecospace_params(
@@ -816,16 +830,17 @@ def ecospace_ui():
                     ui.accordion_panel(
                         "Hydrodynamic Model",
                         ui.p(
-                            "Upload a SHYFEM box model's output (boxes_2d.txt) "
-                            "to see its fields on the grid and to let its "
-                            "water flows carry chosen groups. Make the grid "
-                            "from the same model's .grd first.",
+                            "Upload a SHYFEM box model's output (boxes_2d.txt, "
+                            "or a monthly box file made from it) to see its "
+                            "fields on the grid and to let its water flows "
+                            "carry chosen groups. Make the grid from the same "
+                            "model's .grd first.",
                             class_="text-muted small mb-3",
                         ),
                         ui.input_file(
                             "box_file_upload",
                             "Upload box output",
-                            accept=[".txt"],
+                            accept=[".txt", ".nc"],
                             multiple=False,
                         ),
                         ui.output_ui("box_summary"),
@@ -1629,11 +1644,7 @@ def ecospace_server(
         """What the uploaded file holds and whether it fits the grid."""
         info = _box_summary()
         if info is None:
-            return ui.p(
-                "Files of up to 64 MB are read, about a year of hourly output "
-                "of a 29-box model. The file is not kept on the server.",
-                class_="text-muted small",
-            )
+            return _box_upload_hint()
         lines = [
             f"{info.n_months} months, {info.first_month} to {info.last_month} "
             "(monthly means)",
