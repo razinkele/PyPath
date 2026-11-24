@@ -641,6 +641,14 @@ def _check_for_a_file(series: ShyfemBoxSeries) -> None:
                     "and a statistic of another"
                 )
             tables.add(table)
+    for stat in _STATISTICS[1:]:
+        boxes_have = getattr(series, f"values_{stat}") is not None
+        flows_have = getattr(series, f"section_flow_{stat}") is not None
+        if boxes_have != flows_have:
+            raise ValueError(
+                f"the series has values_{stat} or section_flow_{stat} without "
+                "the other: the file holds a statistic for both or neither"
+            )
     shapes = {"values": (n_months, n_boxes, len(names))}
     shapes["section_flow"] = (n_months, n_sections, 3)
     for stat in _file_statistics(series)[1:]:
@@ -758,7 +766,9 @@ def write_box_netcdf(
         nc.box_variables = " ".join(names)
         nc.statistics = " ".join(statistics)
         if source is not None:
-            nc.source = Path(str(source)).name
+            # as bytes: scipy writes text attributes as ASCII, and a file's
+            # name need not be
+            nc.source = Path(str(source)).name.encode("utf-8")
         nc.comment = (
             "Monthly statistics of the records of a SHYFEM box model's "
             "boxes_2d.txt. A record counts in the month its interval ends "
@@ -958,17 +968,33 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         if not text.is_file():
             raise ValueError(f"{text}: no such file")
-        if out.exists() and out.resolve() == text.resolve():
+        # the same file under any name: a link to the text is the text
+        if out.exists() and out.samefile(text):
             raise ValueError(
                 f"{out} is the input: the text is the only source of what a "
                 "monthly file leaves out"
             )
+        exists = f"{out} exists; give --overwrite to replace it"
         if out.exists() and not args.overwrite:
-            raise ValueError(f"{out} exists; give --overwrite to replace it")
+            raise ValueError(exists)
         if _file_kind(text) != "text":
             raise ValueError(f"{text} is already a monthly box file, or not text")
         series = read_box_series(text, monthly=True)
-        write_box_netcdf(series, out, source=text.name)
+        if args.overwrite:
+            write_box_netcdf(series, out, source=text.name)
+        else:
+            # made anew or not at all: a file that appeared while the text
+            # was read is someone else's
+            try:
+                sink = out.open("xb")
+            except FileExistsError:
+                raise ValueError(exists) from None
+            try:
+                with sink:
+                    write_box_netcdf(series, sink, source=text.name)
+            except BaseException:
+                out.unlink(missing_ok=True)
+                raise
     except (ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

@@ -540,3 +540,77 @@ def test_a_file_object_gets_the_same_bytes_and_stays_open(tmp_path):
     # and the same series twice gives the same file: nothing of the moment in it
     again = write_box_netcdf(monthly, tmp_path / "again.nc", source="boxes_2d.txt")
     assert again.read_bytes() == on_disk.read_bytes()
+
+
+# --- raised in review (#186) -------------------------------------------------
+
+
+def test_a_statistic_held_for_one_table_only_is_refused_not_dropped(tmp_path):
+    """Minima of the boxes without minima of the flows: the file would hold
+    neither, without a word."""
+    import dataclasses
+
+    whole = read_box_series(_text(tmp_path, hours=24 * 40), monthly=True)
+    for field in ("section_flow_min", "values_std"):
+        half = dataclasses.replace(whole, **{field: None})
+        with pytest.raises(ValueError, match="both or neither"):
+            write_box_netcdf(half, tmp_path / "half.nc")
+        assert not (tmp_path / "half.nc").exists()
+
+
+@pytest.mark.parametrize("name", ["水文.txt", "Kuršių_marios_2d.txt"])
+def test_a_source_name_beyond_ascii_is_kept(tmp_path, name):
+    from scipy.io import netcdf_file
+
+    monthly = read_box_series(_text(tmp_path, hours=24 * 40), monthly=True)
+    out = write_box_netcdf(monthly, tmp_path / "m.nc", source=tmp_path / name)
+    with netcdf_file(str(out), "r", mmap=False) as nc:
+        assert nc.source.decode("utf-8") == name
+    _same_series(read_box_series(out), monthly)
+
+
+def test_the_converter_knows_its_input_under_another_name(tmp_path, capsys):
+    """A hard link to the text is the text: resolving names does not see it."""
+    import os
+
+    text = _text(tmp_path, hours=24 * 40)
+    before = text.read_bytes()
+    link = tmp_path / "also_the_text.nc"
+    try:
+        os.link(text, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("no hard links here")
+    assert shyfem.main([str(text), str(link), "--overwrite"]) == 2
+    assert "is the input" in capsys.readouterr().err
+    assert text.read_bytes() == before
+
+
+def test_an_output_that_appears_while_the_text_is_read_is_left_alone(
+    tmp_path, capsys, monkeypatch
+):
+    text = _text(tmp_path, hours=24 * 40)
+    out = tmp_path / "m.nc"
+    real = shyfem.read_box_series
+
+    def reading(path, *args, **kwargs):
+        series = real(path, *args, **kwargs)
+        out.write_text("another program's, written meanwhile")
+        return series
+
+    monkeypatch.setattr(shyfem, "read_box_series", reading)
+    assert shyfem.main([str(text), str(out)]) == 2
+    assert "exists" in capsys.readouterr().err
+    assert out.read_text() == "another program's, written meanwhile"
+
+
+def test_a_conversion_that_fails_leaves_no_file(tmp_path, capsys, monkeypatch):
+    text = _text(tmp_path, hours=24 * 40)
+    out = tmp_path / "m.nc"
+
+    def failing(series, path, source=None):
+        raise ValueError("the disk said no")
+
+    monkeypatch.setattr(shyfem, "write_box_netcdf", failing)
+    assert shyfem.main([str(text), str(out)]) == 2
+    assert "the disk said no" in capsys.readouterr().err
+    assert not out.exists()
