@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.22.0 (2026-11-24)
+
+### Features
+
+- **spatial**: Place a database's Ecospace grid where its cells lie on the ground
+  ([`090434d`](https://github.com/razinkele/PyPath/commit/090434d739ca639de85207856ccb85c32022fa75))
+
+
 ## v1.21.0 (2026-11-24)
 
 ### Bug Fixes
