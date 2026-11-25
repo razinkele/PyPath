@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.23.0 (2026-11-25)
+
+### Features
+
+- **shiny**: Home and About pages brought up to date; a tighter Home
+  ([`56c4acd`](https://github.com/razinkele/PyPath/commit/56c4acd315839d7ca3636bc49e3350a7e21f952f))
+
+
 ## v1.22.0 (2026-11-25)
 
 ### Features
