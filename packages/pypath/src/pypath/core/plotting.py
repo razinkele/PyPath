@@ -18,28 +18,20 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Tuple, Union
 
-# Import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 
-# Try to import networkx for food web graphs
-try:
-    import networkx as nx
-
-    HAS_NETWORKX = True
-except ImportError:
-    HAS_NETWORKX = False
-
-# Try to import plotly for interactive plots
-try:
-    import plotly.graph_objects as go
-
-    HAS_PLOTLY = True
-except ImportError:
-    HAS_PLOTLY = False
-
+from pypath.core._lazy import LazyModule, is_installed
 from pypath.core.ecopath import Rpath
 from pypath.core.ecosim import RsimOutput
+
+# matplotlib, networkx (food web graphs) and plotly (interactive plots) are
+# loaded when a plot is drawn: they are a third of the package's import
+# time, and a run that draws nothing does not need them.
+plt = LazyModule("matplotlib.pyplot")
+nx = LazyModule("networkx")
+HAS_NETWORKX = is_installed("networkx")
+go = LazyModule("plotly.graph_objects")
+HAS_PLOTLY = is_installed("plotly")
 
 
 def _annual_biomass(output: RsimOutput) -> np.ndarray:

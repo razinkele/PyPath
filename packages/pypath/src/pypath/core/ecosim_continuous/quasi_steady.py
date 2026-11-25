@@ -10,12 +10,16 @@ import logging
 from typing import Callable, Optional
 
 import numpy as np
-from scipy.optimize import root
 
+from pypath.core._lazy import lazy_callable
 from pypath.core.ecosim_continuous.options import _Y_FLOOR
 from pypath.core.ecosim_continuous.rhs import ContinuousRHS
 
 logger = logging.getLogger(__name__)
+
+# scipy's solver, imported at its first call (see pypath.core._lazy): the
+# continuous path is the only user, and a plain run should not pay for it
+root = lazy_callable("scipy.optimize", "root")
 
 
 #: The quasi-steady solve's tolerance (``|dB_f/dt| <= QS_TOL x TotGain_f``)
