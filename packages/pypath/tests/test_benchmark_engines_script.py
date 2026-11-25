@@ -153,3 +153,75 @@ def test_ewe_times_are_read_with_their_warm_up_apart(bench, tmp_path):
         0.0205
     )
     assert times["ecosim"]["runs"]["40"]["first"] == 0.9  # the first warm-up run
+
+
+# --- raised in review (#187) -------------------------------------------------
+
+
+def test_a_group_one_engine_has_lost_counts_against_the_same_case(bench):
+    """PyPath has it, EwE-F has none of it: the worst disagreement there is,
+    not a group to leave out. Both at nothing agree."""
+    names = ["Outside", "A", "B", "C"]
+    ours = np.array([1.0, 1.0, 0.0, 1.0])
+    check = bench.agreement(names, ours, {"A": 0.0, "B": 0.0, "C": 1.0})
+    assert check["groups"] == 3 and check["worst"] == "A"
+    assert check["max"] == float("inf") and check["median"] == 0.0
+    lost = bench.agreement(names, ours, {"A": 0.0, "C": 0.0})
+    assert lost["median"] == float("inf")
+    assert "did NOT run the same case" in bench.same_case(lost)
+
+
+def test_the_environment_is_recorded_without_numba(bench, monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "numba", None)  # as if it were not installed
+    assert bench.environment()["numba"] == "not installed"
+    monkeypatch.undo()
+    pytest.importorskip("numba")
+    assert bench.environment()["numba"] != "not installed"
+
+
+def test_an_executable_named_by_a_relative_path_is_found_from_its_run_folder(
+    bench, tmp_path, monkeypatch
+):
+    import sys
+
+    if sys.platform == "win32":
+        pytest.skip("a shell script stands in for the executable")
+    (tmp_path / "tools").mkdir()
+    program = tmp_path / "tools" / "engine.sh"
+    program.write_text("#!/bin/sh\necho ran > here.txt\n")
+    program.chmod(0o755)
+    run_dir = tmp_path / "case" / "run"
+    run_dir.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    bench.run_executable(Path("tools/engine.sh"), Path("case/run"))
+    assert (run_dir / "here.txt").read_text().strip() == "ran"
+    failing = tmp_path / "tools" / "fails.sh"
+    failing.write_text("#!/bin/sh\necho broke >&2\nexit 3\n")
+    failing.chmod(0o755)
+    with pytest.raises(RuntimeError, match="ended with code 3: broke"):
+        bench.run_executable(Path("tools/fails.sh"), Path("case/run"))
+
+
+def test_a_namelist_with_names_beyond_ascii_is_read_as_utf8(bench, tmp_path):
+    source = tmp_path / "Case_filenames.nml"
+    source.write_bytes(
+        '&filenames\nForcing_fname = "testcases/Kuršių/Kuršių_F.csv"\ntf = 2\n/\n'.encode(
+            "utf-8"
+        )
+    )
+    pairs = bench.read_namelist(source)
+    assert pairs["Forcing_fname"] == '"testcases/Kuršių/Kuršių_F.csv"'
+    bench.write_ecosim_namelist(tmp_path, pairs, 3)
+    assert "Kuršių_F.csv" in (tmp_path / "filenames.nml").read_bytes().decode("utf-8")
+
+
+def test_the_whole_ecosim_run_balances_the_model_once(bench):
+    """The program run in a new process: for Ecosim the scenario builder reads
+    and balances the model itself, so nothing is read or solved before it."""
+    program = bench._WHOLE_RUN
+    ecosim_branch = program[program.index("else:") :]
+    assert "ecosim_scenario_from_ewef(" in ecosim_branch
+    before = program[: program.index('if mode == "ecopath":')]
+    assert "rpath(" not in before and "read_ewef(" not in before

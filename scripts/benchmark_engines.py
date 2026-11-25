@@ -149,9 +149,15 @@ def _plain(timing: Dict[str, object]) -> Dict[str, object]:
 
 def environment() -> Dict[str, object]:
     """The machine and the libraries, as far as they bear on speed."""
-    import numba
     import pypath
     import scipy
+
+    try:  # optional: without it PyPath runs its plain kernels
+        import numba
+
+        numba_version = numba.__version__
+    except ImportError:
+        numba_version = "not installed"
 
     cpu = platform.processor()
     try:
@@ -172,7 +178,7 @@ def environment() -> Dict[str, object]:
         "python": platform.python_version(),
         "numpy": np.__version__,
         "scipy": scipy.__version__,
-        "numba": numba.__version__,
+        "numba": numba_version,
         "pypath": pypath.__version__,
         "threads": {
             name: os.environ.get(name)
@@ -246,14 +252,14 @@ def pypath_ecosim(
 _WHOLE_RUN = """
 import sys, warnings, logging
 warnings.simplefilter("ignore"); logging.disable(logging.CRITICAL)
-from pypath.io.ewef import read_ewef, ecosim_scenario_from_ewef
-from pypath.core.ecopath import rpath
 mode, ecopath, ecosim, years, out = sys.argv[1:6]
-params = read_ewef(ecopath)
-model = rpath(params)
 if mode == "ecopath":
-    model.summary().to_csv(out)
+    from pypath.io.ewef import read_ewef
+    from pypath.core.ecopath import rpath
+    rpath(read_ewef(ecopath)).summary().to_csv(out)
 else:
+    # the scenario builder reads and balances the model itself
+    from pypath.io.ewef import ecosim_scenario_from_ewef
     from pypath.core.ecosim import rsim_run
     import numpy as np
     n = int(years)
@@ -296,7 +302,7 @@ def pypath_whole_run(
 def read_namelist(path: Path) -> Dict[str, str]:
     """The ``name = value`` pairs of an EwE-F namelist, values as written."""
     pairs = {}
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.split("!")[0].strip()
         match = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*,?$", line)
         if match:
@@ -315,7 +321,7 @@ def lengthen_monthly_file(path: Path, months: int) -> int:
     rows ``"Month k",...``) and the nutrient series (``nrows N`` and rows
     ``month_k value``). Returns the number of months the file had.
     """
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     head = lines[0]
     if head.lower().startswith('"number of months"'):
         first = next(k for k, line in enumerate(lines) if line.startswith('"Month '))
@@ -338,7 +344,7 @@ def lengthen_monthly_file(path: Path, months: int) -> int:
             lines.append(f"month_{k + 1} {values[k % have]}")
     else:
         raise ValueError(f"{path.name}: not a monthly file this script knows")
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return have
 
 
@@ -383,13 +389,19 @@ def write_ecosim_namelist(run_dir: Path, namelist: Dict[str, str], years: int) -
             lines.append(f"tf = {years}")
         elif key in namelist:
             lines.append(f"{key} = {namelist[key]}")
-    (run_dir / "filenames.nml").write_text("\n".join(lines + ["/"]) + "\n")
+    (run_dir / "filenames.nml").write_text(
+        "\n".join(lines + ["/"]) + "\n", encoding="utf-8"
+    )
 
 
 def run_executable(binary: Path, run_dir: Path) -> None:
-    """Run an EwE-F executable in its folder; its console output is dropped."""
+    """Run an EwE-F executable in its folder; its console output is dropped.
+
+    The executable is named by its full path: the run changes folder, and a
+    relative name would then be looked for from there.
+    """
     done = subprocess.run(
-        [str(binary)],
+        [str(Path(binary).resolve())],
         cwd=run_dir,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
@@ -397,13 +409,14 @@ def run_executable(binary: Path, run_dir: Path) -> None:
     )
     if done.returncode != 0:
         raise RuntimeError(
-            f"{binary.name} ended with code {done.returncode}: {done.stderr[:300]}"
+            f"{Path(binary).name} ended with code {done.returncode}: "
+            f"{done.stderr.strip()[:300]}"
         )
 
 
 def read_ewef_monthly(path: Path):
     """EwE-F Ecosim's monthly biomasses: group names and the table."""
-    rows = path.read_text().splitlines()
+    rows = path.read_text(encoding="utf-8", errors="replace").splitlines()
     names = [cell.strip() for cell in rows[0].split(",")][1:]
     table = np.array(
         [
@@ -440,8 +453,14 @@ def agreement(pypath_names, pypath_end, ewef_end) -> Dict[str, object]:
     index = {name: k for k, name in enumerate(pypath_names)}
     differences = {}
     for name, value in ewef_end.items():
-        if name in index and value > 0:
-            differences[name] = abs(pypath_end[index[name]] / value - 1.0)
+        if name not in index:
+            continue
+        mine = float(pypath_end[index[name]])
+        if value > 0:
+            differences[name] = abs(mine / value - 1.0)
+        else:
+            # none of it left in EwE-F: agreement only if PyPath has none either
+            differences[name] = 0.0 if mine == 0 else float("inf")
     if not differences:
         return {"groups": 0}
     worst = max(differences, key=differences.get)
@@ -548,8 +567,8 @@ def run_ewef(args) -> Dict[str, object]:
     from pypath.core.ecopath import rpath
     from pypath.io.ewef import ecosim_scenario_from_ewef, read_ewef
 
-    root = Path(args.ewef_root).expanduser()
-    work = Path(args.work).expanduser()
+    root = Path(args.ewef_root).expanduser().resolve()
+    work = Path(args.work).expanduser().resolve()
     work.mkdir(parents=True, exist_ok=True)
     ecopath_bin = root / "ecopath-f" / "bin" / "ecopath.out"
     years = sorted(args.years)
@@ -558,7 +577,7 @@ def run_ewef(args) -> Dict[str, object]:
     builds: Dict[str, Dict[str, object]] = {}
     for item in args.ecosim_binary or []:
         label, _, path = item.partition("=")
-        builds[label] = binary_facts(Path(path).expanduser(), None)
+        builds[label] = binary_facts(Path(path).expanduser().resolve(), None)
     if args.build:
         for optimise in (False, True):
             facts = build_ecosim(root, work, optimise)
@@ -645,11 +664,17 @@ def run_database(args) -> Dict[str, object]:
     params = read_ewemdb(database)
     read_seconds = time.perf_counter() - start
     dataset = args.dataset if args.dataset else None
+    # the scenario's own first year: the loader takes it from the database only
+    # when no years are given, so it is read first and every run starts there
+    stored = ecosim_scenario_from_ewemdb(
+        database, scenario=args.scenario, timeseries_dataset=dataset
+    )
+    first = int(getattr(stored, "start_year", 1) or 1)
     ours = pypath_ecosim(
         lambda n: ecosim_scenario_from_ewemdb(
             database,
             scenario=args.scenario,
-            years=range(1, n + 1),
+            years=range(first, first + n),
             timeseries_dataset=dataset,
         ),
         years,
@@ -661,6 +686,7 @@ def run_database(args) -> Dict[str, object]:
         "environment": environment(),
         "database": Path(database).name,
         "scenario": args.scenario,
+        "first_year": first,
         "dataset": dataset,
         "years": years,
         "repeats": args.repeats,
