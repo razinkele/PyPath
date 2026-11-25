@@ -15,8 +15,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 import numpy as np
-from scipy.stats import lognorm
 
+from pypath.core._lazy import LazyModule, is_installed
 from pypath.core._parallel import (
     NUMPY_DEFAULT_ERRSTATE,
     mp_context,
@@ -30,14 +30,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-try:
-    import SALib  # noqa: F401  (availability probe)
-    from SALib.analyze import sobol as salib_sobol
-    from SALib.sample import sobol as sobol_sampler
-
-    HAS_SALIB = True
-except ImportError:
-    HAS_SALIB = False
+# SALib (which loads scipy.stats) is imported when a Sobol analysis runs
+HAS_SALIB = is_installed("SALib")
+salib_sobol = LazyModule("SALib.analyze.sobol")
+sobol_sampler = LazyModule("SALib.sample.sobol")
 
 
 @dataclass
@@ -361,6 +357,8 @@ def run_sensitivity(
 
     # Every point's parameter values in one vectorised call; it gives the
     # same values, bit for bit, as the quantile function point by point
+    from scipy.stats import lognorm  # here: a sixth of the package's import time
+
     values = lognorm.ppf(points, s=sigmas, scale=scales)
     n_evals = len(values)
     n_workers = resolve_n_jobs(config.n_jobs, n_evals)

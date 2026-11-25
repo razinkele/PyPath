@@ -2852,6 +2852,21 @@ def substep_check(
     )
 
 
+def _ftime_rates_from_first_stage(method: str, params_dict: dict) -> bool:
+    """Whether the start-of-month rates of the feeding-time update can be
+    read from the step's first RK4 stage, with no derivative of their own.
+
+    Under RK4 the step's first stage is a Derivt of the start-of-month state
+    and of the handling time a separate call would leave as it found it, so
+    its rates are the same numbers: one derivative call in five saved.
+
+    Not with IBM groups: every derivative call there also advances the
+    individuals, so a call less is another run. Adams-Bashforth has no such
+    stage and keeps the call.
+    """
+    return method.upper() == "RK4" and not params_dict.get("ibm_groups")
+
+
 def rsim_run(
     scenario: RsimScenario,
     method: str = "RK4",
@@ -3356,21 +3371,26 @@ def rsim_run(
         # Derivt), so prey Ftime and mediation are included: take the
         # derivative's FoodGain now.
         _fg_ftime = None
-        if (
+        _fg_start = (
             _has_ftime_adj
             and getattr(params, "FTIME_START_OF_MONTH", False)
             and not _continuous
-        ):
-            _fg_rates: dict = {}
-            with _frozen_hden(params_dict):
-                deriv_vector(
-                    month_start_state.copy(),
-                    params_dict,
-                    forcing_dict,
-                    fishing_dict,
-                    rates=_fg_rates,
-                )
-            _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
+        )
+        _fg_from_stage = _fg_start and _ftime_rates_from_first_stage(
+            method, params_dict
+        )
+        if _fg_start:
+            if not _fg_from_stage:
+                _fg_rates: dict = {}
+                with _frozen_hden(params_dict):
+                    deriv_vector(
+                        month_start_state.copy(),
+                        params_dict,
+                        forcing_dict,
+                        fishing_dict,
+                        rates=_fg_rates,
+                    )
+                _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
             # EwE's ratio is per predator index (CBlast = EatenByAvg /
             # PredAvg, Cbase = StartEatenBy / pred; vb 1762, 3310). That is
             # the biomass for a simple group, and sum(N * WWa) for a stanza
@@ -3396,6 +3416,9 @@ def rsim_run(
         # Integration step
         if method.upper() == "RK4":
             old_state = state.copy()
+            _stages = _stanza_stages
+            if _fg_from_stage and _stages is None:
+                _stages = {}
             state = integrate_rk4(
                 state,
                 params_dict,
@@ -3403,8 +3426,11 @@ def rsim_run(
                 fishing_dict,
                 dt,
                 n_steps=rk4_steps,
-                stage_rates=_stanza_stages,
+                stage_rates=_stages,
             )
+            if _fg_from_stage:
+                _fg_rates = _stages["first"]
+                _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
         elif method.upper() == "AB":
             # Warmup: use RK4 for the first month to populate derivative history
             # before switching to Adams-Bashforth 2-step (matching Rpath)

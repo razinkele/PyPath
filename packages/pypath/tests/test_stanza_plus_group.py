@@ -285,29 +285,36 @@ def test_stanza_feeding_time_denominator_is_b0_times_the_index_ratio(monkeypatch
     adj = 0.5
     p.FtimeAdj[ad] = adj
     sc.forcing.ForcedMort[:4, ad] = 1.5
-    calls = []
-    real = E.deriv_vector
+    import pypath.core.ecosim_deriv as D
 
-    def spy(state, params, forcing, fishing, *a, **k):
-        out = real(state, params, forcing, fishing, *a, **k)
-        rates = k.get("rates")
-        if rates is not None and "StanzaPredRatio" in forcing:
-            calls.append(
-                (
-                    float(forcing["Ftime"][ad]),
-                    float(forcing["StanzaPredRatio"][ad]),
-                    float(rates["FoodGain"][ad]),
-                    float(state[ad]),
-                )
-            )
+    calls = []
+    real = D.integrate_rk4
+    separate = []
+
+    def spy(state, params, forcing, fishing, dt, **k):
+        # the start of the month: what the step's first stage is evaluated at
+        ftime = float(forcing["Ftime"][ad])
+        ratio = float(forcing["StanzaPredRatio"][ad])
+        start = float(state[ad])
+        out = real(state, params, forcing, fishing, dt, **k)
+        first = k["stage_rates"]["first"]
+        calls.append((ftime, ratio, float(first["FoodGain"][ad]), start))
         return out
 
-    monkeypatch.setattr(E, "deriv_vector", spy)
+    def no_call_of_its_own(*a, **k):
+        separate.append(1)
+        return E_deriv(*a, **k)
+
+    E_deriv = E.deriv_vector
+    # rsim_run takes the integrator from ecosim_deriv when it runs
+    monkeypatch.setattr(D, "integrate_rk4", spy)
+    monkeypatch.setattr(E, "deriv_vector", no_call_of_its_own)
     E.rsim_run(sc, method="RK4")
     months = sc.forcing.ForcedBio.shape[0]
-    # One start-of-month Ftime call a month; under the EwE rule the stanza
-    # update reads the RK4 stages instead (test_stanza_stage_rates.py).
+    # The start-of-month FoodGain is the step's first RK4 stage's: one step
+    # a month, and no derivative evaluated apart for the feeding time.
     assert len(calls) == months
+    assert separate == []
     ftime_calls = calls
     lower = float(p.ForagingTimeLowerLimit)
     qbopt, b0 = float(p.FtimeQBOpt[ad]), float(p.B_BaseRef[ad])
@@ -322,3 +329,14 @@ def test_stanza_feeding_time_denominator_is_b0_times_the_index_ratio(monkeypatch
         assert abs(ratio - 1.0) > 1e-2
         for other in (b0, b):
             assert abs(update(ft, other, food) - expected) > 1e-6
+
+
+def test_the_feeding_time_rates_come_from_the_first_stage_only_where_that_is_the_same_run():
+    """RK4's first stage is the start-of-month Derivt, so its rates serve the
+    feeding-time update. With IBM groups a derivative call also advances the
+    individuals, so the separate call stays; so it does under AB."""
+    from pypath.core.ecosim import _ftime_rates_from_first_stage as from_stage
+
+    assert from_stage("RK4", {}) and from_stage("rk4", {"ibm_groups": {}})
+    assert not from_stage("RK4", {"ibm_groups": {3: object()}})
+    assert not from_stage("AB", {}) and not from_stage("LSODA", {})

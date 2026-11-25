@@ -11,11 +11,15 @@ import logging
 from typing import Callable, Optional
 
 import numpy as np
-from scipy.optimize import root
 
+from pypath.core._lazy import lazy_callable
 from pypath.core.ecosim_deriv import HdenKernel, KernelInputs, deriv_vector
 
 logger = logging.getLogger(__name__)
+
+# scipy's solver, imported at its first call (see pypath.core._lazy): the
+# continuous path is the only user, and a plain run should not pay for it
+root = lazy_callable("scipy.optimize", "root")
 
 
 def recalibrated_hden0(params_dict: dict, cmco_qb: np.ndarray) -> np.ndarray:

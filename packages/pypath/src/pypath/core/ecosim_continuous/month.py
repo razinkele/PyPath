@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 import numpy as np
-from scipy.integrate import solve_ivp
 
+from pypath.core._lazy import lazy_callable
 from pypath.core.ecosim_continuous.options import (
     _Y_FLOOR,
     FORCING_INTERPOLATIONS,
@@ -22,6 +22,10 @@ from pypath.core.ecosim_continuous.options import (
 from pypath.core.ecosim_continuous.quasi_steady import QuasiSteady
 
 logger = logging.getLogger(__name__)
+
+# scipy's solver, imported at its first call (see pypath.core._lazy): the
+# continuous path is the only user, and a plain run should not pay for it
+solve_ivp = lazy_callable("scipy.integrate", "solve_ivp")
 
 
 _LOG_FLOOR = float(np.log(_Y_FLOOR))
