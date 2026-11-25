@@ -46,7 +46,7 @@ Examples
 --------
 ::
 
-    python scripts/benchmark_engines.py ewef --ewef-root ~/EPath --build \\
+    python scripts/benchmark_engines.py ewef --ewef-root /path/to/EwE-F --build \\
         --cases Black_Sea Central_Baltic --work /tmp/bench --out ewef.json
     python scripts/benchmark_engines.py database --database model.eweaccdb \\
         --scenario 1 --out database.json
