@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.22.0 (2026-11-25)
+
+### Features
+
+- **ecospace-page**: The box output panel takes a monthly box file
+  ([`d691a90`](https://github.com/razinkele/PyPath/commit/d691a90f18c3f51b3d2980ea61476565abf1daa2))
+
+
 ## v1.21.1 (2026-11-24)
 
 

@@ -1,4 +1,4 @@
-{% set version = "1.21.1" %}
+{% set version = "1.22.0" %}
 
 package:
   name: pypath-shiny
