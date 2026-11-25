@@ -2852,6 +2852,21 @@ def substep_check(
     )
 
 
+def _ftime_rates_from_first_stage(method: str, params_dict: dict) -> bool:
+    """Whether the start-of-month rates of the feeding-time update can be
+    read from the step's first RK4 stage, with no derivative of their own.
+
+    Under RK4 the step's first stage is a Derivt of the start-of-month state
+    and of the handling time a separate call would leave as it found it, so
+    its rates are the same numbers: one derivative call in five saved.
+
+    Not with IBM groups: every derivative call there also advances the
+    individuals, so a call less is another run. Adams-Bashforth has no such
+    stage and keeps the call.
+    """
+    return method.upper() == "RK4" and not params_dict.get("ibm_groups")
+
+
 def rsim_run(
     scenario: RsimScenario,
     method: str = "RK4",
@@ -3361,11 +3376,9 @@ def rsim_run(
             and getattr(params, "FTIME_START_OF_MONTH", False)
             and not _continuous
         )
-        # Under RK4 the step's own first stage is a Derivt of this very state
-        # (and of this Hden: a call made here would leave it as it found it),
-        # so its rates are taken from there, after the step, and no
-        # derivative is evaluated here: one call in five saved.
-        _fg_from_stage = _fg_start and method.upper() == "RK4"
+        _fg_from_stage = _fg_start and _ftime_rates_from_first_stage(
+            method, params_dict
+        )
         if _fg_start:
             if not _fg_from_stage:
                 _fg_rates: dict = {}

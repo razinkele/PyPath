@@ -329,3 +329,14 @@ def test_stanza_feeding_time_denominator_is_b0_times_the_index_ratio(monkeypatch
         assert abs(ratio - 1.0) > 1e-2
         for other in (b0, b):
             assert abs(update(ft, other, food) - expected) > 1e-6
+
+
+def test_the_feeding_time_rates_come_from_the_first_stage_only_where_that_is_the_same_run():
+    """RK4's first stage is the start-of-month Derivt, so its rates serve the
+    feeding-time update. With IBM groups a derivative call also advances the
+    individuals, so the separate call stays; so it does under AB."""
+    from pypath.core.ecosim import _ftime_rates_from_first_stage as from_stage
+
+    assert from_stage("RK4", {}) and from_stage("rk4", {"ibm_groups": {}})
+    assert not from_stage("RK4", {"ibm_groups": {3: object()}})
+    assert not from_stage("AB", {}) and not from_stage("LSODA", {})
