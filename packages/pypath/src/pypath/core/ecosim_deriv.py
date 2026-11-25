@@ -3013,9 +3013,12 @@ def deriv_vector(
     # =========================================================================
     # STEP 2: Apply forced biomass adjustments
     # =========================================================================
-    for i in range(1, NUM_GROUPS + 1):
-        if ForcedBio[i] > 0:
-            BB[i] = ForcedBio[i]
+    # (group by group, as the loops these array forms replace: the same
+    # operations on the same numbers, so the same bits)
+    _fb = np.asarray(ForcedBio)[1 : NUM_GROUPS + 1]
+    _forced = _fb > 0
+    if _forced.any():
+        BB[1 : NUM_GROUPS + 1][_forced] = _fb[_forced]
 
     # =========================================================================
     # STEP 3: Calculate fishing mortality with forced effort
@@ -3026,8 +3029,8 @@ def deriv_vector(
         params, forcing, fishing, fleet_med=_fleet_med
     )
 
-    for i in range(1, NUM_LIVING + 1):
-        Catch[i] = FishMort[i] * BB[i]
+    Catch[1 : NUM_LIVING + 1] = FishMort[1 : NUM_LIVING + 1] * BB[1 : NUM_LIVING + 1]
+    for i in range(1, NUM_LIVING + 1) if instrument_set else ():
         try:
             # i is spname index (1..); instrument_set uses 0-based group indices
             if instrument_set and (i - 1) in instrument_set:
@@ -3057,9 +3060,12 @@ def deriv_vector(
     # through the same functional response as any link (saturating in the
     # producer's own biomass via VV). rsim_run opts in to this.
     if params.get("RpathPrimaryProduction", False):
-        for i in range(1, NUM_LIVING + 1):
-            if PP_type[i] > 0 and QQbase[0, i] > 0:
-                pp_rates[i] = QQ[0, i] * PP_forcing[i]
+        _lv = slice(1, NUM_LIVING + 1)
+        _suns = (np.asarray(PP_type)[_lv] > 0) & (QQbase[0, _lv] > 0)
+        if _suns.any():
+            pp_rates[_lv][_suns] = (
+                QQ[0, _lv][_suns] * np.asarray(PP_forcing)[_lv][_suns]
+            )
 
     # IBM integration: check if any groups are replaced by IBMs
     ibm_groups = params.get("ibm_groups", {})
@@ -3087,9 +3093,11 @@ def deriv_vector(
         else np.zeros(NUM_GROUPS + 1)
     )
     _GE_arr = np.zeros(NUM_GROUPS + 1)
-    for _gi in range(1, NUM_LIVING + 1):
-        if QB[_gi] > 0.0:
-            _GE_arr[_gi] = PB[_gi] / QB[_gi]
+    _qb_living = np.asarray(QB)[1 : NUM_LIVING + 1]
+    _eats = _qb_living > 0.0
+    _GE_arr[1 : NUM_LIVING + 1][_eats] = (
+        np.asarray(PB)[1 : NUM_LIVING + 1][_eats] / _qb_living[_eats]
+    )
     # base GE (EwE SimGE) for the fast-group biomeq; UseVarPQ may change _GE_arr
     _GE_base = _GE_arr.copy()
     _ibm_mask = np.zeros(NUM_GROUPS + 1, dtype=np.int64)
@@ -3228,10 +3236,13 @@ def deriv_vector(
     # link from group 0, so QBoutside = QQbase[0, i] / Bbase[i]. Producers'
     # group-0 link is their primary production and is left alone.
     import_q = np.zeros(NUM_GROUPS + 1)
-    for i in range(1, NUM_LIVING + 1):
-        if PP_type[i] <= 0 and Bbase[i] > 0 and QQbase[0, i] > 0:
-            import_q[i] = QQbase[0, i] / Bbase[i] * BB[i]
-            QQ[0, i] = import_q[i]
+    _lv = slice(1, NUM_LIVING + 1)
+    _imports = (np.asarray(PP_type)[_lv] <= 0) & (Bbase[_lv] > 0) & (QQbase[0, _lv] > 0)
+    if _imports.any():
+        import_q[_lv][_imports] = (
+            QQbase[0, _lv][_imports] / Bbase[_lv][_imports] * BB[_lv][_imports]
+        )
+        QQ[0, _lv][_imports] = import_q[_lv][_imports]
 
     _compute_living_derivs(
         deriv,
