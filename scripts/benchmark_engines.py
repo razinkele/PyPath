@@ -6,8 +6,12 @@ share a machine, with PyPath in both:
 
 ``ewef``
     PyPath and EwE-F, on EwE-F's own test cases. EwE-F's executables are
-    run as they were built, from a scratch copy of each case (they write
-    beside their namelist, so never inside EwE-F's own folder).
+    run from a scratch copy of each case (they write beside their
+    namelist, so never inside EwE-F's own folder). With ``--build`` its
+    Ecosim is first built from its sources as they are now, with the
+    Makefile's flags and with ``-O2``: an executable left in EwE-F's
+    folder may be older than its sources, and then it is not the same
+    model that is timed.
 ``database``
     PyPath alone, on an EwE database: the half of the second pair that
     runs wherever EwE 6 does. EwE 6's own times come from a program that
@@ -42,7 +46,7 @@ Examples
 --------
 ::
 
-    python scripts/benchmark_engines.py ewef --ewef-root ~/EPath \\
+    python scripts/benchmark_engines.py ewef --ewef-root ~/EPath --build \\
         --cases Black_Sea Central_Baltic --work /tmp/bench --out ewef.json
     python scripts/benchmark_engines.py database --database model.eweaccdb \\
         --scenario 1 --out database.json
@@ -480,12 +484,63 @@ def binary_facts(binary: Path, makefile: Optional[Path]) -> Dict[str, object]:
         "built": time.strftime("%Y-%m-%d", time.localtime(binary.stat().st_mtime)),
     }
     if makefile is not None and makefile.is_file():
-        flags = [
+        facts["makefile"] = [
             line.strip()
             for line in makefile.read_text(errors="replace").splitlines()
-            if re.match(r"\s*(FC|FCFLAGS|FFLAGS|CFLAGS|LFLAGS|CPPDEFS)\s*\+?=", line)
+            if re.match(r"\s*(FC|FCFLAGS|CFLAGS|LFLAGS|CPPDEFS)\s*=", line)
         ]
-        facts["makefile"] = flags
+    return facts
+
+
+def build_ecosim(ewef_root: Path, work: Path, optimise: bool) -> Dict[str, object]:
+    """Build EwE-F's non-spatial Ecosim from its sources as they are now.
+
+    The sources and the Makefile are copied to the work folder and built
+    there; nothing is written in EwE-F's own folder and no source is
+    changed. The preprocessor flags are the Makefile's without
+    ``_Ecospace_`` (the spatial build reads another namelist). With
+    ``optimise`` the copy's compile and link flags become ``-O2`` in place
+    of the Makefile's debugging ones.
+
+    A build of one's own is what makes the comparison fair: an executable
+    left in EwE-F's folder may be older than its sources.
+    """
+    label = "optimised (-O2)" if optimise else "the Makefile's flags"
+    folder = work / "_build" / ("O2" if optimise else "makefile")
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    shutil.copytree(ewef_root / "ecosim-f" / "src", folder / "src")
+    for name in ("obj", "mod", "bin"):
+        (folder / name).mkdir()
+    lines = (
+        (ewef_root / "ecosim-f" / "Makefile").read_text(errors="replace").splitlines()
+    )
+    defines = []
+    for k, line in enumerate(lines):
+        define = re.match(r"\s*CPPDEFS\s*\+?=\s*(\S.*)", line)
+        if define and "_Ecospace_" not in define.group(1):
+            defines.append(define.group(1).strip())
+        if optimise and re.match(r"\s*CFLAGS\s*=", line):
+            lines[k] = " CFLAGS = -c -O2 $(FCFLAGS)"
+        elif optimise and re.match(r"\s*LFLAGS\s*=", line):
+            lines[k] = " LFLAGS = -O2 $(FCFLAGS)"
+    (folder / "Makefile").write_text("\n".join(lines) + "\n")
+    done = subprocess.run(
+        ["make", f"CPPDEFS={' '.join(defines)}"],
+        cwd=folder,
+        capture_output=True,
+        text=True,
+    )
+    binary = folder / "bin" / "ecosim.out"
+    if done.returncode != 0 or not binary.is_file():
+        raise RuntimeError(f"EwE-F did not build ({label}): {done.stdout[-600:]}")
+    compiler = subprocess.run(["gfortran", "--version"], capture_output=True, text=True)
+    facts = binary_facts(binary, folder / "Makefile")
+    facts["label"] = label
+    facts["defines"] = defines
+    facts["compiler"] = compiler.stdout.splitlines()[0] if compiler.stdout else "?"
+    facts["sources"] = "EwE-F's sources as they are now"
     return facts
 
 
@@ -495,17 +550,32 @@ def run_ewef(args) -> Dict[str, object]:
 
     root = Path(args.ewef_root).expanduser()
     work = Path(args.work).expanduser()
+    work.mkdir(parents=True, exist_ok=True)
     ecopath_bin = root / "ecopath-f" / "bin" / "ecopath.out"
-    ecosim_bin = Path(args.ecosim_binary).expanduser() if args.ecosim_binary else None
-    if ecosim_bin is None:
-        ecosim_bin = root / "ecosim-f" / "bin-api" / "ecosim.out"
     years = sorted(args.years)
+
+    # the Ecosim executables to time, by label
+    builds: Dict[str, Dict[str, object]] = {}
+    for item in args.ecosim_binary or []:
+        label, _, path = item.partition("=")
+        builds[label] = binary_facts(Path(path).expanduser(), None)
+    if args.build:
+        for optimise in (False, True):
+            facts = build_ecosim(root, work, optimise)
+            builds[facts["label"]] = facts
+            print(f"built EwE-F Ecosim, {facts['label']}", flush=True)
+    if not builds:
+        as_built = root / "ecosim-f" / "bin-api" / "ecosim.out"
+        builds["as found in bin-api"] = binary_facts(
+            as_built, root / "ecosim-f" / "Makefile"
+        )
+
     result: Dict[str, object] = {
         "kind": "ewef",
         "environment": environment(),
         "ewef": {
             "ecopath": binary_facts(ecopath_bin, root / "ecopath-f" / "Makefile"),
-            "ecosim": binary_facts(ecosim_bin, root / "ecosim-f" / "Makefile"),
+            "ecosim": builds,
             "console_output": "dropped (stdout to the null device)",
         },
         "years": years,
@@ -540,19 +610,22 @@ def run_ewef(args) -> Dict[str, object]:
             years,
             args.repeats,
         )
-        theirs = ewef_ecosim(ecosim_bin, case, years, args.repeats)
+        names, end = ours.pop("_names"), ours.pop("_end_biomass")
+        entry["pypath_ecosim"] = ours
         entry["pypath_ecosim_whole"] = pypath_whole_run(
             "ecosim", ecopath_dir, ecosim_dir, years[0], work, args.whole_repeats
         )
+        entry["ewef_ecosim"], entry["agreement"] = {}, {}
+        for label, facts in builds.items():
+            theirs = ewef_ecosim(Path(facts["path"]), case, years, args.repeats)
+            ewef_end = theirs.pop("_end_biomass")
+            entry["ewef_ecosim"][label] = theirs
+            entry["agreement"][label] = {
+                str(n): agreement(names, end[("RK4", n)], ewef_end[n]) for n in years
+            }
         entry["ewef_steps_per_month"] = _unquoted(
             case["namelist"].get("StepsPerMonth", "?")
         )
-        names, end = ours.pop("_names"), ours.pop("_end_biomass")
-        ewef_end = theirs.pop("_end_biomass")
-        entry["agreement"] = {
-            str(n): agreement(names, end[("RK4", n)], ewef_end[n]) for n in years
-        }
-        entry["pypath_ecosim"], entry["ewef_ecosim"] = ours, theirs
         entry["groups"] = int(rpath(params).NUM_GROUPS)
         result["cases"][name] = entry
     result["environment"]["load_average_end"] = environment()["load_average"]
@@ -622,8 +695,10 @@ def _slope(fit: Dict[str, float]) -> str:
 def read_ewe_csv(path: Path) -> Dict[str, Dict[str, object]]:
     """EwE 6's times: rows ``model,what,years,repeat,seconds``.
 
-    ``what`` is ``ecopath`` or ``ecosim``; repeat 0 is the first call. Returns
-    by model the Ecopath timing and the Ecosim fit over run lengths.
+    ``what`` is ``ecopath`` (repeat 0 is the first call), ``ecosim`` (repeats
+    from 1) or ``ecosim_warmup`` (runs before the timed ones: .NET compiles
+    in tiers, so a method is fast only after many calls). Returns by model
+    the Ecopath timing and the Ecosim fit over run lengths.
     """
     import csv
 
@@ -641,6 +716,10 @@ def read_ewe_csv(path: Path) -> Dict[str, Dict[str, object]]:
             ]
             first = [float(r["seconds"]) for r in picked if int(r["repeat"]) == 0]
             rest = [float(r["seconds"]) for r in picked if int(r["repeat"]) > 0]
+            if what == "ecosim":  # its first calls are the warm-up rows
+                first = [
+                    float(r["seconds"]) for r in mine if r["what"] == "ecosim_warmup"
+                ]
             return {
                 "first": first[0] if first else float("nan"),
                 "median": float(np.median(rest)),
@@ -676,39 +755,73 @@ def report(paths: Sequence[str], ewe_csv: Optional[str]) -> str:
             "",
         ]
         if data["kind"] == "ewef":
-            for part in ("ecopath", "ecosim"):
-                facts = data["ewef"][part]
-                lines.append(
-                    f"EwE-F {part}: {facts['path']} (built {facts['built']}); "
-                    + "; ".join(facts.get("makefile", []))
-                )
+            facts = data["ewef"]["ecopath"]
+            lines.append(f"EwE-F Ecopath: {facts['path']} (built {facts['built']})")
+            for label, facts in data["ewef"]["ecosim"].items():
+                detail = [f"built {facts['built']}"]
+                if "compiler" in facts:
+                    detail += [facts["compiler"], facts["sources"]]
+                    detail += ["defines " + " ".join(facts["defines"])]
+                detail += [x for x in facts.get("makefile", []) if "FLAGS" in x]
+                lines.append(f"EwE-F Ecosim, {label}: " + "; ".join(detail))
             lines.append("")
+            shortest = str(data["years"][0])
             for name, case in data["cases"].items():
                 if "skipped" in case:
                     lines += [f"### {name}: skipped ({case['skipped']})", ""]
                     continue
-                ours, theirs = case["pypath_ecosim"], case["ewef_ecosim"]
+                ours, builds = case["pypath_ecosim"], case["ewef_ecosim"]
+                labels = list(builds)
+                head = " | ".join(f"EwE-F, {label}" for label in labels)
+
+                def row(title, mine, theirs):
+                    return f"| {title} | {mine} | " + " | ".join(theirs) + " |"
+
                 lines += [
                     f"### {name} ({case['groups']} groups)",
                     "",
-                    "| | PyPath | EwE-F |",
-                    "|---|---|---|",
-                    f"| Ecopath, the solve alone | {_spread(case['pypath_ecopath_solve'])} | not observable |",
-                    f"| Ecopath, a whole run from files | {_spread(case['pypath_ecopath_whole'])} | {_spread(case['ewef_ecopath_whole'])} |",
-                    f"| Ecosim RK4, per simulated year | {_slope(ours['methods']['RK4']['fit'])} | {_slope(theirs['fit'])} |",
-                    f"| Ecosim AB, per simulated year | {_slope(ours['methods']['AB']['fit'])} | no such method |",
-                    f"| Ecosim, a whole run of {data['years'][0]} years from files | {_spread(case['pypath_ecosim_whole'])} | {_spread(theirs['runs'][str(data['years'][0])])} |",
+                    f"| | PyPath | {head} |",
+                    "|---|---|" + "---|" * len(labels),
+                    row(
+                        "Ecopath, the solve alone",
+                        _spread(case["pypath_ecopath_solve"]),
+                        ["not observable"] * len(labels),
+                    ),
+                    row(
+                        "Ecopath, a whole run from files",
+                        _spread(case["pypath_ecopath_whole"]),
+                        [_spread(case["ewef_ecopath_whole"])]
+                        + ["(the same)"] * (len(labels) - 1),
+                    ),
+                    row(
+                        "Ecosim RK4, per simulated year",
+                        _slope(ours["methods"]["RK4"]["fit"]),
+                        [_slope(builds[label]["fit"]) for label in labels],
+                    ),
+                    row(
+                        "Ecosim AB, per simulated year",
+                        _slope(ours["methods"]["AB"]["fit"]),
+                        ["no such method"] * len(labels),
+                    ),
+                    row(
+                        f"Ecosim, a whole run of {shortest} years from files",
+                        _spread(case["pypath_ecosim_whole"]),
+                        [_spread(builds[label]["runs"][shortest]) for label in labels],
+                    ),
                     "",
+                    f"PyPath rule: {ours['fast_group_rule']}; EwE-F steps per month: "
+                    f"{case['ewef_steps_per_month']}.",
                 ]
-                ratio = ours["methods"]["RK4"]["fit"]["slope"] / theirs["fit"]["slope"]
-                check = case["agreement"][str(data["years"][0])]
-                lines += [
-                    f"Per simulated year, RK4: PyPath takes {ratio:.1f} times EwE-F's "
-                    f"time. PyPath rule: {ours['fast_group_rule']}; EwE-F steps per "
-                    f"month: {case['ewef_steps_per_month']}. After {data['years'][0]} "
-                    f"years: {same_case(check)}",
-                    "",
-                ]
+                mine = ours["methods"]["RK4"]["fit"]["slope"]
+                for label in labels:
+                    ratio = mine / builds[label]["fit"]["slope"]
+                    check = case["agreement"][label][shortest]
+                    lines.append(
+                        f"- EwE-F, {label}: per simulated year (RK4) PyPath takes "
+                        f"{ratio:.1f} times its time. After {shortest} years: "
+                        f"{same_case(check)}"
+                    )
+                lines.append("")
         else:
             ours = data["pypath_ecosim"]
             lines += [
@@ -751,7 +864,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ewef.add_argument("--ewef-root", required=True, help="EwE-F's folder")
     ewef.add_argument("--cases", nargs="+", default=["Black_Sea"])
     ewef.add_argument("--work", required=True, help="scratch folder for the copies")
-    ewef.add_argument("--ecosim-binary", help="default: ecosim-f/bin-api/ecosim.out")
+    ewef.add_argument(
+        "--build",
+        action="store_true",
+        help="build EwE-F's non-spatial Ecosim from its sources as they are now, "
+        "in the work folder, with the Makefile's flags and with -O2, and time both",
+    )
+    ewef.add_argument(
+        "--ecosim-binary",
+        nargs="*",
+        metavar="LABEL=PATH",
+        help="EwE-F Ecosim executables to time as they are; without this and "
+        "without --build: the one in ecosim-f/bin-api",
+    )
     ewef.add_argument("--whole-repeats", type=int, default=3)
     common(ewef)
 
