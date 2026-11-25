@@ -48,7 +48,7 @@ from pypath import get_health_status  # noqa: E402
 
 from pypath_shiny import __version__  # noqa: E402
 from pypath_shiny.components import nav_label, theme_toggle_button  # noqa: E402
-from pypath_shiny.config import UI  # noqa: E402
+from pypath_shiny.config import CHANGELOG_URL, UI  # noqa: E402
 
 # Import page modules - organized by category
 from pypath_shiny.pages import (  # noqa: E402
@@ -70,8 +70,6 @@ from pypath_shiny.pages import (  # noqa: E402
     results,
     tutorial,
 )
-
-CHANGELOG_URL = "https://github.com/razinkele/PyPath/blob/main/CHANGELOG.md"
 
 
 def _icon_label(icon_class: str, text: str) -> ui.TagList:

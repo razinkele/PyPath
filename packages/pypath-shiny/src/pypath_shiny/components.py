@@ -71,8 +71,15 @@ def feature_card(
     button_id: str | None = None,
     button_class: str = "btn-primary",
     badge: str | None = None,
+    link_label: str | None = None,
+    link_href: str | None = None,
 ) -> ui.Tag:
-    """Create a consistent feature card with list items and optional CTA."""
+    """Create a consistent feature card with list items and optional actions.
+
+    ``button_label`` with ``button_id`` adds an action button; ``link_label``
+    with ``link_href`` adds a link to a page outside the app, opened in a new
+    tab. The actions share one row under the list.
+    """
     header_children = []
     if icon_class:
         header_children.append(ui.tags.i(class_=f"bi {icon_class} me-2"))
@@ -80,15 +87,26 @@ def feature_card(
     if badge:
         header_children.append(ui.tags.span(badge, class_="badge ms-2"))
 
-    body = [ui.tags.ul(*(ui.tags.li(item) for item in items), class_="mb-0 ps-3")]
+    actions = []
     if button_label and button_id:
-        body.append(
-            ui.input_action_button(
-                button_id,
-                button_label,
-                class_=f"mt-3 {button_class}",
+        actions.append(
+            ui.input_action_button(button_id, button_label, class_=button_class)
+        )
+    if link_label and link_href:
+        actions.append(
+            ui.tags.a(
+                link_label,
+                ui.tags.i(class_="bi bi-box-arrow-up-right ms-1", aria_hidden="true"),
+                href=link_href,
+                target="_blank",
+                rel="noopener noreferrer",
+                class_="btn btn-outline-secondary",
             )
         )
+
+    body = [ui.tags.ul(*(ui.tags.li(item) for item in items), class_="mb-0 ps-3")]
+    if actions:
+        body.append(ui.div(*actions, class_="feature-card-actions"))
 
     return ui.card(
         ui.card_header(*header_children),
@@ -112,7 +130,7 @@ def quick_start_step(
         ui.card_header(*header),
         ui.card_body(
             ui.p(description),
-            ui.tags.code(snippet),
+            ui.tags.code(snippet, class_="quick-start-code"),
         ),
         class_="h-100 border-0 shadow-sm",
     )

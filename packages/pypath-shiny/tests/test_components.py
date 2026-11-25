@@ -41,3 +41,29 @@ def test_empty_state_shows_message_without_a_table():
     assert "Run diagnostics to see ratios." in html
     assert "text-muted" in html
     assert "<table" not in html
+
+
+def test_feature_card_can_carry_a_button_and_an_outside_link():
+    from pypath_shiny.components import feature_card
+
+    html = str(
+        feature_card(
+            "Tutorial",
+            ["one", "two"],
+            button_label="Open Tutorial",
+            button_id="btn_x",
+            link_label="Documentation",
+            link_href="https://example.org/docs",
+        )
+    )
+    assert 'id="btn_x"' in html and "Open Tutorial" in html
+    assert 'href="https://example.org/docs"' in html and "Documentation" in html
+    # an outside link opens in a new tab and does not hand over the opener
+    assert 'target="_blank"' in html and "noopener" in html
+
+
+def test_feature_card_without_actions_has_no_empty_action_row():
+    from pypath_shiny.components import feature_card
+
+    html = str(feature_card("Plain", ["one"]))
+    assert "feature-card-actions" not in html
