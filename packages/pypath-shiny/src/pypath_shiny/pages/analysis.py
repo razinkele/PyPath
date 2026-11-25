@@ -53,6 +53,55 @@ from pypath_shiny.services.plotly_viz import (
 
 logger = logging.getLogger(__name__)
 
+#: Shown where a plot would be while the model is not balanced. Models opened
+#: from the Home page or imported arrive unbalanced.
+BALANCE_FIRST = (
+    "The model is not balanced yet.\n"
+    "Click Balance Model on the Ecopath Model page to see {what}."
+)
+
+
+def message_figure(message: str):
+    """A plot area that says why it holds no plot.
+
+    An empty plot area gives no reason for being empty. The figure is drawn
+    light, like the plots themselves: the stylesheet turns image outputs dark
+    with the page.
+    """
+    fig, ax = plt.subplots()
+    ax.text(
+        0.5,
+        0.5,
+        message,
+        ha="center",
+        va="center",
+        transform=ax.transAxes,
+        color="#475569",  # --pp-text-secondary
+        fontsize=12,
+    )
+    ax.axis("off")
+    return fig
+
+
+def foodweb_figure(model):
+    """The food web of a balanced model, or a message in its place."""
+    if model is None:
+        return message_figure(BALANCE_FIRST.format(what="the food web"))
+    try:
+        return plot_foodweb(model)
+    except Exception as e:
+        return message_figure(f"Could not plot food web:\n{str(e)[:50]}")
+
+
+def trophic_spectrum_figure(model, metric: str):
+    """The trophic spectrum of a balanced model, or a message in its place."""
+    if model is None:
+        return message_figure(BALANCE_FIRST.format(what="the trophic spectrum"))
+    try:
+        return plot_trophic_spectrum(model, by=metric)
+    except Exception as e:
+        return message_figure(f"Could not plot spectrum:\n{str(e)[:50]}")
+
 
 def analysis_ui():
     """Analysis page UI."""
@@ -409,24 +458,7 @@ def analysis_server(
     @render.plot
     def analysis_foodweb_plot():
         """Plot food web structure."""
-        model = get_balanced_model()
-        if model is None:
-            return None
-        try:
-            fig = plot_foodweb(model)
-            return fig
-        except Exception as e:
-            fig, ax = plt.subplots()
-            ax.text(
-                0.5,
-                0.5,
-                f"Could not plot food web:\n{str(e)[:50]}",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.axis("off")
-            return fig
+        return foodweb_figure(get_balanced_model())
 
     # === Trophic Analysis ===
 
@@ -471,26 +503,7 @@ def analysis_server(
     @render.plot
     def trophic_spectrum_plot():
         """Plot trophic spectrum."""
-        model = get_balanced_model()
-        if model is None:
-            return None
-
-        try:
-            metric = input.spectrum_metric()
-            fig = plot_trophic_spectrum(model, by=metric)
-            return fig
-        except Exception as e:
-            fig, ax = plt.subplots()
-            ax.text(
-                0.5,
-                0.5,
-                f"Could not plot spectrum:\n{str(e)[:50]}",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-            )
-            ax.axis("off")
-            return fig
+        return trophic_spectrum_figure(get_balanced_model(), input.spectrum_metric())
 
     # === Mixed Trophic Impacts ===
 

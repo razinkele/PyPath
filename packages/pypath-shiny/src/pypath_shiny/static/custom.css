@@ -127,7 +127,7 @@
   color: var(--pp-text-secondary);
 }
 
-[data-bs-theme="dark"] .nav-pills .nav-link {
+[data-bs-theme="dark"] .well .nav-pills .nav-link {
   color: rgba(255, 255, 255, 0.8);
 }
 
@@ -254,7 +254,9 @@ a:hover {
   box-shadow: var(--pp-shadow);
 }
 
-.nav-pills .nav-link {
+/* Light ink on the dark panel. Scoped to the panel (.well): the pill tab
+   sets inside pages sit on the page's own surface (see PILL TABS below). */
+.well .nav-pills .nav-link {
   color: rgba(255, 255, 255, 0.7);
   border-radius: 8px;
   padding: 0.55rem 0.85rem;
@@ -266,13 +268,13 @@ a:hover {
   border: 1px solid transparent;
 }
 
-.nav-pills .nav-link:hover {
+.well .nav-pills .nav-link:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.06);
 }
 
-.nav-pills .nav-link.active {
+.well .nav-pills .nav-link.active {
   background: var(--pp-teal);
   color: #fff;
   font-weight: 600;
@@ -280,19 +282,19 @@ a:hover {
   border-color: transparent;
 }
 
-.nav-pills .nav-link .bi {
+.well .nav-pills .nav-link .bi {
   font-size: 0.95rem;
   opacity: 0.85;
   transition: opacity var(--pp-duration) var(--pp-ease);
 }
 
-.nav-pills .nav-link:hover .bi,
-.nav-pills .nav-link.active .bi {
+.well .nav-pills .nav-link:hover .bi,
+.well .nav-pills .nav-link.active .bi {
   opacity: 1;
 }
 
 /* Advanced dropdown header */
-.nav-pills .dropdown-toggle {
+.well .nav-pills .dropdown-toggle {
   color: rgba(255, 255, 255, 0.45);
   font-weight: 700;
   font-size: 0.7rem;
@@ -302,13 +304,13 @@ a:hover {
   margin-top: 0.5rem;
 }
 
-.nav-pills .dropdown-toggle:hover {
+.well .nav-pills .dropdown-toggle:hover {
   color: rgba(255, 255, 255, 0.75);
   background: transparent;
 }
 
 /* Dropdown items */
-.nav-pills .dropdown-menu {
+.well .nav-pills .dropdown-menu {
   background: var(--pp-ocean);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
@@ -316,14 +318,14 @@ a:hover {
   box-shadow: var(--pp-shadow-lg);
 }
 
-.nav-pills .dropdown-menu .dropdown-item {
+.well .nav-pills .dropdown-menu .dropdown-item {
   color: rgba(255, 255, 255, 0.7);
   border-radius: 6px;
   font-size: 0.85rem;
 }
 
-.nav-pills .dropdown-menu .dropdown-item:hover,
-.nav-pills .dropdown-menu .dropdown-item:focus {
+.well .nav-pills .dropdown-menu .dropdown-item:hover,
+.well .nav-pills .dropdown-menu .dropdown-item:focus {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
@@ -862,6 +864,38 @@ a:hover {
 .irs--shiny .irs-to,
 .irs--shiny .irs-single {
   background: var(--pp-navy);
+}
+
+/* =========================================================
+   PILL TABS (in-page, not sidebar)
+   Data Import's sources, the Results page's food web views and data tables.
+   Their ink comes from tokens that follow the theme; the side navigation's
+   own rules (.well .nav-pills, above) outrank these there.
+   ========================================================= */
+
+.nav-pills .nav-link {
+  color: var(--pp-text-secondary);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  margin-bottom: 2px;
+  font-family: "Outfit", sans-serif;
+  font-weight: 500;
+  font-size: 0.88rem;
+  transition: all var(--pp-duration) var(--pp-ease);
+  border: 1px solid transparent;
+}
+
+.nav-pills .nav-link:hover {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--pp-text);
+}
+
+.nav-pills .nav-link.active {
+  background: var(--pp-teal);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: var(--pp-shadow-teal);
+  border-color: transparent;
 }
 
 /* =========================================================

@@ -274,6 +274,28 @@ def example_choices() -> dict:
     return choices
 
 
+#: What a model opened from this page still needs. Home hands it over
+#: unbalanced, for the Ecopath page to show and edit; until it is balanced,
+#: Ecosim refuses it and Analysis and Results have nothing to draw.
+_NOT_BALANCED_YET = (
+    "It is not balanced yet: click Balance Model on the Ecopath Model page "
+    "before Ecosim, Analysis or Results."
+)
+
+EXAMPLE_LOADED_NOTICE = (
+    "Example model loaded, with multi-stanza groups (Roundfish) and sample "
+    "remarks. " + _NOT_BALANCED_YET
+)
+
+
+def example_opened_notice(name: str) -> str:
+    """The notice for a shipped example opened with the picker."""
+    return (
+        f"{name} opened. {_NOT_BALANCED_YET} Its Ecosim settings are the "
+        "starting scenario on the Ecosim page."
+    )
+
+
 def open_example_model(name: str):
     """A shipped example model, checked to balance, and its Ecosim source.
 
@@ -673,10 +695,9 @@ def home_server(
             _notify_legacy(f"Could not open {name}: {e}", type="error")
             return
         _notify_legacy(
-            f"{record['name']} opened. Its Ecosim settings are the starting "
-            "scenario on the Ecosim page.",
+            example_opened_notice(record["name"]),
             type="message",
-            duration=7,
+            duration=12,
         )
         ui.update_navset("main_nav", selected="Ecopath Model")
 
@@ -741,11 +762,7 @@ def home_server(
             if sim_results is not None:
                 sim_results.set(None)
 
-            _notify_legacy(
-                "Example model loaded with multi-stanza groups (Roundfish) and sample remarks! Navigate to Ecopath tab or explore Advanced Features.",
-                type="message",
-                duration=7,
-            )
+            _notify_legacy(EXAMPLE_LOADED_NOTICE, type="message", duration=12)
 
             # Navigate to Ecopath tab
             ui.update_navset("main_nav", selected="Ecopath Model")
