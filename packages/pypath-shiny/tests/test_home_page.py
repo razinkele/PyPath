@@ -191,3 +191,93 @@ def test_every_example_passes_the_ecopath_pages_checks():
             check_ee=False,
         )
         assert ok, f"{model.name}: {errors[:1]}"
+
+
+# --- the page as a whole: buttons, links, styles and snippets stay real ---
+
+
+def _home_html() -> str:
+    return str(home_ui())
+
+
+def test_every_home_button_has_a_handler():
+    """A button on the Home page that nothing listens to is a dead end."""
+    import re
+
+    ids = set(re.findall(r'id="(btn_[a-z_]+)"', _home_html()))
+    assert len(ids) >= 8, ids
+    server = inspect.getsource(home_server)
+    unheard = sorted(i for i in ids if f"input.{i}" not in server)
+    assert not unheard, f"buttons without a handler: {unheard}"
+
+
+def test_home_buttons_lead_to_pages_that_exist():
+    """Each handler selects a page by its nav value; a renamed page must not
+    leave a Home button pointing nowhere."""
+    import re
+
+    import pypath_shiny.app as app_module
+
+    nav_values = set(re.findall(r'value="([^"]+)"', inspect.getsource(app_module)))
+    targets = set(re.findall(r'selected="([^"]+)"', inspect.getsource(home_server)))
+    assert len(targets) >= 8, targets
+    assert targets <= nav_values, sorted(targets - nav_values)
+
+
+def test_home_styles_are_defined_in_the_stylesheet():
+    """The Home page's own classes carry its spacing; a class the stylesheet
+    does not know falls back to the 40 px headings and wide gaps."""
+    import re
+
+    import pypath_shiny
+
+    css = (Path(pypath_shiny.__file__).parent / "static" / "custom.css").read_text(
+        encoding="utf-8"
+    )
+    used = set()
+    for classes in re.findall(r'class="([^"]+)"', _home_html()):
+        used.update(c for c in classes.split() if c.startswith(("home-", "hero-")))
+    assert {"home-page", "home-section-title"} <= used, used
+    undefined = sorted(c for c in used if f".{c}" not in css)
+    assert not undefined, f"not in custom.css: {undefined}"
+
+
+def test_home_section_headings_use_the_tight_heading():
+    import re
+
+    headings = re.findall(r"<h2([^>]*)>", _home_html())
+    assert len(headings) >= 3
+    for attrs in headings:
+        assert "home-section-title" in attrs, attrs
+
+
+def test_quick_start_snippets_call_functions_the_library_has():
+    """The Quick Start shows library calls; each must exist under that name."""
+    import html as html_lib
+    import re
+
+    import pypath
+    import pypath.spatial
+
+    snippets = [
+        html_lib.unescape(s)
+        for s in re.findall(r"<code[^>]*>(.*?)</code>", _home_html(), flags=re.S)
+    ]
+    calls = set()
+    for snippet in snippets:
+        calls.update(re.findall(r"(?<![.\w])([a-z_][a-z0-9_]*)\(", snippet))
+    assert {"rpath", "rsim_run"} <= calls, calls
+    missing = sorted(
+        name
+        for name in calls
+        if not (hasattr(pypath, name) or hasattr(pypath.spatial, name))
+    )
+    assert not missing, f"not in the library: {missing}"
+
+
+def test_feature_cards_fill_whole_rows():
+    """Nine cards, three to a row: no card is left alone on the last row."""
+    import re
+
+    n_cards = len(re.findall(r'id="btn_goto_[a-z_]+"', _home_html()))
+    assert n_cards % 3 == 0 and n_cards >= 9, n_cards

@@ -9,7 +9,7 @@ from pypath.core.params import create_rpath_params
 from shiny import Inputs, Outputs, Session, reactive, ui
 
 from pypath_shiny.components import feature_card, quick_start_step
-from pypath_shiny.config import DEFAULTS
+from pypath_shiny.config import CHANGELOG_URL, DEFAULTS, DOCS_URL
 
 # Import centralized configuration
 from pypath_shiny.services.notifications import (
@@ -326,6 +326,21 @@ def publish_example_model(
     return record
 
 
+def _news_item(
+    icon_class: str, title: str, text: str, pointer: str, *, label: str = "Where"
+) -> ui.Tag:
+    """One entry of the Home page's "Recent Additions" card.
+
+    ``pointer`` says where in the app the addition is found; ``label`` is the
+    word in front of it.
+    """
+    return ui.div(
+        ui.h5(ui.tags.i(class_=f"bi {icon_class} me-2"), title, class_="mb-2"),
+        ui.p(text, class_="mb-1"),
+        ui.p(ui.tags.strong(f"{label}: "), pointer, class_="text-muted small mb-0"),
+    )
+
+
 def home_ui():
     """Home page UI."""
     return ui.div(
@@ -335,8 +350,9 @@ def home_ui():
                 ui.p("Ecosystem Modeling Framework", class_="hero-tagline"),
                 ui.h1("Ecopath with Ecosim in Python", class_="hero-title"),
                 ui.p(
-                    "Build mass-balance food web models, run dynamic ecosystem simulations, "
-                    "and explore spatial dynamics with irregular grids \u2014 all from your browser.",
+                    "Build mass-balance food web models, run them through time, "
+                    "and explore them in space on grids, polygons or a "
+                    "hydrodynamic model's mesh \u2014 all from your browser.",
                     class_="hero-description",
                 ),
                 ui.div(
@@ -377,283 +393,246 @@ def home_ui():
                 ),
                 class_="hero-section",
             ),
-            # What's New section
+            # Recent additions
             ui.div(
-                ui.h2(
-                    ui.tags.i(class_="bi bi-star-fill text-warning me-2"),
-                    "What's New in PyPath",
-                    class_="mb-3",
+                ui.div(
+                    ui.h2("Recent Additions", class_="home-section-title"),
+                    ui.tags.a(
+                        "Full changelog",
+                        ui.tags.i(
+                            class_="bi bi-box-arrow-up-right ms-1", aria_hidden="true"
+                        ),
+                        href=CHANGELOG_URL,
+                        target="_blank",
+                        rel="noopener noreferrer",
+                        class_="home-section-link",
+                    ),
+                    class_="home-section-head",
                 ),
                 ui.card(
                     ui.card_body(
                         ui.layout_columns(
-                            ui.div(
-                                ui.h5(
-                                    ui.tags.i(class_="bi bi-geo-alt text-success me-2"),
-                                    "Irregular Grid Support",
-                                    class_="mb-2",
-                                ),
-                                ui.p(
-                                    "Upload custom polygon geometries for realistic spatial modeling! "
-                                    "ECOSPACE now supports shapefiles, GeoJSON, and GeoPackage formats.",
-                                    class_="mb-1",
-                                ),
-                                ui.p(
-                                    ui.tags.strong("Try it: "),
-                                    "Navigate to the Ecospace page and upload ",
-                                    ui.tags.code(
-                                        "examples/coastal_grid_example.geojson"
-                                    ),
-                                    class_="text-muted small",
-                                ),
+                            _news_item(
+                                "bi-water",
+                                "Hydrodynamic Model Link",
+                                "A SHYFEM mesh can be the Ecospace grid. A box "
+                                "model's output, as text or as a monthly box file, "
+                                "shows its fields on the grid and lets its water "
+                                "flows carry chosen groups.",
+                                "Ecospace page, grid type SHYFEM mesh and the "
+                                "Hydrodynamic Model panel.",
                             ),
-                            ui.div(
-                                ui.h5(
-                                    ui.tags.i(class_="bi bi-shuffle text-primary me-2"),
-                                    "Prey Switching",
-                                    class_="mb-2",
-                                ),
-                                ui.p(
-                                    "Predators turn towards prey that become more abundant: "
-                                    "EwE's switching power, set per predator on the Ecosim page.",
-                                    class_="mb-1",
-                                ),
-                                ui.p(
-                                    ui.tags.strong("Explore: "),
-                                    "The Prey Switching demo page shows how the switching power "
-                                    "shapes a predator's diet.",
-                                    class_="text-muted small",
-                                ),
+                            _news_item(
+                                "bi-folder2-open",
+                                "Real Models to Open",
+                                "The example models are real food webs. Each opens "
+                                "with its own Ecosim settings, and the Curonian "
+                                "Lagoon one brings its Ecospace set-up. An EwE "
+                                "database's stored Ecospace scenario loads too.",
+                                "The picker in the banner above, the Ecosim page "
+                                "and the Ecospace page.",
                             ),
-                            ui.div(
-                                ui.h5(
-                                    ui.tags.i(
-                                        class_="bi bi-lightning text-warning me-2"
-                                    ),
-                                    "Enhanced Ecosim",
-                                    class_="mb-2",
-                                ),
-                                ui.p(
-                                    "Environmental forcing, optimization tools, and improved "
-                                    "multi-stanza support for age-structured populations.",
-                                    class_="mb-1",
-                                ),
-                                ui.p(
-                                    ui.tags.strong("Learn more: "),
-                                    "See the Advanced Features demos for detailed examples.",
-                                    class_="text-muted small",
-                                ),
+                            _news_item(
+                                "bi-shuffle",
+                                "Prey Switching",
+                                "Predators turn towards prey that become more "
+                                "abundant: EwE's switching power, set per predator "
+                                "on the Ecosim page.",
+                                "The Prey Switching demo page shows how the "
+                                "switching power shapes a predator's diet.",
+                                label="Explore",
                             ),
-                            ui.div(
-                                ui.h5(
-                                    ui.tags.i(class_="bi bi-cpu text-info me-2"),
-                                    "Individual-Based Modeling",
-                                    class_="mb-2",
-                                ),
-                                ui.p(
-                                    "New IBM module with bioenergetics, predation, reproduction, "
-                                    "and spatial movement for super-individual tracking.",
-                                    class_="mb-1",
-                                ),
-                                ui.p(
-                                    ui.tags.strong("Try it: "),
-                                    "Navigate to the IBM page to configure super-individual groups.",
-                                    class_="text-muted small",
-                                ),
+                            _news_item(
+                                "bi-hourglass-split",
+                                "Runs That Do Not Block",
+                                "Ecospace and IBM runs work in the background. An "
+                                "Ecospace run gives a run-time estimate, shows the "
+                                "month it has reached and can be cancelled.",
+                                "Ecospace and Individual-Based Model pages.",
                             ),
-                            col_widths=[3, 3, 3, 3],
+                            col_widths={"sm": 12, "md": 6, "xl": 3},
                         )
                     ),
-                    class_="border-success",
+                    class_="border-success home-news",
                 ),
-                class_="mb-4",
+                class_="home-section",
             ),
-            # Feature cards - Row 1
-            ui.h2("Features", class_="mb-4"),
-            ui.layout_columns(
-                feature_card(
-                    "Data Import",
-                    [
-                        "Connect to EcoBase database (350+ models)",
-                        "Search and download published models",
-                        "Import EwE database files (.ewemdb, .eweaccdb)",
-                        "Automatic format conversion",
-                        "Pre-configured ecosystem models",
-                    ],
-                    icon_class="bi-cloud-download",
-                    button_label="Import Model",
-                    button_id="btn_goto_import",
-                    button_class="btn-success",
+            # Feature cards: one per page, in the order of the workflow
+            ui.div(
+                ui.h2("Features", class_="home-section-title"),
+                ui.layout_columns(
+                    feature_card(
+                        "Data Import",
+                        [
+                            "Published models from the EcoBase repository",
+                            "EwE 6 database files (.ewemdb, .eweaccdb, .mdb, .accdb)",
+                            "SQLite copies of EwE databases",
+                            "Species data from WoRMS, OBIS, FishBase and SeaLifeBase",
+                            "Groups, diet and stanzas shown before the model is used",
+                        ],
+                        icon_class="bi-cloud-download",
+                        button_label="Open Data Import",
+                        button_id="btn_goto_import",
+                    ),
+                    feature_card(
+                        "Ecopath Model",
+                        [
+                            "Functional groups and the diet matrix in editable tables",
+                            "Biomass, P/B, Q/B, EE and catches by fleet",
+                            "Mass balance solves each group's missing parameter",
+                            "Trophic levels",
+                            "Multi-stanza age structure",
+                        ],
+                        icon_class="bi-diagram-3",
+                        button_label="Open Ecopath Model",
+                        button_id="btn_goto_ecopath",
+                    ),
+                    feature_card(
+                        "Pre-Balance",
+                        [
+                            "Checks of the inputs before the model is balanced",
+                            "Biomass across trophic levels",
+                            "Predator-prey ratios",
+                            "Vital rate ratios",
+                            "Warnings listed group by group",
+                        ],
+                        icon_class="bi-clipboard-check",
+                        button_label="Open Pre-Balance",
+                        button_id="btn_goto_prebalance",
+                    ),
+                    feature_card(
+                        "Ecosim",
+                        [
+                            "Foraging arena functional response",
+                            "Runge-Kutta 4, Adams-Bashforth, or the continuous "
+                            "solvers LSODA, BDF, DOP853 and Radau",
+                            "EwE 6 or Rpath equation rules, set by the model's origin",
+                            "An EwE database's own scenario and time series",
+                            "Prey switching (EwE's switching power)",
+                        ],
+                        icon_class="bi-graph-up",
+                        button_label="Open Ecosim",
+                        button_id="btn_goto_ecosim",
+                    ),
+                    feature_card(
+                        "Ecospace",
+                        [
+                            "Regular grids, transects, uploaded polygons, "
+                            "hexagons or a SHYFEM mesh",
+                            "Habitat preferences, dispersal and spatial fishing",
+                            "Fields and water transport of a hydrodynamic box model",
+                            "Stored Ecospace scenarios of EwE databases",
+                            "A wizard that builds a new set-up step by step",
+                        ],
+                        icon_class="bi-geo-alt",
+                        button_label="Open Ecospace",
+                        button_id="btn_goto_ecospace",
+                    ),
+                    feature_card(
+                        "Individual-Based Model",
+                        [
+                            "One group followed as super-individuals inside Ecosim",
+                            "Wisconsin bioenergetics model",
+                            "Size-structured predation",
+                            "Stochastic reproduction",
+                            "Comparison with the standard Ecosim run",
+                        ],
+                        icon_class="bi-cpu",
+                        button_label="Open Individual-Based Model",
+                        button_id="btn_goto_ibm",
+                    ),
+                    feature_card(
+                        "Analysis",
+                        [
+                            "System and flow indices",
+                            "Trophic levels and the trophic spectrum",
+                            "Mixed trophic impacts (MTI)",
+                            "Keystoneness of each group",
+                            "Balance check and CSV export",
+                        ],
+                        icon_class="bi-diagram-2",
+                        button_label="Open Analysis",
+                        button_id="btn_goto_analysis",
+                    ),
+                    feature_card(
+                        "Results",
+                        [
+                            "Model summary and data tables",
+                            "Food web diagram and interactive network",
+                            "Biomass and catch through time",
+                            "Scenario comparison",
+                            "CSV downloads of the model and the simulation",
+                        ],
+                        icon_class="bi-bar-chart",
+                        button_label="Open Results",
+                        button_id="btn_goto_results",
+                    ),
+                    feature_card(
+                        "Tutorial and Documentation",
+                        [
+                            "A walkthrough from an empty model to fishing scenarios",
+                            "Code for every step, to run with the pypath library",
+                            "API reference of the library",
+                            "Worked examples: EwE databases, spatial models, "
+                            "the hydrodynamic link, the IBM",
+                        ],
+                        icon_class="bi-mortarboard",
+                        button_label="Open Tutorial",
+                        button_id="btn_goto_tutorial",
+                        link_label="Documentation",
+                        link_href=DOCS_URL,
+                    ),
+                    col_widths={"sm": 12, "md": 6, "xl": 4},
                 ),
-                feature_card(
-                    "Ecopath Mass Balance",
-                    [
-                        "Define functional groups and food web",
-                        "Set biomass, P/B, Q/B ratios",
-                        "Automatic mass-balance calculations",
-                        "Trophic level computation",
-                        "Multi-stanza age structure",
-                    ],
-                    icon_class="bi-diagram-3",
-                    button_label="Create Ecopath Model",
-                    button_id="btn_goto_ecopath",
-                ),
-                feature_card(
-                    "Ecosim Simulation",
-                    [
-                        "Dynamic ecosystem simulations",
-                        "Foraging arena functional response",
-                        "Fishing scenarios and forcing",
-                        "Environmental forcing effects",
-                        "Multiple integration methods",
-                    ],
-                    icon_class="bi-graph-up",
-                    button_label="Run Simulation",
-                    button_id="btn_goto_ecosim",
-                ),
-                col_widths=[4, 4, 4],
-            ),
-            # Feature cards - Row 2
-            ui.layout_columns(
-                feature_card(
-                    "ECOSPACE Spatial Modeling",
-                    [
-                        "Irregular grid support (GeoJSON, Shapefile)",
-                        "Realistic spatial geometries",
-                        "Habitat preference mapping",
-                        "Dispersal and movement dynamics",
-                        "Spatial fishing effort allocation",
-                    ],
-                    icon_class="bi-geo-alt",
-                    button_label="Explore Spatial",
-                    button_id="btn_goto_ecospace",
-                    button_class="btn-success",
-                    badge="NEW",
-                ),
-                feature_card(
-                    "Individual-Based Model",
-                    [
-                        "Super-individual tracking",
-                        "Wisconsin bioenergetics model",
-                        "Size-structured predation",
-                        "Stochastic reproduction",
-                        "Spatial movement & foraging",
-                    ],
-                    icon_class="bi-cpu",
-                    button_label="Explore IBM",
-                    button_id="btn_goto_ibm",
-                    button_class="btn-info",
-                    badge="NEW",
-                ),
-                feature_card(
-                    "Network Analysis",
-                    [
-                        "Food web topology metrics",
-                        "Ecosystem health indicators",
-                        "Trophic impact analysis (MTI)",
-                        "Keystone species identification",
-                        "Lindeman spine diagrams",
-                    ],
-                    icon_class="bi-diagram-2",
-                    button_label="Run Analysis",
-                    button_id="btn_goto_analysis",
-                    button_class="btn-info",
-                ),
-                feature_card(
-                    "Results & Visualization",
-                    [
-                        "Interactive time series plots",
-                        "Food web diagrams",
-                        "Biomass and catch trajectories",
-                        "Export results to CSV/Excel",
-                        "Comparative scenario analysis",
-                    ],
-                    icon_class="bi-bar-chart",
-                    button_label="View Results",
-                    button_id="btn_goto_results",
-                ),
-                col_widths=[3, 3, 3, 3],
-                class_="mt-4",
-            ),
-            # Feature cards - Row 3
-            ui.layout_columns(
-                feature_card(
-                    "Advanced Features",
-                    [
-                        "Prey switching (EwE's switching power)",
-                        "Environmental forcing functions",
-                        "Multi-stanza age structure",
-                        "Optimization and sensitivity analysis",
-                        "Custom fishing scenarios",
-                    ],
-                    icon_class="bi-gear-wide-connected",
-                ),
-                feature_card(
-                    "About PyPath",
-                    [
-                        "Python port of R Rpath package",
-                        "NOAA/EwE ecosystem modeling",
-                        "Open source (MIT License)",
-                        "GitHub repository",
-                        "Active development",
-                    ],
-                    icon_class="bi-info-circle",
-                    button_label="Learn More",
-                    button_id="btn_goto_about",
-                    button_class="btn-secondary",
-                ),
-                feature_card(
-                    "Documentation",
-                    [
-                        "User guides and tutorials",
-                        "API reference documentation",
-                        "Example models and scripts",
-                        "Irregular grid guide (NEW)",
-                        "Video tutorials (coming soon)",
-                    ],
-                    icon_class="bi-file-text",
-                ),
-                col_widths=[4, 4, 4],
-                class_="mt-4",
+                class_="home-section",
             ),
             # Quick start section
-            ui.h2("Quick Start", class_="mt-5 mb-4"),
-            ui.layout_columns(
-                quick_start_step(
-                    "Step 1: Define Groups",
-                    "Start by defining your ecosystem's functional groups - producers, consumers, detritus, and fishing fleets.",
-                    "create_rpath_params(groups, types)",
+            ui.div(
+                ui.h2("Quick Start", class_="home-section-title"),
+                ui.layout_columns(
+                    quick_start_step(
+                        "Step 1: Define Groups",
+                        "Name the functional groups of the food web: producers, "
+                        "consumers, detritus and fishing fleets.",
+                        "create_rpath_params(groups, types)",
+                    ),
+                    quick_start_step(
+                        "Step 2: Set Parameters",
+                        "Enter biomass, P/B, Q/B, the diet matrix and the catches "
+                        "of each group.",
+                        'params.model["Biomass"] = ...',
+                    ),
+                    quick_start_step(
+                        "Step 3: Balance the Model",
+                        "Ecopath solves the missing parameter of each group and "
+                        "reports the balance.",
+                        "model = rpath(params)",
+                    ),
+                    quick_start_step(
+                        "Step 4: Run a Simulation",
+                        "Build an Ecosim scenario from the balanced model and run "
+                        "it through time.",
+                        "sim = rsim_scenario(model, params)\nout = rsim_run(sim)",
+                    ),
+                    quick_start_step(
+                        "Step 5: Add Space",
+                        "Give the scenario a grid, habitat preferences and "
+                        "dispersal, and run it as Ecospace.",
+                        "rsim_run_spatial(\n    sim, ecospace=ecospace)",
+                        badge="Optional",
+                    ),
+                    quick_start_step(
+                        "Step 6: Follow Individuals",
+                        "Hand a group to the individual-based model: Ecosim then "
+                        "takes that group's change from its super-individuals.",
+                        "sim.params.ibm_groups = {3: smelt}",
+                        badge="Optional",
+                    ),
+                    col_widths={"sm": 12, "md": 6, "xl": 4},
                 ),
-                quick_start_step(
-                    "Step 2: Set Parameters",
-                    "Enter biomass, P/B, Q/B ratios, diet composition, and fishery catches for each group.",
-                    "params.model['Biomass'] = ...",
-                ),
-                quick_start_step(
-                    "Step 3: Balance Model",
-                    "Run the mass-balance calculations to solve for missing parameters and validate the model.",
-                    "model = rpath(params)",
-                ),
-                quick_start_step(
-                    "Step 4: Run Simulation",
-                    "Create a scenario and run dynamic Ecosim simulations to explore ecosystem dynamics.",
-                    "rsim_run(scenario)",
-                ),
-                quick_start_step(
-                    "Step 5: Add Spatial Dynamics",
-                    "Upload spatial grids and run Ecospace simulations with habitat preferences and dispersal.",
-                    "rsim_run_spatial(ecospace)",
-                    badge="Optional",
-                ),
-                quick_start_step(
-                    "Step 6: Individual-Based Modeling",
-                    "Configure super-individual groups with bioenergetics, predation, and spatial movement parameters.",
-                    "SmeltIBM.compute_step(state)",
-                    badge="Optional",
-                ),
-                col_widths=[2, 2, 2, 2, 2, 2],
+                class_="home-section",
             ),
-            class_="container py-4",
+            class_="container home-page",
         )
     )
 
@@ -737,9 +716,14 @@ def home_server(
         ui.update_navset("main_nav", selected="Results")
 
     @reactive.effect
-    @reactive.event(input.btn_goto_about)
-    def _goto_about():
-        ui.update_navset("main_nav", selected="About")
+    @reactive.event(input.btn_goto_prebalance)
+    def _goto_prebalance():
+        ui.update_navset("main_nav", selected="Pre-Balance")
+
+    @reactive.effect
+    @reactive.event(input.btn_goto_tutorial)
+    def _goto_tutorial():
+        ui.update_navset("main_nav", selected="Tutorial")
 
     @reactive.effect
     @reactive.event(input.btn_load_example)

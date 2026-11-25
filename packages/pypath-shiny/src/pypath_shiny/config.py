@@ -392,3 +392,8 @@ IBM = IBMConfig()
 TYPE_LABELS = DISPLAY.type_labels
 NO_DATA_VALUE = DISPLAY.no_data_value
 VALID_GROUP_TYPES = VALIDATION.valid_group_types
+
+# Project links, shared by the top bar and the Home and About pages
+REPO_URL = "https://github.com/razinkele/PyPath"
+DOCS_URL = "https://razinkele.github.io/PyPath/"
+CHANGELOG_URL = f"{REPO_URL}/blob/main/CHANGELOG.md"

@@ -184,7 +184,7 @@
 
 /* The wave under the Home banner is filled with the page's colour. */
 [data-bs-theme="dark"] .hero-section::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 80'%3E%3Cpath d='M0 40C200 75 400 5 600 40C800 75 1000 5 1200 40L1200 80 0 80Z' fill='%230f172a'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 80' preserveAspectRatio='none'%3E%3Cpath d='M0 40C200 75 400 5 600 40C800 75 1000 5 1200 40L1200 80 0 80Z' fill='%230f172a'/%3E%3C/svg%3E");
 }
 
 /* =========================================================
@@ -408,9 +408,9 @@ a:hover {
 
 .hero-section {
   background: linear-gradient(135deg, var(--pp-navy) 0%, var(--pp-ocean) 50%, var(--pp-deep) 100%);
-  border-radius: var(--pp-radius-lg);
-  padding: 3.25rem 2.75rem 3.75rem;
-  margin-bottom: 2.5rem;
+  border-radius: var(--pp-radius-lg) var(--pp-radius-lg) 0 0;
+  padding: 2.25rem 2.5rem 3rem;
+  margin-bottom: 0;
   position: relative;
   overflow: hidden;
 }
@@ -434,8 +434,8 @@ a:hover {
   bottom: -1px;
   left: 0;
   right: 0;
-  height: 45px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 80'%3E%3Cpath d='M0 40C200 75 400 5 600 40C800 75 1000 5 1200 40L1200 80 0 80Z' fill='%23f1f5f9'/%3E%3C/svg%3E") no-repeat bottom;
+  height: 30px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 80' preserveAspectRatio='none'%3E%3Cpath d='M0 40C200 75 400 5 600 40C800 75 1000 5 1200 40L1200 80 0 80Z' fill='%23f1f5f9'/%3E%3C/svg%3E") no-repeat bottom;
   background-size: 100% 100%;
   pointer-events: none;
 }
@@ -457,16 +457,16 @@ a:hover {
   font-weight: 700 !important;
   color: #fff !important;
   line-height: 1.15 !important;
-  margin-bottom: 1.1rem;
+  margin-bottom: 0.75rem;
   position: relative;
 }
 
 .hero-description {
   color: rgba(255, 255, 255, 0.78);
   font-size: 1.02rem;
-  line-height: 1.75;
-  max-width: 600px;
-  margin-bottom: 1.75rem;
+  line-height: 1.65;
+  max-width: 41rem;
+  margin-bottom: 1.4rem;
   position: relative;
 }
 
@@ -541,6 +541,100 @@ a:hover {
 
 .hero-example-picker .form-select option {
   color: #1e293b;
+}
+
+/* =========================================================
+   HOME PAGE RHYTHM
+   One scale for the gaps between the banner, the section
+   headings and the cards under them. Scoped to Home: other
+   pages keep the global headings.
+   ========================================================= */
+
+.home-page {
+  padding-top: 0.75rem;
+  padding-bottom: 1.5rem;
+}
+
+.home-section {
+  margin-top: 1.5rem;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.home-section-title {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  margin: 0 0 0.6rem;
+}
+
+.home-section-link {
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.home-news h5 {
+  font-size: 1rem;
+}
+
+.home-news h5 .bi {
+  color: var(--pp-teal);
+}
+
+.home-news p {
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* A feature card's actions sit at its foot, so the buttons of a row line
+   up whatever the length of the lists above them. */
+.feature-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.25rem;
+}
+
+.feature-card-actions .btn {
+  flex: 1 1 auto;
+}
+
+/* The link's icon must not make its button taller than the one beside it. */
+.feature-card-actions .btn .bi {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+/* A Quick Start snippet breaks at a space, not inside a name. */
+.quick-start-code {
+  display: block;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+/* About page: the version table is as wide as its text, not the card
+   (the card body is a flex column, which would stretch it). */
+.about-versions {
+  width: auto;
+  align-self: flex-start;
+  margin-bottom: 0;
+}
+
+.about-versions th {
+  font-weight: 500;
+  padding-right: 2.5rem;
+}
+
+.about-versions td {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
 }
 
 /* =========================================================
@@ -1019,6 +1113,23 @@ pre code {
 
   .hero-title {
     font-size: 1.85rem !important;
+  }
+
+  /* The model picker takes a row of its own and lets its Open button drop
+     under the list: side by side they ran past the banner's edge. */
+  .hero-example-picker {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+
+  .hero-example-picker .form-group {
+    flex: 1 1 13rem;
+    width: auto;
+    min-width: 0;
+  }
+
+  .hero-example-picker .form-select {
+    min-width: 0;
   }
 
   .pypath-topbar {
