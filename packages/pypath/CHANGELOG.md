@@ -6,6 +6,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.26.1 (2026-11-25)
+
+### Performance Improvements
+
+- **ecopath**: The diet rows are taken from the table in one lookup
+  ([`e156446`](https://github.com/razinkele/PyPath/commit/e1564466de3cd40e334f0459c8370c6686409841))
+
+- **ecosim**: Five per-group loops of the derivative as array operations
+  ([`2b4215a`](https://github.com/razinkele/PyPath/commit/2b4215a91e6e8031a6afc850de19c552ab3c6c44))
+
+- **ecosim**: Runs with IBM groups keep their start-of-month derivative
+  ([`437fe3d`](https://github.com/razinkele/PyPath/commit/437fe3d0edd96dccabb5855d8306e1dafef4efd9))
+
+- **ecosim**: The feeding-time rates come from RK4's first stage
+  ([`49975ff`](https://github.com/razinkele/PyPath/commit/49975ff0dc94fdbe82d653b3a6ebeb1a3ef53e3a))
+
+- **import**: A lazy stand-in is not loaded by being looked at
+  ([`a4d138d`](https://github.com/razinkele/PyPath/commit/a4d138dcfc4bcac5b86f2e42e99898538e7bbc5b))
+
+- **import**: Matplotlib, networkx, SALib and scipy's solvers load when used
+  ([`fe7d1c2`](https://github.com/razinkele/PyPath/commit/fe7d1c22cde825c657efd159e172ecfe40260bfa))
+
+
 ## v1.26.0 (2026-11-25)
 
 ### Bug Fixes

@@ -1,4 +1,4 @@
-{% set version = "1.26.0" %}
+{% set version = "1.26.1" %}
 
 package:
   name: pypath-ewe
