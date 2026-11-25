@@ -30,7 +30,14 @@ class LazyModule:
         return importlib.import_module(self._lazy_name)
 
     def __getattr__(self, attribute: str):
-        # only reached for names the stand-in does not hold itself
+        # Only reached for names the stand-in does not hold itself. Special
+        # names are refused: copying, pickling and inspecting probe for
+        # them, and a probe must neither import the library nor (before
+        # ``_lazy_name`` is set, as when unpickling) come back here for ever.
+        if attribute.startswith("__") and attribute.endswith("__"):
+            raise AttributeError(attribute)
+        if attribute == "_lazy_name":
+            raise AttributeError(attribute)
         return getattr(self._lazy_load(), attribute)
 
     def __repr__(self) -> str:

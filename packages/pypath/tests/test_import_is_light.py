@@ -87,3 +87,29 @@ from pypath.core.plotting import HAS_NETWORKX, HAS_PLOTLY
 assert isinstance(HAS_NETWORKX, bool) and isinstance(HAS_PLOTLY, bool)
 """
     _loaded(program)
+
+
+def test_a_stand_in_is_not_loaded_by_being_looked_at():
+    """Copying, pickling or probing a stand-in for a special name must not
+    import its library (and must not recurse): only a real use does."""
+    import copy
+    import pickle
+
+    from pypath.core._lazy import LazyModule, lazy_callable
+
+    stand_in = LazyModule("a_library_that_is_not_installed_anywhere")
+    assert "a_library_that_is_not_installed" in repr(stand_in)
+    assert not hasattr(stand_in, "__wrapped__") and not hasattr(stand_in, "__file__")
+    for clone in (
+        copy.copy(stand_in),
+        copy.deepcopy(stand_in),
+        pickle.loads(pickle.dumps(stand_in)),
+    ):
+        assert repr(clone) == repr(stand_in)
+    with pytest.raises(ModuleNotFoundError):
+        stand_in.anything  # a real use imports, and says what is missing
+
+    json_stand_in = LazyModule("json")
+    assert json_stand_in.dumps({"a": 1}) == '{"a": 1}'
+    dumps = lazy_callable("json", "dumps")
+    assert dumps.__name__ == "dumps" and dumps([1]) == "[1]"
