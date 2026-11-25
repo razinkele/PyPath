@@ -6,6 +6,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.26.0 (2026-11-25)
+
+### Bug Fixes
+
+- **io**: Four findings from the review of the monthly box file
+  ([#186](https://github.com/razinkele/PyPath/pull/186),
+  [`50c57e9`](https://github.com/razinkele/PyPath/commit/50c57e9092d0eebec54fa405fc8ee365c1b1deba))
+
+- **io**: The box file reader closes through its class; figures and a test
+  ([`7c8d9db`](https://github.com/razinkele/PyPath/commit/7c8d9dbb978bef457e2c88e34cee2023d627a6c4))
+
+- **io**: Variable names that meet a statistic's name are refused in any order
+  ([`6e0a61b`](https://github.com/razinkele/PyPath/commit/6e0a61b429fae41d22d63b52393f8e3bd5f10906))
+
+### Features
+
+- **io**: A monthly box file for a SHYFEM box model's output
+  ([`c8ef7fd`](https://github.com/razinkele/PyPath/commit/c8ef7fd570aabc6feda937f9b5728bffafea52da))
+
+
 ## v1.25.0 (2026-11-24)
 
 ### Bug Fixes
