@@ -87,3 +87,29 @@ def test_the_analysis_plots_are_drawn_by_those_functions():
     source = inspect.getsource(analysis_server)
     assert "return foodweb_figure(get_balanced_model())" in source
     assert "trophic_spectrum_figure(get_balanced_model()," in source
+
+
+def test_the_message_stays_inside_a_narrow_plot_area():
+    # the page sizes the figure to its place before saving it: the spectrum's
+    # card, or any plot on a phone, is narrower than the instruction's line
+    import matplotlib.pyplot as plt
+
+    from pypath_shiny.pages.analysis import BALANCE_FIRST, message_figure
+
+    message = BALANCE_FIRST.format(what="the trophic spectrum")
+    for width_px in (300, 480, 731, 1340):
+        fig = message_figure(message)
+        try:
+            fig.set_dpi(100)
+            fig.set_size_inches(width_px / 100, 4.0)
+            fig.canvas.draw()
+            text = fig.axes[0].texts[0]
+            box = text.get_window_extent(fig.canvas.get_renderer())
+            assert box.x0 >= 0 and box.x1 <= width_px, (width_px, box.x0, box.x1)
+            assert box.y0 >= 0 and box.y1 <= 400, (width_px, box.y0, box.y1)
+            # every word is still there, however the lines fall
+            assert text._get_wrapped_text().split() == message.split()
+            if width_px == 300:
+                assert text._get_wrapped_text().count("\n") > message.count("\n")
+        finally:
+            plt.close(fig)

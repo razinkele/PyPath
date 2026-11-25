@@ -66,7 +66,8 @@ def message_figure(message: str):
 
     An empty plot area gives no reason for being empty. The figure is drawn
     light, like the plots themselves: the stylesheet turns image outputs dark
-    with the page.
+    with the page. The page sizes the figure to its place before saving it,
+    so the text wraps to whatever width that is (a card, a phone).
     """
     fig, ax = plt.subplots()
     ax.text(
@@ -78,6 +79,7 @@ def message_figure(message: str):
         transform=ax.transAxes,
         color="#475569",  # --pp-text-secondary
         fontsize=12,
+        wrap=True,
     )
     ax.axis("off")
     return fig
