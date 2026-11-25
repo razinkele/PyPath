@@ -3356,21 +3356,28 @@ def rsim_run(
         # Derivt), so prey Ftime and mediation are included: take the
         # derivative's FoodGain now.
         _fg_ftime = None
-        if (
+        _fg_start = (
             _has_ftime_adj
             and getattr(params, "FTIME_START_OF_MONTH", False)
             and not _continuous
-        ):
-            _fg_rates: dict = {}
-            with _frozen_hden(params_dict):
-                deriv_vector(
-                    month_start_state.copy(),
-                    params_dict,
-                    forcing_dict,
-                    fishing_dict,
-                    rates=_fg_rates,
-                )
-            _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
+        )
+        # Under RK4 the step's own first stage is a Derivt of this very state
+        # (and of this Hden: a call made here would leave it as it found it),
+        # so its rates are taken from there, after the step, and no
+        # derivative is evaluated here: one call in five saved.
+        _fg_from_stage = _fg_start and method.upper() == "RK4"
+        if _fg_start:
+            if not _fg_from_stage:
+                _fg_rates: dict = {}
+                with _frozen_hden(params_dict):
+                    deriv_vector(
+                        month_start_state.copy(),
+                        params_dict,
+                        forcing_dict,
+                        fishing_dict,
+                        rates=_fg_rates,
+                    )
+                _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
             # EwE's ratio is per predator index (CBlast = EatenByAvg /
             # PredAvg, Cbase = StartEatenBy / pred; vb 1762, 3310). That is
             # the biomass for a simple group, and sum(N * WWa) for a stanza
@@ -3396,6 +3403,9 @@ def rsim_run(
         # Integration step
         if method.upper() == "RK4":
             old_state = state.copy()
+            _stages = _stanza_stages
+            if _fg_from_stage and _stages is None:
+                _stages = {}
             state = integrate_rk4(
                 state,
                 params_dict,
@@ -3403,8 +3413,11 @@ def rsim_run(
                 fishing_dict,
                 dt,
                 n_steps=rk4_steps,
-                stage_rates=_stanza_stages,
+                stage_rates=_stages,
             )
+            if _fg_from_stage:
+                _fg_rates = _stages["first"]
+                _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
         elif method.upper() == "AB":
             # Warmup: use RK4 for the first month to populate derivative history
             # before switching to Adams-Bashforth 2-step (matching Rpath)
