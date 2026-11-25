@@ -394,21 +394,22 @@ def rpath(
         (ngroups + 1, n_pred)
     )  # ngroups rows for groups + 1 for Import
 
-    # Map each group to its diet row
-    for new_row_idx, group_name in enumerate(all_group_names):
-        if group_name in prey_name_to_diet_row:
-            old_row_idx = prey_name_to_diet_row[group_name]
-            diet_values[new_row_idx, :] = diet_df.loc[
-                old_row_idx, diet_cols
-            ].values.astype(float)
-
-    # Add Import row at the end if present. The diet table has no fleet rows,
-    # so its row count says nothing about whether Import is there (#53).
-    if "Import" in prey_name_to_diet_row:
-        import_row_idx = prey_name_to_diet_row["Import"]
-        # Import goes at index ngroups (after all groups)
-        diet_values[ngroups, :] = diet_df.loc[import_row_idx, diet_cols].values.astype(
-            float
+    # Map each group to its diet row; Import goes at index ngroups, after all
+    # groups, if present. The diet table has no fleet rows, so its row count
+    # says nothing about whether Import is there (#53).
+    # The rows are taken from the table in one lookup: a lookup per group was
+    # three quarters of a balance's time.
+    targets = list(enumerate(all_group_names)) + [(ngroups, "Import")]
+    placed = [
+        (new_row_idx, prey_name_to_diet_row[name])
+        for new_row_idx, name in targets
+        if name in prey_name_to_diet_row
+    ]
+    if placed:
+        new_rows = [new_row_idx for new_row_idx, _ in placed]
+        old_rows = [old_row_idx for _, old_row_idx in placed]
+        diet_values[new_rows, :] = diet_df.loc[old_rows, diet_cols].to_numpy(
+            dtype=float
         )
 
     diet_values = np.nan_to_num(diet_values, nan=0.0)
