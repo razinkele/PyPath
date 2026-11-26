@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.23.1 (2026-11-26)
+
+### Bug Fixes
+
+- **shiny**: Tabs inside pages show in the light theme; an unbalanced model says so
+  ([`5fafaba`](https://github.com/razinkele/PyPath/commit/5fafaba6863661a2fbb5b2060b3ce356e566fecd))
+
+- **shiny**: The "not balanced yet" message wraps to its plot area
+  ([`73a060a`](https://github.com/razinkele/PyPath/commit/73a060a1f3049f304b167a7b3b91ddd97efa897c))
+
+
 ## v1.23.0 (2026-11-25)
 
 ### Features
