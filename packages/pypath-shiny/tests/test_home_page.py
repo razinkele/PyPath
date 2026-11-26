@@ -281,3 +281,28 @@ def test_feature_cards_fill_whole_rows():
 
     n_cards = len(re.findall(r'id="btn_goto_[a-z_]+"', _home_html()))
     assert n_cards % 3 == 0 and n_cards >= 9, n_cards
+
+
+def test_a_model_opened_from_home_is_said_to_need_balancing():
+    """Home hands the model over unbalanced, for the Ecopath page to show.
+
+    The notices did not say so: Analysis and Results stayed empty, with the
+    food web diagrams missing, until Balance Model was clicked.
+    """
+    from pypath_shiny.pages import home
+
+    opened = home.example_opened_notice("Curonian Lagoon pelagic food web")
+    assert opened.startswith("Curonian Lagoon pelagic food web opened.")
+    for notice in (opened, home.EXAMPLE_LOADED_NOTICE):
+        assert "not balanced yet" in notice
+        assert "Balance Model" in notice  # the button, as it is labelled
+        assert "Ecopath Model page" in notice
+    # the picker's models bring Ecosim settings; that part stays
+    assert "Ecosim settings" in opened
+
+    # the app goes to the Ecopath Model page by itself
+    assert "Navigate to" not in home.EXAMPLE_LOADED_NOTICE
+
+    server = inspect.getsource(home.home_server)
+    assert "example_opened_notice(record[" in server
+    assert "EXAMPLE_LOADED_NOTICE" in server
