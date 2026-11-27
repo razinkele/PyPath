@@ -8,6 +8,7 @@ including the derivative calculations and integration methods.
 from __future__ import annotations
 
 import copy
+import sys
 import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
@@ -3309,8 +3310,58 @@ def rsim_run(
         }
         out_catch_month_end = np.zeros((n_months + 1, n_groups))
 
-    # Main simulation loop
-    for month in range(1, n_months + 1):
+    # The compiled RK4 step (pypath.core.ecosim_fast) when numba is installed
+    # and the run uses only options it covers; else integrate_rk4
+    _fast_rk4 = None
+    if not _continuous and method.upper() == "RK4":
+        from pypath.core import ecosim_fast as _ecosim_fast
+
+        if (
+            _ecosim_fast.ENABLED
+            and _ecosim_fast.python_hooks_intact(sys.modules[__name__])
+            and _ecosim_fast.unsupported_reason(
+                params_dict, fishing_dict, scenario.forcing
+            )
+            is None
+        ):
+            _fast_rk4 = _ecosim_fast.FastRK4(params_dict, fishing_dict)
+    # ... and the whole monthly loop compiled (ecosim_fast.CompiledRun) when
+    # the run has no fleet dynamics, Ecotracer or mediation
+    _compiled = None
+    if (
+        _fast_rk4 is not None
+        and ecotracer is None
+        and fleet_dynamics is None
+        and mediation is None
+    ):
+        _compiled = _ecosim_fast.CompiledRun.build(
+            scenario,
+            setup,
+            _fast_rk4,
+            rk4_steps,
+            dt,
+            (
+                out_biomass,
+                out_catch,
+                out_gear_catch,
+                out_fishmort,
+                stanza_biomass,
+                out_hden,
+                annual_qlink,
+            ),
+        )
+    if _compiled is not None:
+        if on_month is None:
+            state = _compiled.run(state, 1, n_months)
+        else:
+            for _m in range(1, n_months + 1):
+                state = _compiled.run(state, _m, _m)
+                if on_month(_m, n_months) is True:
+                    raise RunCancelled(f"run cancelled after month {_m} of {n_months}")
+        crash_year, crashed_groups = _compiled.crash_info()
+
+    # Main simulation loop (none left to run after the compiled loop)
+    for month in range(1, (0 if _compiled is not None else n_months) + 1):
         # Debug: indicate loop iteration for first few months
         if month <= 6:
             logger.debug("entering month loop month=%s", month)
@@ -3419,15 +3470,26 @@ def rsim_run(
             _stages = _stanza_stages
             if _fg_from_stage and _stages is None:
                 _stages = {}
-            state = integrate_rk4(
-                state,
-                params_dict,
-                forcing_dict,
-                fishing_dict,
-                dt,
-                n_steps=rk4_steps,
-                stage_rates=_stages,
-            )
+            if _fast_rk4 is not None:
+                state = _fast_rk4.step(
+                    state,
+                    forcing_dict,
+                    _month_f,
+                    _month_link_f,
+                    dt,
+                    n_steps=rk4_steps,
+                    stage_rates=_stages,
+                )
+            else:
+                state = integrate_rk4(
+                    state,
+                    params_dict,
+                    forcing_dict,
+                    fishing_dict,
+                    dt,
+                    n_steps=rk4_steps,
+                    stage_rates=_stages,
+                )
             if _fg_from_stage:
                 _fg_rates = _stages["first"]
                 _fg_ftime = np.asarray(_fg_rates["FoodGain"], dtype=float)
@@ -4420,3 +4482,15 @@ def _compute_Q_matrix(
             QQ[0, pred] = QQbase[0, pred] / Bbase[pred] * BB[pred]
 
     return QQ
+
+
+# The functions as defined in this module, for pypath.core.ecosim_fast: it
+# compiles what they compute, and stands aside for the Python path when one
+# of them has been replaced (a test's spy, a caller's own version).
+_DEFINED_HOOKS = {
+    _k: _v
+    for _k, _v in list(globals().items())
+    if callable(_v)
+    and not isinstance(_v, type)
+    and getattr(_v, "__module__", None) == __name__
+}

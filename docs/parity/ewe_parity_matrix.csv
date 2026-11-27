@@ -23,7 +23,7 @@ cWholesalerUnitDefault,value_chain,true,true,false,false,partial,
 EcopathCatch,ecopath,true,true,true,true,implemented,
 EcopathDietComp,ecopath,true,true,true,true,implemented,
 EcopathDietCompSample,ecopath,true,true,false,false,partial,
-EcopathDiscardFate,ecopath,true,true,true,false,partial,
+EcopathDiscardFate,ecopath,true,true,true,true,implemented,
 EcopathFleet,ecopath,true,true,true,true,implemented,
 EcopathGroup,ecopath,true,true,true,true,partial,"ImpVar read as the diet import share; BiomAcc, BiomAccRate and DtImports read (A1); Immigration, Emigration and EmigRate read and modelled for living groups, and for detritus groups in Ecosim (EwE rule), OtherMort read as EE = 1 - OtherMort (A1-s2); BiomAccRate solved with the balance, also with B left to Ecopath (A1-rate); not used: BiomAcc (detritus groups), Type (fractional, mixotrophs)"
 EcopathGroupCatchSample,ecopath,true,true,true,false,partial,
@@ -39,7 +39,7 @@ EcosimModel,ecosim,true,false,false,false,partial,
 EcosimScenario,ecosim,true,true,true,true,partial,"read: NutBaseFreeProp, NutForcingShapeID (nutrient limitation of primary production), UseVarPQ, ForagingTimeLowerLimit; not read: StepSize, SystemRecovery, sorwt, Discount"
 EcosimScenarioArena,ecosim,true,false,false,false,partial,
 EcosimScenarioCapacityDrivers,ecosim,false,true,true,false,partial,"read: environmental response functions (Target 115: search rate or production, as ForcedSearch; 126: other mortality, as ForcedMort); a response on a detritus group (its import) is reported, not modelled"
-EcosimScenarioFleet,ecosim,true,true,false,false,partial,
+EcosimScenarioFleet,ecosim,true,true,false,true,partial,
 EcosimScenarioFleetYear,ecosim,true,false,false,false,partial,
 EcosimScenarioForcingMatrix,ecosim,true,true,true,true,implemented,
 EcosimScenarioGroup,ecosim,true,true,true,true,partial,"read by group ID: FtimeAdjust, MoPred, FtimeMax, Pbmaxs, SwitchPower, RiskTime, CmCo, AdditivePredMort; not read: QmQo; FishRateMax has no model effect (it scales EwE's fishing-rate sketch pad)"

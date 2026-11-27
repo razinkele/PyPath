@@ -57,12 +57,29 @@ class CsvBundleWriter:
         bio_groups = model[bio_mask].reset_index(drop=True)
         fleet_groups = model[fleet_mask].reset_index(drop=True)
 
-        n_bio = len(bio_groups)
-
         # EwE derives a stanza group's age structure from its life stages'
         # EcopathGroup.vbK (cEcoSimModel.InitStanza): give every stage group
         # its stanza group's K.
         stage_vbk = _stanza_stage_vbk(self._params.stanzas)
+
+        # Diet import: EwE 6 keeps a consumer's imported share of its diet in
+        # EcopathGroup.ImpVar, not in EcopathDietComp (cDBDataSource:
+        # DC(i, 0) = ImpVar), as read_ewemdb reads it back.
+        diet_import: Dict[str, float] = {}
+        if "Import" in diet["Group"].tolist():
+            imp_row = diet[diet["Group"] == "Import"].iloc[0]
+            for col in diet.columns:
+                if col != "Group":
+                    v = imp_row[col]
+                    if pd.notna(v) and float(v) != 0.0:
+                        diet_import[str(col)] = float(v)
+
+        # EwE writes -9999 (cCore.NULL_VALUE) for every basic input left for
+        # Ecopath to estimate, and read_ewemdb reads it back as such. A NULL
+        # would become 0 in the Access template (an input of 0, not unknown).
+        def _input(value):
+            v = _nan_to_none(value)
+            return _EWE_NULL_VALUE if v is None else v
 
         # --- EcopathGroup ---
         group_rows: List[Dict[str, Any]] = []
@@ -74,22 +91,22 @@ class CsvBundleWriter:
                     "GroupName": row["Group"],
                     "Sequence": i + 1,
                     "Type": rpath_type,
-                    "Biomass": _nan_to_none(row.get("Biomass")),
+                    "Biomass": _input(row.get("Biomass")),
                     "Area": 1.0,
-                    "ProdBiom": _nan_to_none(row.get("PB")),
-                    "ConsBiom": _nan_to_none(row.get("QB")),
-                    "EcoEfficiency": _nan_to_none(row.get("EE")),
-                    "ProdCons": _nan_to_none(row.get("ProdCons")),
+                    "ProdBiom": _input(row.get("PB")),
+                    "ConsBiom": _input(row.get("QB")),
+                    "EcoEfficiency": _input(row.get("EE")),
+                    "ProdCons": _input(row.get("ProdCons")),
                     "BiomAcc": _nan_to_none(row.get("BioAcc")),
                     "BiomAccRate": None,
                     "Unassim": _nan_to_none(row.get("Unassim")),
                     "DtImports": _nan_to_none(row.get("DetInput")),
                     "Export": None,
                     "Catch": None,
-                    "ImpVar": None,
+                    "ImpVar": diet_import.get(str(row["Group"])),
                     "NonMarketValue": None,
                     "Respiration": None,
-                    "PoolColor": None,
+                    "PoolColor": "0",  # hex RGB: EwE parses it (cDBDataSource)
                     "Immigration": _nan_to_none(row.get("Immigration")),
                     "Emigration": _nan_to_none(row.get("Emigration")),
                     "EmigRate": _nan_to_none(row.get("EmigRate")),
@@ -111,7 +128,7 @@ class CsvBundleWriter:
                     "FixedCost": None,
                     "VariableCost": None,
                     "SailingCost": None,
-                    "PoolColor": None,
+                    "PoolColor": "0",  # hex RGB: EwE parses it (cDBDataSource)
                     "NominalEffort": None,
                 }
             )
@@ -122,7 +139,10 @@ class CsvBundleWriter:
         bio_names = bio_groups["Group"].tolist()
         name_to_id = {name: idx + 1 for idx, name in enumerate(bio_names)}
 
-        diet_rows: List[Dict[str, Any]] = []
+        # One row per (PredID, PreyID): the diet share and, for a detritus
+        # PreyID, the share of PredID's detritus that goes to it
+        # (EcopathDietComp.DetritusFate, PredID = source, PreyID = pool).
+        diet_cells: Dict[tuple, Dict[str, float]] = {}
         prey_names = diet["Group"].tolist()
 
         # Predator columns are all columns except "Group"
@@ -136,26 +156,66 @@ class CsvBundleWriter:
                 val = diet.iloc[prey_idx][pred_col]
                 if pd.notna(val) and val != 0:
                     if prey_name == "Import":
-                        prey_id = n_bio + 1
+                        continue  # written as EcopathGroup.ImpVar above
                     elif prey_name in name_to_id:
                         prey_id = name_to_id[prey_name]
                     else:
                         continue
-                    diet_rows.append(
+                    cell = diet_cells.setdefault(
+                        (pred_id, prey_id), {"Diet": 0.0, "DetritusFate": 0.0}
+                    )
+                    cell["Diet"] = float(val)
+        det_names = [
+            str(g) for g, t in zip(bio_groups["Group"], bio_groups["Type"]) if t == 2
+        ]
+        for _, grow in bio_groups.iterrows():
+            src_id = name_to_id[grow["Group"]]
+            for det in det_names:
+                if det not in bio_groups.columns:
+                    continue
+                v = grow.get(det)
+                if pd.notna(v) and float(v) != 0.0:
+                    cell = diet_cells.setdefault(
+                        (src_id, name_to_id[det]), {"Diet": 0.0, "DetritusFate": 0.0}
+                    )
+                    cell["DetritusFate"] = float(v)
+        self._tables["EcopathDietComp"] = pd.DataFrame(
+            [
+                {"PredID": k[0], "PreyID": k[1], **v}
+                for k, v in sorted(diet_cells.items())
+            ],
+            columns=["PredID", "PreyID", "Diet", "DetritusFate"],
+        )
+
+        # --- EcopathDiscardFate: each fleet's discards by detritus pool ---
+        discard_rows: List[Dict[str, Any]] = []
+        for fi, (_, frow) in enumerate(fleet_groups.iterrows()):
+            for det in det_names:
+                v = frow.get(det)
+                if det in fleet_groups.columns and pd.notna(v):
+                    discard_rows.append(
                         {
-                            "PredID": pred_id,
-                            "PreyID": prey_id,
-                            "Diet": float(val),
+                            "GroupID": name_to_id[det],
+                            "FleetID": fi + 1,
+                            "DiscardFate": float(v),
                         }
                     )
-        self._tables["EcopathDietComp"] = pd.DataFrame(diet_rows)
+        if discard_rows:
+            self._tables["EcopathDiscardFate"] = pd.DataFrame(discard_rows)
 
         # --- EcopathCatch ---
         catch_rows: List[Dict[str, Any]] = []
         for fi, (_, frow) in enumerate(fleet_groups.iterrows()):
             fleet_name = frow["Group"]
+            # PyPath's own convention (Rpath's): landings in the fleet's
+            # column, discards in "<fleet>.disc"; "Landings.<fleet>" and
+            # "Discards.<fleet>" are read too.
             land_col = f"Landings.{fleet_name}"
             disc_col = f"Discards.{fleet_name}"
+            if land_col not in model.columns and fleet_name in model.columns:
+                land_col = fleet_name
+            if disc_col not in model.columns and f"{fleet_name}.disc" in model.columns:
+                disc_col = f"{fleet_name}.disc"
             has_land = land_col in model.columns
             has_disc = disc_col in model.columns
             if has_land or has_disc:
@@ -233,6 +293,7 @@ class CsvBundleWriter:
 
         scen_rows = []
         group_info_rows = []
+        fleet_info_rows = []
         fish_rate_rows = []
         shape_rows = []
         shape_time_rows = []
@@ -252,11 +313,18 @@ class CsvBundleWriter:
             scen_rows.append(
                 {
                     "ScenarioID": scen_id,
-                    "ScenarioName": getattr(scen, "eco_name", f"Scenario {scen_id}"),
+                    "ScenarioName": getattr(scen, "eco_name", "")
+                    or f"Scenario {scen_id}",
                     "Description": "Exported from PyPath",
                     "Author": "",
                     "Contact": "",
-                    "LastSaved": "",
+                    # a date, as EcopathModel.LastSaved (the template's column
+                    # is numeric; an empty string is a type mismatch)
+                    "LastSaved": (
+                        datetime.now(tz=timezone.utc)
+                        - datetime(1899, 12, 30, tzinfo=timezone.utc)
+                    ).total_seconds()
+                    / 86400.0,
                     "TotalTime": float(num_years),
                     "StepSize": 1.0 / 12.0,
                     "EquilibriumStepSize": 1.0,
@@ -274,7 +342,9 @@ class CsvBundleWriter:
                 continue
 
             # --- EcosimScenarioGroup: group-level Ecosim settings ---
-            n_groups = getattr(p, "NUM_GROUPS", 0) + 1  # +1 for Outside
+            # The living and detritus groups only: Ecosim's own arrays put the
+            # fleets after them, and EcopathGroup has no rows for fleets.
+            n_groups = getattr(p, "NUM_LIVING", 0) + getattr(p, "NUM_DEAD", 0) + 1
 
             def _group_value(attr, gi, default):
                 arr = getattr(p, attr, None)
@@ -306,9 +376,35 @@ class CsvBundleWriter:
                     }
                 )
 
+            # --- EcosimScenarioFleet: one row per fleet ---
+            # EwE reads every fleet's row when it loads a scenario and fails
+            # without it (cDBDataSource). FishRateShapeID 0: EwE creates the
+            # fleet's effort shape itself, at 1. The other values are EwE's
+            # defaults for a new fleet (ReadSafe defaults in cDBDataSource).
+            for fi in range(1, int(getattr(p, "NUM_GEARS", 0) or 0) + 1):
+                fleet_info_rows.append(
+                    {
+                        "ScenarioID": scen_id,
+                        "EcopathFleetID": fi,
+                        "FleetID": fi,
+                        "FishRateShapeID": 0,
+                        "Epower": 3.0,
+                        "PCapBase": 0.5,
+                        "CapDepreciate": 0.06,
+                        "CapBaseGrowth": 0.2,
+                        "EffortConversionFactor": 1.0,
+                        "MaxEffort": _EWE_NULL_VALUE,
+                        "QuotaType": 0,
+                    }
+                )
+
             # --- EcosimScenarioForcingMatrix: per-link vulnerabilities ---
             if hasattr(p, "PreyFrom") and hasattr(p, "VV"):
-                for link_idx in range(len(p.PreyFrom)):
+                for link_idx in range(1, len(p.PreyFrom)):
+                    # link 0 is a placeholder; links from group 0 are primary
+                    # production and import, written as Pbmaxs above
+                    if int(p.PreyFrom[link_idx]) < 1:
+                        continue
                     forcing_matrix_rows.append(
                         {
                             "ScenarioID": scen_id,
@@ -339,11 +435,12 @@ class CsvBundleWriter:
 
             # --- Environmental forcing (EcosimShape + EcosimShapeTime) ---
             if hasattr(scen, "forcing") and hasattr(scen.forcing, "ForcedBio"):
-                forced = scen.forcing.ForcedBio
-                for gi in range(forced.shape[0]):
-                    # Only export if not all 1.0 (non-trivial forcing)
-                    col = forced[gi, :]
-                    if np.any(np.abs(col - 1.0) > 1e-9):
+                # ForcedBio is (months, groups); a value > 0 forces the
+                # group's biomass, anything else (-1, 0) leaves it free
+                forced = np.asarray(scen.forcing.ForcedBio)
+                for gi in range(1, forced.shape[1] if forced.ndim == 2 else 0):
+                    col = forced[:, gi]
+                    if np.any(col > 0):
                         sid = shape_id_counter
                         shape_id_counter += 1
                         shape_rows.append(
@@ -374,6 +471,8 @@ class CsvBundleWriter:
                     )
 
         self._tables["EcosimScenario"] = pd.DataFrame(scen_rows)
+        if fleet_info_rows:
+            self._tables["EcosimScenarioFleet"] = pd.DataFrame(fleet_info_rows)
         if group_info_rows:
             self._tables["EcosimScenarioGroup"] = pd.DataFrame(group_info_rows)
         if forcing_matrix_rows:
@@ -796,6 +895,9 @@ class CsvBundleWriter:
             if os.path.exists(self._tmp_path):
                 os.unlink(self._tmp_path)
             raise
+
+
+_EWE_NULL_VALUE = -9999.0  # cCore.NULL_VALUE: an input left for Ecopath
 
 
 def _nan_to_none(value):
