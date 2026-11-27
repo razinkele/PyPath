@@ -17526,8 +17526,8 @@ including the derivative calculations and integration methods.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">65</span>
-<span class="normal">66</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RunCancelled</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">66</span>
+<span class="normal">67</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RunCancelled</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Raised by ``rsim_run`` when its ``on_month`` callback asks the run to stop."""</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -17821,8 +17821,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 69</span>
-<span class="normal"> 70</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 70</span>
 <span class="normal"> 71</span>
 <span class="normal"> 72</span>
 <span class="normal"> 73</span>
@@ -18056,7 +18055,8 @@ NumDetLinks : int
 <span class="normal">301</span>
 <span class="normal">302</span>
 <span class="normal">303</span>
-<span class="normal">304</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">304</span>
+<span class="normal">305</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimParams</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Dynamic simulation parameters.</span>
 
@@ -18393,8 +18393,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">307</span>
-<span class="normal">308</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">308</span>
 <span class="normal">309</span>
 <span class="normal">310</span>
 <span class="normal">311</span>
@@ -18415,7 +18414,8 @@ NumDetLinks : int
 <span class="normal">326</span>
 <span class="normal">327</span>
 <span class="normal">328</span>
-<span class="normal">329</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">329</span>
+<span class="normal">330</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""State variables for Ecosim simulation.</span>
 
@@ -18584,8 +18584,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">332</span>
-<span class="normal">333</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">333</span>
 <span class="normal">334</span>
 <span class="normal">335</span>
 <span class="normal">336</span>
@@ -18623,7 +18622,8 @@ NumDetLinks : int
 <span class="normal">368</span>
 <span class="normal">369</span>
 <span class="normal">370</span>
-<span class="normal">371</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">371</span>
+<span class="normal">372</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Forcing matrices for environmental and biological effects.</span>
 
@@ -18764,8 +18764,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">374</span>
-<span class="normal">375</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">375</span>
 <span class="normal">376</span>
 <span class="normal">377</span>
 <span class="normal">378</span>
@@ -18784,7 +18783,8 @@ NumDetLinks : int
 <span class="normal">391</span>
 <span class="normal">392</span>
 <span class="normal">393</span>
-<span class="normal">394</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">394</span>
+<span class="normal">395</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Fishing forcing matrices.</span>
 
@@ -18997,8 +18997,7 @@ NumDetLinks : int
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">397</span>
-<span class="normal">398</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">398</span>
 <span class="normal">399</span>
 <span class="normal">400</span>
 <span class="normal">401</span>
@@ -19035,7 +19034,8 @@ NumDetLinks : int
 <span class="normal">432</span>
 <span class="normal">433</span>
 <span class="normal">434</span>
-<span class="normal">435</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">435</span>
+<span class="normal">436</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimScenario</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Complete Ecosim simulation scenario.</span>
 
@@ -19406,8 +19406,7 @@ month-end biomass / 12 (n_months+1 x n_groups+1). None for RK4 and AB.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">442</span>
-<span class="normal">443</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">443</span>
 <span class="normal">444</span>
 <span class="normal">445</span>
 <span class="normal">446</span>
@@ -19520,7 +19519,8 @@ month-end biomass / 12 (n_months+1 x n_groups+1). None for RK4 and AB.</p>
 <span class="normal">553</span>
 <span class="normal">554</span>
 <span class="normal">555</span>
-<span class="normal">556</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">556</span>
+<span class="normal">557</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RsimOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Output from Ecosim simulation run.</span>
 
@@ -19698,8 +19698,7 @@ start value, before the run's start-of-run derivative advances it.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1906</span>
-<span class="normal">1907</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1907</span>
 <span class="normal">1908</span>
 <span class="normal">1909</span>
 <span class="normal">1910</span>
@@ -19724,7 +19723,8 @@ start value, before the run's start-of-run derivative advances it.</p>
 <span class="normal">1929</span>
 <span class="normal">1930</span>
 <span class="normal">1931</span>
-<span class="normal">1932</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">1932</span>
+<span class="normal">1933</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RunSetup</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The per-run inputs that ``rsim_run``'s paths share (``_run_setup``).</span>
 
@@ -19809,8 +19809,7 @@ biomass in any month between the run at <code>substeps</code> and the run at
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2750</span>
-<span class="normal">2751</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2751</span>
 <span class="normal">2752</span>
 <span class="normal">2753</span>
 <span class="normal">2754</span>
@@ -19824,7 +19823,8 @@ biomass in any month between the run at <code>substeps</code> and the run at
 <span class="normal">2762</span>
 <span class="normal">2763</span>
 <span class="normal">2764</span>
-<span class="normal">2765</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">2765</span>
+<span class="normal">2766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SubstepCheck</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""What ``substep_check`` found.</span>
 
@@ -19885,8 +19885,7 @@ fraction &gt; 0 to its own pool.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">559</span>
-<span class="normal">560</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">560</span>
 <span class="normal">561</span>
 <span class="normal">562</span>
 <span class="normal">563</span>
@@ -19899,7 +19898,8 @@ fraction &gt; 0 to its own pool.</p>
 <span class="normal">570</span>
 <span class="normal">571</span>
 <span class="normal">572</span>
-<span class="normal">573</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="normal">573</span>
+<span class="normal">574</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">detritus_self_fates</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">nliving</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ndead</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Detritus groups whose detritus fate points to themselves.</span>
 
 <span class="sd">    Returns ``{group name: fraction}`` for every dead group with a fate</span>
@@ -20023,8 +20023,7 @@ read from <code>rpath_params</code> when it is given and has one, else from
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">635</span>
-<span class="normal">636</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">636</span>
 <span class="normal">637</span>
 <span class="normal">638</span>
 <span class="normal">639</span>
@@ -20047,7 +20046,8 @@ read from <code>rpath_params</code> when it is given and has one, else from
 <span class="normal">656</span>
 <span class="normal">657</span>
 <span class="normal">658</span>
-<span class="normal">659</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">default_fast_group_rule</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">rpath_params</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="normal">659</span>
+<span class="normal">660</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">default_fast_group_rule</span><span class="p">(</span><span class="n">rpath</span><span class="p">,</span> <span class="n">rpath_params</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The fast-group rule a model gets when none is named (roadmap D1).</span>
 
 <span class="sd">    ``"ewe"`` when the model's origin, its ``compat``, is ``"ewe"`` (models</span>
@@ -20330,8 +20330,7 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 662</span>
-<span class="normal"> 663</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 663</span>
 <span class="normal"> 664</span>
 <span class="normal"> 665</span>
 <span class="normal"> 666</span>
@@ -20812,7 +20811,8 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 <span class="normal">1141</span>
 <span class="normal">1142</span>
 <span class="normal">1143</span>
-<span class="normal">1144</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
+<span class="normal">1144</span>
+<span class="normal">1145</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_params</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">mscramble</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
     <span class="n">mhandle</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
@@ -21383,8 +21383,7 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1147</span>
-<span class="normal">1148</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1148</span>
 <span class="normal">1149</span>
 <span class="normal">1150</span>
 <span class="normal">1151</span>
@@ -21400,7 +21399,8 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 <span class="normal">1161</span>
 <span class="normal">1162</span>
 <span class="normal">1163</span>
-<span class="normal">1164</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
+<span class="normal">1164</span>
+<span class="normal">1165</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_state</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimState</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create initial state vectors for simulation.</span>
 
 <span class="sd">    Parameters</span>
@@ -21522,8 +21522,7 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1167</span>
-<span class="normal">1168</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1168</span>
 <span class="normal">1169</span>
 <span class="normal">1170</span>
 <span class="normal">1171</span>
@@ -21553,7 +21552,8 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 <span class="normal">1195</span>
 <span class="normal">1196</span>
 <span class="normal">1197</span>
-<span class="normal">1198</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
+<span class="normal">1198</span>
+<span class="normal">1199</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_forcing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimForcing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create forcing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -21689,8 +21689,7 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1201</span>
-<span class="normal">1202</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1202</span>
 <span class="normal">1203</span>
 <span class="normal">1204</span>
 <span class="normal">1205</span>
@@ -21718,7 +21717,8 @@ is a mixotroph (0 &lt; type &lt; 1), or a group has some other type.</p>
 <span class="normal">1227</span>
 <span class="normal">1228</span>
 <span class="normal">1229</span>
-<span class="normal">1230</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
+<span class="normal">1230</span>
+<span class="normal">1231</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_fishing</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">RsimParams</span><span class="p">,</span> <span class="n">years</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RsimFishing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Create fishing matrices with default values.</span>
 
 <span class="sd">    Parameters</span>
@@ -21959,8 +21959,7 @@ detritus (2), then fleets (3); or a group is a mixotroph (0 &lt; type
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1585</span>
-<span class="normal">1586</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1586</span>
 <span class="normal">1587</span>
 <span class="normal">1588</span>
 <span class="normal">1589</span>
@@ -22148,7 +22147,8 @@ detritus (2), then fleets (3); or a group is a mixotroph (0 &lt; type
 <span class="normal">1771</span>
 <span class="normal">1772</span>
 <span class="normal">1773</span>
-<span class="normal">1774</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
+<span class="normal">1774</span>
+<span class="normal">1775</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_scenario</span><span class="p">(</span>
     <span class="n">rpath</span><span class="p">:</span> <span class="n">Rpath</span><span class="p">,</span>
     <span class="n">rpath_params</span><span class="p">:</span> <span class="n">RpathParams</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="nb">range</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">101</span><span class="p">),</span>
@@ -22479,8 +22479,7 @@ unchanged, which under the EwE rule is 1.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2691</span>
-<span class="normal">2692</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2692</span>
 <span class="normal">2693</span>
 <span class="normal">2694</span>
 <span class="normal">2695</span>
@@ -22535,7 +22534,8 @@ unchanged, which under the EwE rule is 1.</p>
 <span class="normal">2744</span>
 <span class="normal">2745</span>
 <span class="normal">2746</span>
-<span class="normal">2747</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_groups</span><span class="p">(</span><span class="n">scenario</span><span class="p">:</span> <span class="s2">"RsimScenario"</span><span class="p">,</span> <span class="n">groups</span><span class="p">,</span> <span class="n">substeps</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RsimScenario"</span><span class="p">:</span>
+<span class="normal">2747</span>
+<span class="normal">2748</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">integrate_groups</span><span class="p">(</span><span class="n">scenario</span><span class="p">:</span> <span class="s2">"RsimScenario"</span><span class="p">,</span> <span class="n">groups</span><span class="p">,</span> <span class="n">substeps</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"RsimScenario"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""A copy of a scenario in which the named fast groups are integrated.</span>
 
 <span class="sd">    Under the EwE rule a group whose turnover is fast (plankton, often</span>
@@ -22738,8 +22738,7 @@ scenario's own <code>ecospace</code>, if it has one; otherwise plain Ecosim.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2768</span>
-<span class="normal">2769</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2769</span>
 <span class="normal">2770</span>
 <span class="normal">2771</span>
 <span class="normal">2772</span>
@@ -22822,7 +22821,8 @@ scenario's own <code>ecospace</code>, if it has one; otherwise plain Ecosim.</p>
 <span class="normal">2849</span>
 <span class="normal">2850</span>
 <span class="normal">2851</span>
-<span class="normal">2852</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">substep_check</span><span class="p">(</span>
+<span class="normal">2852</span>
+<span class="normal">2853</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">substep_check</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="s2">"RsimScenario"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -23163,8 +23163,7 @@ interrupted. Without it (None, the default) the run is unchanged.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/core/ecosim.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2870</span>
-<span class="normal">2871</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2871</span>
 <span class="normal">2872</span>
 <span class="normal">2873</span>
 <span class="normal">2874</span>
@@ -24400,7 +24399,69 @@ interrupted. Without it (None, the default) the run is unchanged.</p>
 <span class="normal">4104</span>
 <span class="normal">4105</span>
 <span class="normal">4106</span>
-<span class="normal">4107</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
+<span class="normal">4107</span>
+<span class="normal">4108</span>
+<span class="normal">4109</span>
+<span class="normal">4110</span>
+<span class="normal">4111</span>
+<span class="normal">4112</span>
+<span class="normal">4113</span>
+<span class="normal">4114</span>
+<span class="normal">4115</span>
+<span class="normal">4116</span>
+<span class="normal">4117</span>
+<span class="normal">4118</span>
+<span class="normal">4119</span>
+<span class="normal">4120</span>
+<span class="normal">4121</span>
+<span class="normal">4122</span>
+<span class="normal">4123</span>
+<span class="normal">4124</span>
+<span class="normal">4125</span>
+<span class="normal">4126</span>
+<span class="normal">4127</span>
+<span class="normal">4128</span>
+<span class="normal">4129</span>
+<span class="normal">4130</span>
+<span class="normal">4131</span>
+<span class="normal">4132</span>
+<span class="normal">4133</span>
+<span class="normal">4134</span>
+<span class="normal">4135</span>
+<span class="normal">4136</span>
+<span class="normal">4137</span>
+<span class="normal">4138</span>
+<span class="normal">4139</span>
+<span class="normal">4140</span>
+<span class="normal">4141</span>
+<span class="normal">4142</span>
+<span class="normal">4143</span>
+<span class="normal">4144</span>
+<span class="normal">4145</span>
+<span class="normal">4146</span>
+<span class="normal">4147</span>
+<span class="normal">4148</span>
+<span class="normal">4149</span>
+<span class="normal">4150</span>
+<span class="normal">4151</span>
+<span class="normal">4152</span>
+<span class="normal">4153</span>
+<span class="normal">4154</span>
+<span class="normal">4155</span>
+<span class="normal">4156</span>
+<span class="normal">4157</span>
+<span class="normal">4158</span>
+<span class="normal">4159</span>
+<span class="normal">4160</span>
+<span class="normal">4161</span>
+<span class="normal">4162</span>
+<span class="normal">4163</span>
+<span class="normal">4164</span>
+<span class="normal">4165</span>
+<span class="normal">4166</span>
+<span class="normal">4167</span>
+<span class="normal">4168</span>
+<span class="normal">4169</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -24842,8 +24903,58 @@ interrupted. Without it (None, the default) the run is unchanged.</p>
         <span class="p">}</span>
         <span class="n">out_catch_month_end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_groups</span><span class="p">))</span>
 
-    <span class="c1"># Main simulation loop</span>
-    <span class="k">for</span> <span class="n">month</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+    <span class="c1"># The compiled RK4 step (pypath.core.ecosim_fast) when numba is installed</span>
+    <span class="c1"># and the run uses only options it covers; else integrate_rk4</span>
+    <span class="n">_fast_rk4</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_continuous</span> <span class="ow">and</span> <span class="n">method</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"RK4"</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pypath.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">ecosim_fast</span> <span class="k">as</span> <span class="n">_ecosim_fast</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">_ecosim_fast</span><span class="o">.</span><span class="n">ENABLED</span>
+            <span class="ow">and</span> <span class="n">_ecosim_fast</span><span class="o">.</span><span class="n">python_hooks_intact</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="vm">__name__</span><span class="p">])</span>
+            <span class="ow">and</span> <span class="n">_ecosim_fast</span><span class="o">.</span><span class="n">unsupported_reason</span><span class="p">(</span>
+                <span class="n">params_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">,</span> <span class="n">scenario</span><span class="o">.</span><span class="n">forcing</span>
+            <span class="p">)</span>
+            <span class="ow">is</span> <span class="kc">None</span>
+        <span class="p">):</span>
+            <span class="n">_fast_rk4</span> <span class="o">=</span> <span class="n">_ecosim_fast</span><span class="o">.</span><span class="n">FastRK4</span><span class="p">(</span><span class="n">params_dict</span><span class="p">,</span> <span class="n">fishing_dict</span><span class="p">)</span>
+    <span class="c1"># ... and the whole monthly loop compiled (ecosim_fast.CompiledRun) when</span>
+    <span class="c1"># the run has no fleet dynamics, Ecotracer or mediation</span>
+    <span class="n">_compiled</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">_fast_rk4</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">ecotracer</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">fleet_dynamics</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">mediation</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="n">_compiled</span> <span class="o">=</span> <span class="n">_ecosim_fast</span><span class="o">.</span><span class="n">CompiledRun</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="p">,</span>
+            <span class="n">setup</span><span class="p">,</span>
+            <span class="n">_fast_rk4</span><span class="p">,</span>
+            <span class="n">rk4_steps</span><span class="p">,</span>
+            <span class="n">dt</span><span class="p">,</span>
+            <span class="p">(</span>
+                <span class="n">out_biomass</span><span class="p">,</span>
+                <span class="n">out_catch</span><span class="p">,</span>
+                <span class="n">out_gear_catch</span><span class="p">,</span>
+                <span class="n">out_fishmort</span><span class="p">,</span>
+                <span class="n">stanza_biomass</span><span class="p">,</span>
+                <span class="n">out_hden</span><span class="p">,</span>
+                <span class="n">annual_qlink</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">_compiled</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">on_month</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">_compiled</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_months</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">_m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_months</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="n">_compiled</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">_m</span><span class="p">,</span> <span class="n">_m</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">on_month</span><span class="p">(</span><span class="n">_m</span><span class="p">,</span> <span class="n">n_months</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">RunCancelled</span><span class="p">(</span><span class="sa">f</span><span class="s2">"run cancelled after month </span><span class="si">{</span><span class="n">_m</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">n_months</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">crash_year</span><span class="p">,</span> <span class="n">crashed_groups</span> <span class="o">=</span> <span class="n">_compiled</span><span class="o">.</span><span class="n">crash_info</span><span class="p">()</span>
+
+    <span class="c1"># Main simulation loop (none left to run after the compiled loop)</span>
+    <span class="k">for</span> <span class="n">month</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">_compiled</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_months</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="c1"># Debug: indicate loop iteration for first few months</span>
         <span class="k">if</span> <span class="n">month</span> <span class="o">&lt;=</span> <span class="mi">6</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"entering month loop month=</span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">month</span><span class="p">)</span>
@@ -24952,15 +25063,26 @@ interrupted. Without it (None, the default) the run is unchanged.</p>
             <span class="n">_stages</span> <span class="o">=</span> <span class="n">_stanza_stages</span>
             <span class="k">if</span> <span class="n">_fg_from_stage</span> <span class="ow">and</span> <span class="n">_stages</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">_stages</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="n">state</span> <span class="o">=</span> <span class="n">integrate_rk4</span><span class="p">(</span>
-                <span class="n">state</span><span class="p">,</span>
-                <span class="n">params_dict</span><span class="p">,</span>
-                <span class="n">forcing_dict</span><span class="p">,</span>
-                <span class="n">fishing_dict</span><span class="p">,</span>
-                <span class="n">dt</span><span class="p">,</span>
-                <span class="n">n_steps</span><span class="o">=</span><span class="n">rk4_steps</span><span class="p">,</span>
-                <span class="n">stage_rates</span><span class="o">=</span><span class="n">_stages</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">_fast_rk4</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="n">_fast_rk4</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+                    <span class="n">state</span><span class="p">,</span>
+                    <span class="n">forcing_dict</span><span class="p">,</span>
+                    <span class="n">_month_f</span><span class="p">,</span>
+                    <span class="n">_month_link_f</span><span class="p">,</span>
+                    <span class="n">dt</span><span class="p">,</span>
+                    <span class="n">n_steps</span><span class="o">=</span><span class="n">rk4_steps</span><span class="p">,</span>
+                    <span class="n">stage_rates</span><span class="o">=</span><span class="n">_stages</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="n">integrate_rk4</span><span class="p">(</span>
+                    <span class="n">state</span><span class="p">,</span>
+                    <span class="n">params_dict</span><span class="p">,</span>
+                    <span class="n">forcing_dict</span><span class="p">,</span>
+                    <span class="n">fishing_dict</span><span class="p">,</span>
+                    <span class="n">dt</span><span class="p">,</span>
+                    <span class="n">n_steps</span><span class="o">=</span><span class="n">rk4_steps</span><span class="p">,</span>
+                    <span class="n">stage_rates</span><span class="o">=</span><span class="n">_stages</span><span class="p">,</span>
+                <span class="p">)</span>
             <span class="k">if</span> <span class="n">_fg_from_stage</span><span class="p">:</span>
                 <span class="n">_fg_rates</span> <span class="o">=</span> <span class="n">_stages</span><span class="p">[</span><span class="s2">"first"</span><span class="p">]</span>
                 <span class="n">_fg_ftime</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">_fg_rates</span><span class="p">[</span><span class="s2">"FoodGain"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
