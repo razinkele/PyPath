@@ -6,6 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Versions follow [Semant
 
 <!--next-version-placeholder-->
 
+## v1.26.2 (2026-11-27)
+
+### Performance Improvements
+
+- **ecosim**: Compile the RK4 monthly loop with numba
+  ([#191](https://github.com/razinkele/PyPath/pull/191),
+  [`4649649`](https://github.com/razinkele/PyPath/commit/4649649c5fae7305c3ba248101c722a479f0dcf1))
+
+
 ## v1.26.1 (2026-11-25)
 
 ### Performance Improvements
