@@ -4523,3 +4523,17 @@ def run_ecosim(
         "dt": dt,
         "method": method,
     }
+
+
+# The functions as defined in this module, for pypath.core.ecosim_fast: it
+# compiles what they compute, and stands aside for the Python path when one
+# of them has been replaced (a test's spy, a caller's own version).
+_DEFINED_HOOKS = {
+    _k: _v
+    for _k, _v in list(globals().items())
+    if callable(_v)
+    and not isinstance(_v, type)
+    and getattr(_v, "__module__", None) == __name__
+}
+# the consumption loop chosen at import (numba kernel or Python loop)
+_DEFINED_HOOKS["_compute_consumption_sparse"] = _compute_consumption_sparse

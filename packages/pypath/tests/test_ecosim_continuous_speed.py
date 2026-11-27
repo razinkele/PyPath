@@ -224,12 +224,16 @@ def _exact_call_cpu(scen):
     pd.pop("_KERNEL_VECTOR", None)  # the reference is one link-loop pass
     forcing = _month_forcing(scen, setup, 1, setup.ftime)
     base = np.array(setup.state, dtype=float)
+    # batches of calls: process_time ticks every ~16 ms on Windows, longer
+    # than one call, so a single call would often measure 0
     samples = []
+    batch = 100
     with python_loop_reference():
-        for _ in range(200):
+        for _ in range(10):
             t0 = time.process_time()
-            deriv_vector(base.copy(), pd, forcing, setup.fishing_dict, rates={})
-            samples.append(time.process_time() - t0)
+            for _ in range(batch):
+                deriv_vector(base.copy(), pd, forcing, setup.fishing_dict, rates={})
+            samples.append((time.process_time() - t0) / batch)
     return min(samples)
 
 

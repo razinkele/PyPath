@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Times EwE 6's own engine (EwECore.dll) for scripts/benchmark_engines.py.
+    Build:  dotnet build -c Release -p:EweDir="C:\path\to\your\EwE 6 folder"
+    EweDir is the folder that holds EwECore.dll (the EwE 6 install folder).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>EweTimer</AssemblyName>
+    <EweDir Condition="'$(EweDir)' == ''">C:\Program Files\Ecopath with Ecosim 40 years 6.7.0.18865_64-bit</EweDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Not copied: the program loads EwE's own DLLs from the folder given
+         with -\-ewe-dir at run time, so it always times the installed engine. -->
+    <Reference Include="EwECore">
+      <HintPath>$(EweDir)\EwECore.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="EwEUtils">
+      <HintPath>$(EweDir)\EwEUtils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Lets the .NET SDK build for .NET Framework 4.8 without Visual Studio -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

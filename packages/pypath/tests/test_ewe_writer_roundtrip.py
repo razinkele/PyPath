@@ -81,7 +81,8 @@ class TestCsvRoundTrip:
             exp = groups[ewe_col].values
             for o, e in zip(orig, exp):
                 if np.isnan(o):
-                    assert np.isnan(e)
+                    # a value left for EwE to estimate: EwE's NULL_VALUE
+                    assert np.isnan(e) or e == -9999.0
                 else:
                     np.testing.assert_allclose(e, o, rtol=1e-6)
 
@@ -96,11 +97,14 @@ class TestCsvRoundTrip:
         with zipfile.ZipFile(outpath) as zf:
             diet = pd.read_csv(zf.open("EcopathDietComp.csv"))
 
+        # the imported diet is EcopathGroup.ImpVar in EwE, not a diet row
+        eaten = params.diet[params.diet["Group"] != "Import"]
         original_nonzero = 0
         for col in params.diet.columns[1:]:
-            original_nonzero += (params.diet[col] > 0).sum()
+            original_nonzero += (eaten[col] > 0).sum()
 
-        assert len(diet) == original_nonzero
+        # the table also holds detritus-fate cells (Diet 0, DetritusFate > 0)
+        assert (diet["Diet"] > 0).sum() == original_nonzero
 
     def test_fleet_names_survive(self, lt2022_path, tmp_path):
         from pypath.io.ewe_writer import write_ewemdb
