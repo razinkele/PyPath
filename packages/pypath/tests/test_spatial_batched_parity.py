@@ -39,13 +39,14 @@ def test_batched_path_is_taken(spatial_scenario, monkeypatch):
     """Guard against silently falling back for the standard feature set."""
     scenario, _ = spatial_scenario
     calls = {"n": 0}
-    real = si.deriv_batched
+    for name in ("deriv_batched", "deriv_spatial_fast"):
+        real = getattr(si, name)
 
-    def spy(*args, **kwargs):
-        calls["n"] += 1
-        return real(*args, **kwargs)
+        def spy(*args, _real=real, **kwargs):
+            calls["n"] += 1
+            return _real(*args, **kwargs)
 
-    monkeypatch.setattr(si, "deriv_batched", spy)
+        monkeypatch.setattr(si, name, spy)
     ng = scenario.params.NUM_GROUPS + 1
     grid = create_regular_grid(bounds=(0, 0, 3, 3), nx=3, ny=3)
     ecospace = EcospaceParams(

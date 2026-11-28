@@ -70,6 +70,15 @@ class _CountingPool(ProcessPoolExecutor):
         super().shutdown(*args, **kwargs)
 
 
+@pytest.fixture(autouse=True)
+def _per_patch_loop(monkeypatch):
+    """The workers run the per-patch loop. Maps the batched derivative
+    takes (all of these: their capacity map is EwE's base calibration) never
+    reach them, so the loop is forced here; the batched derivative's threads
+    are tested in test_spatial_batched_fast.py."""
+    monkeypatch.setattr(integ, "USE_BATCHED_DERIV", False)
+
+
 @pytest.fixture
 def pools(monkeypatch):
     _CountingPool.made = []

@@ -656,12 +656,34 @@ def implicit_diffusion_step(
     np.ndarray
         Biomass in each patch after the step [n_patches]
     """
+    biomass_vector = np.asarray(biomass_vector, dtype=float)
+    lu = diffusion_solver(dispersal_rate, grid, adjacency, dt, cache, capacity)
+    if lu is None:
+        return biomass_vector.copy()
+    return lu.solve(biomass_vector)
+
+
+def diffusion_solver(
+    dispersal_rate: float,
+    grid: EcospaceGrid,
+    adjacency: scipy.sparse.csr_matrix,
+    dt: float,
+    cache: dict | None = None,
+    capacity: Optional[np.ndarray] = None,
+):
+    """The factorisation :func:`implicit_diffusion_step` solves with, or
+    None when the step moves nothing (no rate, or one patch).
+
+    ``implicit_diffusion_step(b, ...)`` is ``lu.solve(b)`` (a copy of ``b``
+    for None): a caller stepping the same group many times with the same
+    arguments can look the solver up once (``rsim_run_spatial`` does, per
+    month).
+    """
     import scipy.sparse.linalg
 
-    biomass_vector = np.asarray(biomass_vector, dtype=float)
     step = float(dispersal_rate) * float(dt)
     if not step > 0 or grid.n_patches < 2:
-        return biomass_vector.copy()
+        return None
     if _uniform(capacity):
         capacity = None
         key = step
@@ -675,7 +697,33 @@ def implicit_diffusion_step(
         lu = scipy.sparse.linalg.splu(system.tocsc())
         if cache is not None:
             cache[key] = lu
-    return lu.solve(biomass_vector)
+    return lu
+
+
+def spatial_flux_is_zero(
+    n_groups: int, ecospace: EcospaceParams, params: dict, include_diffusion: bool
+) -> bool:
+    """Whether :func:`calculate_spatial_flux` would return all zeros: no
+    external flux, no IBM groups, and no dispersing group with diffusion
+    included or habitat-directed movement. False whenever in doubt (the
+    flux is then computed)."""
+    if ecospace.external_flux is not None or params.get("ibm_groups"):
+        return False
+    m = n_groups - 1
+    try:
+        rate = np.asarray(ecospace.dispersal_rate, dtype=float)
+        adv = np.asarray(ecospace.advection_enabled, dtype=bool)
+        grav = np.asarray(ecospace.gravity_strength, dtype=float)
+    except (TypeError, ValueError):
+        return False
+    if rate.ndim != 1 or len(rate) < m or len(adv) < m or len(grav) < m:
+        return False
+    movers = rate[:m] > 0
+    if not movers.any():
+        return True
+    if include_diffusion:
+        return False
+    return not np.any(movers & adv[:m] & (grav[:m] > 0))
 
 
 def calculate_spatial_flux(

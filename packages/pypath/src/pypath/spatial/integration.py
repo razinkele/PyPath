@@ -35,7 +35,12 @@ from pypath.core.stanzas import (
     split_update,
     stanza_group_indices,
 )
+from pypath.spatial import batched_fast
 from pypath.spatial.batched import batch_supported, deriv_batched
+from pypath.spatial.batched_fast import (
+    deriv_spatial_fast,
+    fast_supported,
+)
 from pypath.spatial.calibration import ewe_space_calibration
 from pypath.spatial.fishing import SpatialFishing, effort_multipliers
 
@@ -46,6 +51,21 @@ _MISSING = object()  # stands for a key the caller's params did not have
 # Evaluate all patches in one batched computation when supported
 # (pypath.spatial.batched); False forces the per-patch path.
 USE_BATCHED_DERIV = True
+# ... compiled with numba (pypath.spatial.batched_fast) when it is installed
+# and PYPATH_FAST_ECOSPACE is not 0; False keeps NumPy's batched derivative.
+USE_FAST_BATCHED = batched_fast.ENABLED
+
+
+def _diffuse_rows(biomass: np.ndarray, solvers) -> None:
+    """Each (row, solver) pair's implicit diffusion step, in place:
+    ``biomass[row] = solver.solve(biomass[row])`` (a copy for None), as
+    ``implicit_diffusion_step`` does. (The solves are too small for
+    threads: split over two they took longer, 2026-11-28.)"""
+    for row, lu in solvers:
+        if lu is None:
+            biomass[row] = np.array(biomass[row], dtype=float)
+        else:
+            biomass[row] = lu.solve(np.asarray(biomass[row], dtype=float))
 
 
 def _restore_keys(params: dict, saved: dict) -> None:
@@ -392,7 +412,10 @@ def deriv_vector_spatial(
     switches it on.
     """
     from pypath.ibm.base import SpatialContext
-    from pypath.spatial.dispersal import calculate_spatial_flux
+    from pypath.spatial.dispersal import (
+        calculate_spatial_flux,
+        spatial_flux_is_zero,
+    )
 
     _n_groups = state_spatial.shape[0]
     n_patches = state_spatial.shape[1]
@@ -487,7 +510,8 @@ def deriv_vector_spatial(
             n_patches,
             patch_share,
         )
-        if "B_BaseRef" in params
+        # EwE's base calibration (below) replaces this capacity scaling
+        if "B_BaseRef" in params and params.get("_space_cal") is None
         else None
     )
     params_need_modification = capacity is not None
@@ -615,8 +639,6 @@ def deriv_vector_spatial(
         USE_BATCHED_DERIV
         and patch_share is not None
         and not ibm_spatial_contexts
-        # the batched kernel takes one nutrient forcing for the whole map
-        and _nut_scale is None
         and batch_supported(params, forcing, () if rates_out is None else rates_out)
     )
     try:
@@ -624,7 +646,6 @@ def deriv_vector_spatial(
             # All patches in one array computation, bit-identical to the
             # per-patch loop below (pypath.spatial.batched)
             _w = np.asarray(patch_share, dtype=float)
-            _dens = state_spatial.T / _w[:, None]
             _bb_p = _qq_p = None
             if params_need_modification:
                 _bb_p = np.ascontiguousarray(b_base_ref_patches.T)
@@ -636,35 +657,76 @@ def deriv_vector_spatial(
                 _effort_p = np.tile(_base_eff, (n_patches, 1))
                 _n_mask_fleets = patch_effort_mask.shape[1]
                 _effort_p[:, 1 : _n_mask_fleets + 1] *= patch_effort_mask
-            _ratio_p = None
-            if stanza_pred_ratio is not None:
-                _ratio_p = np.ascontiguousarray(np.asarray(stanza_pred_ratio).T)
-            elif forcing.get("StanzaPredRatio") is not None:
-                _ratio_p = np.tile(
-                    np.asarray(forcing["StanzaPredRatio"], dtype=float),
-                    (n_patches, 1),
+            _eat_gp = None
+            if _space_cal is not None and _eat_eff_patches is not None:
+                _eat_gp = _eat_eff_patches  # EwE's base calibration (G, P)
+            if USE_FAST_BATCHED and fast_supported(params, _eat_gp):
+                # The compiled loop (pypath.spatial.batched_fast), its patches
+                # over n_jobs threads, on the run's own (groups x patches)
+                # arrays: densities, area shares, Hden in place
+                _ratio_gp = None
+                if stanza_pred_ratio is not None:
+                    _ratio_gp = stanza_pred_ratio
+                elif forcing.get("StanzaPredRatio") is not None:
+                    _ratio_gp = np.tile(
+                        np.asarray(forcing["StanzaPredRatio"], dtype=float)[:, None],
+                        (1, n_patches),
+                    )
+                deriv_spatial_fast(
+                    state_spatial,
+                    patch_share,
+                    params,
+                    forcing,
+                    fishing,
+                    deriv_out=deriv_spatial,
+                    bbase=_bb_p,
+                    qqbase=_qq_p,
+                    hden=_hden_patches,
+                    patch_effort=_effort_p,
+                    stanza_ratio=_ratio_gp,
+                    eat_eff=_eat_gp,
+                    nut_forcing=_nut_scale,
+                    rates_out=rates_out,
+                    n_threads=1 if _pool is None else int(_pool[1]),
                 )
-            _hden_p = None
-            if _hden_patches is not None:
-                _hden_p = np.ascontiguousarray(_hden_patches.T)
-            _d_p, _r_p = deriv_batched(
-                _dens,
-                params,
-                forcing,
-                fishing,
-                bbase=_bb_p,
-                qqbase=_qq_p,
-                hden=_hden_p,
-                patch_effort=_effort_p,
-                stanza_ratio=_ratio_p,
-                want_rates=rates_out is not None,
-            )
-            if _hden_p is not None and not params.get("_hden_frozen", False):
-                _hden_patches[:] = _hden_p.T
-            deriv_spatial[:] = (_w[:, None] * _d_p).T
-            if rates_out is not None:
-                for _key, _out in rates_out.items():
-                    _out[:] = (_r_p[_key] * _w[:, None]).T
+            else:
+                # NumPy's (pypath.spatial.batched), patch-major
+                _dens = state_spatial.T / _w[:, None]
+                _ratio_p = None
+                if stanza_pred_ratio is not None:
+                    _ratio_p = np.ascontiguousarray(np.asarray(stanza_pred_ratio).T)
+                elif forcing.get("StanzaPredRatio") is not None:
+                    _ratio_p = np.tile(
+                        np.asarray(forcing["StanzaPredRatio"], dtype=float),
+                        (n_patches, 1),
+                    )
+                _hden_p = None
+                if _hden_patches is not None:
+                    _hden_p = np.ascontiguousarray(_hden_patches.T)
+                # each patch's EatEff, as the loop's params["_eat_eff"]
+                _eat_p = None
+                if _eat_gp is not None:
+                    _eat_p = np.ascontiguousarray(np.asarray(_eat_gp, dtype=float).T)
+                _d_p, _r_p = deriv_batched(
+                    _dens,
+                    params,
+                    forcing,
+                    fishing,
+                    bbase=_bb_p,
+                    qqbase=_qq_p,
+                    hden=_hden_p,
+                    patch_effort=_effort_p,
+                    stanza_ratio=_ratio_p,
+                    eat_eff=_eat_p,
+                    nut_forcing=_nut_scale,
+                    want_rates=rates_out is not None,
+                )
+                if _hden_p is not None and not params.get("_hden_frozen", False):
+                    _hden_patches[:] = _hden_p.T
+                deriv_spatial[:] = (_w[:, None] * _d_p).T
+                if rates_out is not None:
+                    for _key, _out in rates_out.items():
+                        _out[:] = (_r_p[_key] * _w[:, None]).T
         elif _pool is not None:
             executor, n_jobs = _pool
             worker_params = {
@@ -747,12 +809,18 @@ def deriv_vector_spatial(
             _restore_keys(params, _saved_params)
 
     # Step 2: Add spatial fluxes (movement/dispersal)
-    spatial_flux = calculate_spatial_flux(
-        state_spatial, ecospace, params, t, include_diffusion=include_diffusion
-    )
+    if spatial_flux_is_zero(
+        state_spatial.shape[0], ecospace, params, include_diffusion
+    ):
+        # no flux to compute: adding 0.0 is adding the zero flux, bit for bit
+        deriv_spatial += 0.0
+    else:
+        spatial_flux = calculate_spatial_flux(
+            state_spatial, ecospace, params, t, include_diffusion=include_diffusion
+        )
 
-    # Add spatial fluxes to local dynamics
-    deriv_spatial += spatial_flux
+        # Add spatial fluxes to local dynamics
+        deriv_spatial += spatial_flux
 
     return deriv_spatial
 
@@ -1352,7 +1420,10 @@ def _run_spatial(
     SORWT = 0.5
 
     # B3: the groups that diffuse, implicitly after each RK4 step by default
-    from pypath.spatial.dispersal import implicit_diffusion_step, movement_capacity
+    from pypath.spatial.dispersal import (
+        diffusion_solver,
+        movement_capacity,
+    )
 
     moving_rows = _moving_rows(
         ecospace, params_dict, n_groups, fast_mask if use_fast else None
@@ -1362,6 +1433,9 @@ def _run_spatial(
     # by group row, and that month's factorisations
     _month_rows: dict = {}
     _month_lu: dict = {}
+    # the moving groups' diffusion solvers; without a monthly capacity the
+    # same every month (rate, sub-step and capacity rows are the run's)
+    _run_solvers = None
     _month_lu_index = None
 
     # EwE's NewMultiStanza model: each life stage's map-wide total is spread
@@ -1402,20 +1476,27 @@ def _run_spatial(
             )
         index_rates = dict(_moving_rows(ecospace, params_dict, n_groups, None))
 
+        _index_solvers: dict = {}
+
         def _move_index(row, amounts):
-            # the index moves like its stage group, over EwE's monthly step
+            # the index moves like its stage group, over EwE's monthly step:
+            # implicit_diffusion_step, with the row's solver of the run (its
+            # rate, step and base capacity row do not change)
             rate = index_rates.get(row, 0.0)
             if rate <= 0:
                 return amounts
-            return implicit_diffusion_step(
-                amounts,
-                rate,
-                ecospace.grid,
-                ecospace.grid.adjacency_matrix,
-                DELTA_T,
-                cache=diffusion_lu,
-                capacity=movement_capacity(ecospace, row - 1),
-            )
+            if row not in _index_solvers:
+                _index_solvers[row] = diffusion_solver(
+                    rate,
+                    ecospace.grid,
+                    ecospace.grid.adjacency_matrix,
+                    DELTA_T,
+                    cache=diffusion_lu,
+                    capacity=movement_capacity(ecospace, row - 1),
+                )
+            lu = _index_solvers[row]
+            amounts = np.asarray(amounts, dtype=float)
+            return amounts.copy() if lu is None else lu.solve(amounts)
 
     # Water flows carrying chosen groups (ecospace.water_transport): checked
     # here, applied once a month after the local step and the diffusion.
@@ -1596,13 +1677,10 @@ def _run_spatial(
             return {key: np.zeros((n_groups + 1, n_patches)) for key in _stage_keys}
 
         month_start_biomass = current_biomass.copy()
-        if _hden_start_pending:
-            # EwE6 SetTimeSteps: one Derivt at the start state advances Hden.
-            # (EwE's Ecospace start runs a second one, SetBiomassesEcospace's
-            # Derivt, cEcoSpace.vb 3155; left out so a uniform map stays
-            # Ecosim: it only changes the first months of handling groups.)
-            _f(current_biomass, t, hh)
-            _hden_start_pending = False
+        # DetritusOut first (Ecosim's, from its own copy of the parameters;
+        # the patches' Hden is not read), so that the start derivative below
+        # can run batched: only its Hden step is kept, which DetritusOut
+        # does not change
         if _det_out_pending:
             params_dict["_det_out"] = _ecosim_detritus_out(
                 params_dict,
@@ -1612,6 +1690,34 @@ def _run_spatial(
                 None if _handling is None else _hden_start,
             )
             _det_out_pending = False
+        if _hden_start_pending:
+            # EwE6 SetTimeSteps: one Derivt at the start state advances Hden.
+            # (EwE's Ecospace start runs a second one, SetBiomassesEcospace's
+            # Derivt, cEcoSpace.vb 3155; left out so a uniform map stays
+            # Ecosim: it only changes the first months of handling groups.)
+            _f(current_biomass, t, hh)
+            _hden_start_pending = False
+        # each moving group's diffusion solver for the month's sub-steps
+        # (its rate, the sub-step and its capacity row do not change in it)
+        _month_solvers = [] if _run_solvers is None else _run_solvers
+        if implicit_movement and (_run_solvers is None or capacity_rows):
+            _month_solvers = []
+            for row, rate in moving_rows:
+                _month_solvers.append(
+                    (
+                        row,
+                        diffusion_solver(
+                            rate,
+                            ecospace.grid,
+                            ecospace.grid.adjacency_matrix,
+                            hh,
+                            cache=_month_lu if row - 1 in _month_rows else diffusion_lu,
+                            capacity=movement_capacity(ecospace, row - 1, _month_rows),
+                        ),
+                    )
+                )
+            if not capacity_rows:
+                _run_solvers = _month_solvers
         first_stage = last_stage = None
         for sub in range(rk4_steps):
             t_sub = t + sub * hh
@@ -1646,18 +1752,10 @@ def _run_spatial(
 
             current_biomass = np.maximum(current_biomass, 0.0)
 
-            # Diffusion over the same sub-step, by backward Euler (Lie split)
+            # Diffusion over the same sub-step, by backward Euler (Lie split):
+            # implicit_diffusion_step with each group's solver of the month
             if implicit_movement:
-                for row, rate in moving_rows:
-                    current_biomass[row] = implicit_diffusion_step(
-                        current_biomass[row],
-                        rate,
-                        ecospace.grid,
-                        ecospace.grid.adjacency_matrix,
-                        hh,
-                        cache=_month_lu if row - 1 in _month_rows else diffusion_lu,
-                        capacity=movement_capacity(ecospace, row - 1, _month_rows),
-                    )
+                _diffuse_rows(current_biomass, _month_solvers)
 
         # Prevent negative biomass
         current_biomass = np.maximum(current_biomass, 0.0)
