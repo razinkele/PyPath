@@ -29,10 +29,13 @@ DB = Path(__file__).resolve().parents[3] / "Data" / "BlackSea_EwEF_testcase.ewea
 PATHS = {"fast": (True, True), "numpy": (True, False), "loop": (False, False)}
 
 
-def _set_path(monkeypatch, name):
+def _set_path(monkeypatch, name, month=False):
+    """The derivative path; ``month`` the compiled month on top of the
+    compiled derivative (its diffusion agrees to round-off only)."""
     batched, fast = PATHS[name]
     monkeypatch.setattr(si, "USE_BATCHED_DERIV", batched)
     monkeypatch.setattr(si, "USE_FAST_BATCHED", fast)
+    monkeypatch.setattr(si, "USE_FAST_MONTH", month and name == "fast")
 
 
 def _count_calls(monkeypatch):
@@ -406,3 +409,143 @@ def test_threads_are_capped_by_the_map():
     )
     assert batched_fast.threads_for(16, per - 1) == 1
     assert batched_fast.threads_for(1, 100 * per) == 1
+
+
+# --- the compiled month ------------------------------------------------------------
+
+
+def _month_run(
+    scenario,
+    ecospace,
+    monkeypatch,
+    *,
+    month,
+    numba_diffusion=False,
+    years=range(1, 3),
+    n_jobs=1,
+):
+    """A run with the compiled month, or with the Python month (its diffusion
+    SciPy's, or the compiled month's when ``numba_diffusion``)."""
+    from pypath.spatial.diffusion_fast import DiffusionBatch
+
+    _set_path(monkeypatch, "fast", month=month)
+    if numba_diffusion:
+        batches = {}
+
+        def diffuse(biomass, solvers):
+            entry = batches.get(id(solvers))
+            if entry is None or entry[0] is not solvers:
+                entry = batches[id(solvers)] = (
+                    solvers,
+                    DiffusionBatch(solvers, biomass.shape[1]),
+                )
+            entry[1].apply(biomass)
+
+        monkeypatch.setattr(si, "_diffuse_rows", diffuse)
+    try:
+        return _outputs(
+            rsim_run_spatial(
+                copy.deepcopy(scenario), ecospace=ecospace, years=years, n_jobs=n_jobs
+            )
+        )
+    finally:
+        monkeypatch.undo()
+
+
+def _count_month_calls(monkeypatch):
+    calls = {"n": 0}
+    real = batched_fast.CellCall.run
+
+    def counting(self, S, out):
+        calls["n"] += 1
+        return real(self, S, out)
+
+    monkeypatch.setattr(batched_fast.CellCall, "run", counting)
+    return calls
+
+
+@pytest.mark.skipif(not batched_fast.MONTH_ENABLED, reason="compiled month off")
+def test_the_compiled_month_is_the_python_month_with_its_diffusion(
+    spatial_scenario, monkeypatch
+):
+    """Only the diffusion differs from the Python month: with the same
+    compiled diffusion the two give the same bits."""
+    scenario, _ = spatial_scenario
+    ecospace = _calibrated_ecospace(scenario)
+    compiled = _month_run(scenario, ecospace, monkeypatch, month=True)
+    python = _month_run(
+        scenario, ecospace, monkeypatch, month=False, numba_diffusion=True
+    )
+    _assert_same(compiled, python)
+
+
+@pytest.mark.skipif(not batched_fast.MONTH_ENABLED, reason="compiled month off")
+def test_the_compiled_month_agrees_with_the_exact_path(spatial_scenario, monkeypatch):
+    scenario, _ = spatial_scenario
+    ecospace = _calibrated_ecospace(scenario)
+    calls = _count_month_calls(monkeypatch)
+    compiled = _month_run(scenario, ecospace, monkeypatch, month=True)
+    assert calls["n"] > 0  # the month did run compiled
+    exact = _month_run(scenario, ecospace, monkeypatch, month=False)
+    for key in compiled:
+        np.testing.assert_allclose(
+            compiled[key], exact[key], rtol=1e-12, atol=1e-14, err_msg=key
+        )
+
+
+@pytest.mark.skipif(not batched_fast.MONTH_ENABLED, reason="compiled month off")
+def test_the_compiled_months_threads_give_its_single_threads_run(
+    spatial_scenario, monkeypatch
+):
+    scenario, _ = spatial_scenario
+    ecospace = _calibrated_ecospace(scenario, nx=7, ny=5)
+    one = _month_run(scenario, ecospace, monkeypatch, month=True)
+    two = _month_run(scenario, ecospace, monkeypatch, month=True, n_jobs=2)
+    _assert_same(one, two)
+
+
+@pytest.mark.skipif(not batched_fast.MONTH_ENABLED, reason="compiled month off")
+def test_a_replaced_derivative_keeps_the_python_month(spatial_scenario, monkeypatch):
+    """A spy on deriv_vector_spatial sees the run's derivatives: the month
+    then runs through it, as ecosim_fast does for Ecosim."""
+    scenario, _ = spatial_scenario
+    _set_path(monkeypatch, "fast", month=True)
+    seen = []
+    real = si.deriv_vector_spatial
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("rates_out") is not None)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(si, "deriv_vector_spatial", spy)
+    calls = _count_month_calls(monkeypatch)
+    rsim_run_spatial(
+        copy.deepcopy(scenario),
+        ecospace=_calibrated_ecospace(scenario),
+        years=range(1, 2),
+    )
+    assert len(seen) >= 4 * 12  # every stage of every month
+    assert calls["n"] == len(seen)  # each one compiled, through the function
+
+
+def test_the_month_environment_variable_turns_it_off():
+    assert batched_fast._month_requested({})
+    for value in ("0", "false", "No", " off "):
+        assert not batched_fast._month_requested({batched_fast.FAST_MONTH_ENV: value})
+    assert batched_fast._month_requested({batched_fast.FAST_MONTH_ENV: "1"})
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not batched_fast.MONTH_ENABLED, reason="compiled month off")
+def test_black_sea_compiled_month_agrees_with_the_exact_path(monkeypatch):
+    scenario, eco = _black_sea()
+    first = int(scenario.start_year)
+    years = range(first, first + 3)
+    calls = _count_month_calls(monkeypatch)
+    compiled = _month_run(scenario, eco, monkeypatch, month=True, years=years)
+    assert calls["n"] > 0
+    exact = _month_run(scenario, eco, monkeypatch, month=False, years=years)
+    for key in compiled:
+        np.testing.assert_allclose(
+            compiled[key], exact[key], rtol=1e-12, atol=1e-14, err_msg=key
+        )

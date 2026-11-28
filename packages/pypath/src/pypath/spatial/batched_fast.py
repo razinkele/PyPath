@@ -48,6 +48,20 @@ def _requested(environ=os.environ) -> bool:
 #: Whether deriv_vector_spatial uses the compiled batched derivative.
 ENABLED = bool(HAS_NUMBA and _requested())
 
+FAST_MONTH_ENV = "PYPATH_FAST_ECOSPACE_MONTH"
+
+
+#: Whether rsim_run_spatial runs its RK4 months on the compiled derivative
+#: directly, with the compiled diffusion (pypath.spatial.diffusion_fast):
+#: results agree with the other path to round-off, not bit for bit.
+#: ``PYPATH_FAST_ECOSPACE_MONTH=0`` (or false, no, off) keeps that path.
+def _month_requested(environ=os.environ) -> bool:
+    value = environ.get(FAST_MONTH_ENV, "").strip().lower()
+    return value not in ("0", "false", "no", "off")
+
+
+MONTH_ENABLED = bool(ENABLED and _month_requested())
+
 #: Rate keys the compiled derivative fills, in the order of its rate array.
 RATE_KEYS = (
     "FoodGain",
@@ -1029,23 +1043,62 @@ def _c64(a):
     return np.ascontiguousarray(np.asarray(a, dtype=np.float64))
 
 
-def _run_cells(
+class CellCall:
+    """One prepared kernel call: everything but the state and the outputs.
+
+    Made by :func:`spatial_call` (or ``_cell_call``); :meth:`run` evaluates
+    the derivative of a state, so a caller that evaluates many states with
+    the same inputs (an RK4 month) prepares once. ``hden`` is the caller's
+    array, updated in place by each run unless frozen.
+    """
+
+    __slots__ = ("iv", "fv", "mid", "rate_keys", "shape", "threads")
+
+    def __init__(self, iv, fv, mid, rate_keys, shape, threads):
+        self.iv = iv
+        self.fv = fv
+        self.mid = mid
+        self.rate_keys = rate_keys
+        self.shape = shape
+        self.threads = threads
+
+    def run(self, S, deriv_out):
+        """Fill ``deriv_out`` (G, P) with share x the derivative at ``S``
+        (G, P, C-contiguous float64); returns the rate array (N_RATES, G, P),
+        rows in RATE_KEYS' order (only the asked-for rows are set)."""
+        G, P = self.shape
+        rates_arr = np.empty((N_RATES, G, P)) if self.rate_keys else _D3
+        k = self.threads
+        prev = numba.get_num_threads()
+        if k != prev:
+            numba.set_num_threads(k)
+        try:
+            _cells(self.iv, self.fv, S, *self.mid, deriv_out, rates_arr, k)
+        finally:
+            if k != prev:
+                numba.set_num_threads(prev)
+        return rates_arr
+
+    def rates(self, rates_arr) -> dict:
+        """The asked-for rates of a run's rate array, by key (views)."""
+        return {key: rates_arr[RATE_KEYS.index(key)] for key in self.rate_keys}
+
+
+def _cell_call(
     prep,
     params,
-    S,
+    G,
+    P,
     w,
     hden,
     stanza_ratio,
     eat_eff,
     nut_forcing,
     rate_keys,
-    deriv_out,
     n_threads,
 ):
-    """Run the kernel on group-major (G, P) arrays: ``hden`` (C-contiguous
-    float64) is updated in place, ``deriv_out`` filled; returns the rate
-    array (N_RATES, G, P), its rows w x the rates in RATE_KEYS' order."""
-    G, P = S.shape
+    """The :class:`CellCall` of group-major (G, P) inputs: ``hden``
+    (C-contiguous float64) is updated in place by its runs."""
     iv = prep["iv"].copy()
 
     nut_f = _D1
@@ -1081,74 +1134,91 @@ def _run_cells(
 
     iv[I_RATES] = int(bool(rate_keys))
     iv[I_RATES_LOSS] = int("FoodLoss" in rate_keys or "LossPropToB" in rate_keys)
-    rates_arr = np.empty((N_RATES, G, P)) if rate_keys else _D3
+    q = prep
+    mid = (
+        _c64(w),
+        q["Bb"],
+        q["safe"],
+        q["Ftime"],
+        q["ForcedPrey"],
+        q["fsearch"],
+        q["consumer"],
+        ratio,
+        q["VV"],
+        q["DD"],
+        q["QQb"],
+        q["lprey"],
+        q["lpred"],
+        q["HS"],
+        hden_arr,
+        q["hden0"],
+        q["cmco"],
+        keat,
+        eat,
+        prod_e,
+        q["ForcedBio"],
+        q["FishMort"],
+        q["link_rate"],
+        q["ppf0"],
+        q["producer"],
+        q["nut_b2"],
+        nut_f,
+        q["PP_f64"],
+        q["PP_i64"],
+        q["PB"],
+        q["QB"],
+        q["GE"],
+        q["RM"],
+        q["M0e"],
+        q["M0d"],
+        q["FMig"],
+        q["emig"],
+        q["immig"],
+        q["Unassim"],
+        q["det_from"],
+        q["det_to"],
+        q["det_frac"],
+        q["det_passed"],
+        q["fish_from"],
+        q["fish_to"],
+        q["det_out"],
+        q["det_in"],
+        q["emig_dead"],
+    )
+    return CellCall(
+        iv, prep["fv"], mid, tuple(rate_keys), (G, P), threads_for(n_threads, P)
+    )
 
-    k = threads_for(n_threads, P)
-    prev = numba.get_num_threads()
-    if k != prev:
-        numba.set_num_threads(k)
-    try:
-        q = prep
-        _cells(
-            iv,
-            q["fv"],
-            S,
-            w,
-            q["Bb"],
-            q["safe"],
-            q["Ftime"],
-            q["ForcedPrey"],
-            q["fsearch"],
-            q["consumer"],
-            ratio,
-            q["VV"],
-            q["DD"],
-            q["QQb"],
-            q["lprey"],
-            q["lpred"],
-            q["HS"],
-            hden_arr,
-            q["hden0"],
-            q["cmco"],
-            keat,
-            eat,
-            prod_e,
-            q["ForcedBio"],
-            q["FishMort"],
-            q["link_rate"],
-            q["ppf0"],
-            q["producer"],
-            q["nut_b2"],
-            nut_f,
-            q["PP_f64"],
-            q["PP_i64"],
-            q["PB"],
-            q["QB"],
-            q["GE"],
-            q["RM"],
-            q["M0e"],
-            q["M0d"],
-            q["FMig"],
-            q["emig"],
-            q["immig"],
-            q["Unassim"],
-            q["det_from"],
-            q["det_to"],
-            q["det_frac"],
-            q["det_passed"],
-            q["fish_from"],
-            q["fish_to"],
-            q["det_out"],
-            q["det_in"],
-            q["emig_dead"],
-            deriv_out,
-            rates_arr,
-            k,
-        )
-    finally:
-        if k != prev:
-            numba.set_num_threads(prev)
-    return rates_arr
+
+def _run_cells(
+    prep,
+    params,
+    S,
+    w,
+    hden,
+    stanza_ratio,
+    eat_eff,
+    nut_forcing,
+    rate_keys,
+    deriv_out,
+    n_threads,
+):
+    """Run the kernel on group-major (G, P) arrays (see :class:`CellCall`)."""
+    G, P = S.shape
+    call = _cell_call(
+        prep,
+        params,
+        G,
+        P,
+        w,
+        hden,
+        stanza_ratio,
+        eat_eff,
+        nut_forcing,
+        rate_keys,
+        n_threads,
+    )
+    return call.run(S, deriv_out)
 
 
 def deriv_batched_fast(
@@ -1210,6 +1280,45 @@ def deriv_batched_fast(
     return np.ascontiguousarray(deriv.T), rates
 
 
+def spatial_call(
+    state_shape,
+    share,
+    params,
+    forcing,
+    fishing,
+    *,
+    bbase=None,
+    qqbase=None,
+    hden=None,
+    patch_effort=None,
+    stanza_ratio=None,
+    eat_eff=None,
+    nut_forcing=None,
+    rate_keys=(),
+    n_threads=1,
+) -> CellCall:
+    """The prepared call of :func:`deriv_spatial_fast` (same arguments, the
+    state's (G, P) shape for the state): ``call.run(state, deriv_out)``
+    evaluates it. ``hden`` must be C-contiguous float64 (it is updated in
+    place)."""
+    G, P = state_shape
+    prep = _prepared(params, forcing, fishing, P, bbase, qqbase, patch_effort)
+    rate_keys = _rate_keys(tuple(rate_keys)) if rate_keys else ()
+    return _cell_call(
+        prep,
+        params,
+        G,
+        P,
+        share,
+        hden,
+        stanza_ratio,
+        eat_eff,
+        nut_forcing,
+        rate_keys,
+        n_threads,
+    )
+
+
 def deriv_spatial_fast(
     state,
     share,
@@ -1241,29 +1350,27 @@ def deriv_spatial_fast(
     The arithmetic is :func:`deriv_batched_fast`'s on ``state.T / share``,
     followed by ``share x`` its results, bit for bit.
     """
-    G, P = state.shape
-    prep = _prepared(params, forcing, fishing, P, bbase, qqbase, patch_effort)
-    rate_keys = () if not rates_out else tuple(rates_out)
-    rate_keys = _rate_keys(rate_keys) if rate_keys else ()
-    hden_arr = hden
-    if hden is not None:
-        hden_arr = _c64(hden)
-    rates_arr = _run_cells(
-        prep,
+    hden_arr = None if hden is None else _c64(hden)
+    call = spatial_call(
+        state.shape,
+        share,
         params,
-        _c64(state),
-        _c64(share),
-        hden_arr,
-        stanza_ratio,
-        eat_eff,
-        nut_forcing,
-        rate_keys,
-        deriv_out,
-        n_threads,
+        forcing,
+        fishing,
+        bbase=bbase,
+        qqbase=qqbase,
+        hden=hden_arr,
+        patch_effort=patch_effort,
+        stanza_ratio=stanza_ratio,
+        eat_eff=eat_eff,
+        nut_forcing=nut_forcing,
+        rate_keys=() if not rates_out else tuple(rates_out),
+        n_threads=n_threads,
     )
+    rates_arr = call.run(_c64(state), deriv_out)
     if hden is not None and hden_arr is not hden:
         hden[:] = hden_arr
-    for key in rate_keys:
+    for key in call.rate_keys:
         np.copyto(rates_out[key], rates_arr[RATE_KEYS.index(key)])
 
 

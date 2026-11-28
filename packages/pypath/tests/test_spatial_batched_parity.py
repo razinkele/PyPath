@@ -10,6 +10,9 @@ from pypath.spatial import EcospaceParams, create_regular_grid, rsim_run_spatial
 
 def _run(scenario, ecospace, batched, monkeypatch):
     monkeypatch.setattr(si, "USE_BATCHED_DERIV", batched)
+    # the derivatives through deriv_vector_spatial: the compiled month's
+    # diffusion agrees to round-off only (test_spatial_batched_fast.py)
+    monkeypatch.setattr(si, "USE_FAST_MONTH", False)
     out = rsim_run_spatial(scenario, ecospace=ecospace, years=range(1, 3))
     return np.asarray(out.out_Biomass_spatial)
 
