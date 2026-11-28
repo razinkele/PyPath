@@ -40,6 +40,7 @@ from pypath.spatial.batched import batch_supported, deriv_batched
 from pypath.spatial.batched_fast import (
     deriv_spatial_fast,
     fast_supported,
+    spatial_call,
 )
 from pypath.spatial.calibration import ewe_space_calibration
 from pypath.spatial.fishing import SpatialFishing, effort_multipliers
@@ -54,6 +55,10 @@ USE_BATCHED_DERIV = True
 # ... compiled with numba (pypath.spatial.batched_fast) when it is installed
 # and PYPATH_FAST_ECOSPACE is not 0; False keeps NumPy's batched derivative.
 USE_FAST_BATCHED = batched_fast.ENABLED
+# rsim_run_spatial's RK4 months on the compiled derivative directly, with the
+# compiled diffusion (pypath.spatial.diffusion_fast): round-off apart from the
+# months through deriv_vector_spatial and SciPy's solve. False keeps those.
+USE_FAST_MONTH = batched_fast.MONTH_ENABLED
 
 
 def _diffuse_rows(biomass: np.ndarray, solvers) -> None:
@@ -354,6 +359,7 @@ def deriv_vector_spatial(
     stanza_pred_ratio: Optional[np.ndarray] = None,
     rates_out: Optional[Dict[str, np.ndarray]] = None,
     include_diffusion: bool = True,
+    _fast_capture: Optional[dict] = None,
 ) -> np.ndarray:
     """Calculate spatial derivative (local dynamics + movement).
 
@@ -394,6 +400,14 @@ def deriv_vector_spatial(
     include_diffusion : bool
         Include diffusion in the movement flux (default). ``rsim_run_spatial``
         leaves it out when it diffuses implicitly after each RK4 step.
+    _fast_capture : dict, optional
+        Internal (``rsim_run_spatial``'s month): nothing is evaluated and
+        None is returned. When the compiled derivative would run, the dict
+        gets ``"call"``, its prepared :class:`~pypath.spatial.batched_fast.
+        CellCall` (``call.run(state, out)`` gives what this function would
+        put in its result before the movement flux, for any state), and
+        ``"flux_zero"``, whether that flux would be all zeros; otherwise it
+        is left empty.
 
     Returns
     -------
@@ -642,6 +656,8 @@ def deriv_vector_spatial(
         and batch_supported(params, forcing, () if rates_out is None else rates_out)
     )
     try:
+        if _fast_capture is not None and not _batched_ok:
+            return None
         if _batched_ok:
             # All patches in one array computation, bit-identical to the
             # per-patch loop below (pypath.spatial.batched)
@@ -672,6 +688,33 @@ def deriv_vector_spatial(
                         np.asarray(forcing["StanzaPredRatio"], dtype=float)[:, None],
                         (1, n_patches),
                     )
+                if _fast_capture is not None:
+                    _hden_ok = _hden_patches is None or (
+                        isinstance(_hden_patches, np.ndarray)
+                        and _hden_patches.dtype == np.float64
+                        and _hden_patches.flags.c_contiguous
+                    )
+                    if _hden_ok:
+                        _fast_capture["call"] = spatial_call(
+                            state_spatial.shape,
+                            patch_share,
+                            params,
+                            forcing,
+                            fishing,
+                            bbase=_bb_p,
+                            qqbase=_qq_p,
+                            hden=_hden_patches,
+                            patch_effort=_effort_p,
+                            stanza_ratio=_ratio_gp,
+                            eat_eff=_eat_gp,
+                            nut_forcing=_nut_scale,
+                            rate_keys=() if rates_out is None else tuple(rates_out),
+                            n_threads=1 if _pool is None else int(_pool[1]),
+                        )
+                        _fast_capture["flux_zero"] = spatial_flux_is_zero(
+                            state_spatial.shape[0], ecospace, params, include_diffusion
+                        )
+                    return None
                 deriv_spatial_fast(
                     state_spatial,
                     patch_share,
@@ -691,6 +734,8 @@ def deriv_vector_spatial(
                 )
             else:
                 # NumPy's (pypath.spatial.batched), patch-major
+                if _fast_capture is not None:
+                    return None
                 _dens = state_spatial.T / _w[:, None]
                 _ratio_p = None
                 if stanza_pred_ratio is not None:
@@ -1436,6 +1481,9 @@ def _run_spatial(
     # the moving groups' diffusion solvers; without a monthly capacity the
     # same every month (rate, sub-step and capacity rows are the run's)
     _run_solvers = None
+    # the compiled month's diffusion (built from the solvers it was made of)
+    _diffusion_batch = _diffusion_src = None
+    _n_jobs = 1 if patch_pool is None else int(patch_pool[1])
     _month_lu_index = None
 
     # EwE's NewMultiStanza model: each life stage's map-wide total is spread
@@ -1719,7 +1767,74 @@ def _run_spatial(
             if not capacity_rows:
                 _run_solvers = _month_solvers
         first_stage = last_stage = None
-        for sub in range(rk4_steps):
+
+        # The compiled month: when the compiled derivative runs and the
+        # movement flux is zero, the RK4 stages call it directly with the
+        # month's prepared inputs (deriv_vector_spatial's own, captured), and
+        # the moving groups diffuse in one compiled call. The stage arithmetic
+        # is the loop's below; only the diffusion differs, to round-off.
+        _month_call = None
+        if USE_FAST_MONTH and _month_hooks_intact():
+            _cap: dict = {}
+            _keys = _stage_keys if (use_fast or use_stanza_stages) else ()
+            deriv_vector_spatial(
+                current_biomass,
+                params_dict,
+                forcing_dict,
+                fishing_dict,
+                ecospace,
+                environmental_drivers,
+                t=t,
+                dt=hh,
+                rates_out={key: None for key in _keys} if _keys else None,
+                include_diffusion=not implicit_movement,
+                _fast_capture=_cap,
+                **_month_kwargs,
+            )
+            if _cap.get("call") is not None and _cap.get("flux_zero"):
+                _month_call = _cap["call"]
+        if _month_call is not None:
+            if implicit_movement and _diffusion_src is not _month_solvers:
+                from pypath.spatial.diffusion_fast import DiffusionBatch
+
+                _diffusion_batch = DiffusionBatch(_month_solvers, n_patches)
+                _diffusion_src = _month_solvers
+            _shape = current_biomass.shape
+
+            def _k(state):
+                out = np.empty(_shape)
+                rates_arr = _month_call.run(state, out)
+                out += 0.0  # the zero movement flux, as deriv_vector_spatial adds it
+                return out, (_month_call.rates(rates_arr) if _keys else None)
+
+            current_biomass = np.ascontiguousarray(current_biomass, dtype=float)
+            for sub in range(rk4_steps):
+                y0 = current_biomass
+                k1, r1 = _k(y0)
+                if sub == 0:
+                    first_stage = r1
+                y1 = y0 + k1 * hh / 2
+                if use_fast:
+                    y1[fast_mask] = _rk4_fast_equilibrium(r1, y0, y0, fast_mask, SORWT)
+                k2, r2 = _k(y1)
+                y2 = y0 + k2 * hh / 2
+                if use_fast:
+                    y2[fast_mask] = _rk4_fast_equilibrium(r2, y1, y0, fast_mask, SORWT)
+                k3, r3 = _k(y2)
+                y3 = y0 + k3 * hh
+                if use_fast:
+                    y3[fast_mask] = _rk4_fast_equilibrium(r3, y2, y0, fast_mask, SORWT)
+                k4, r4 = _k(y3)
+                last_stage = r4
+                current_biomass = y0 + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+                if use_fast:
+                    current_biomass[fast_mask] = _rk4_fast_equilibrium(
+                        r4, y3, y0, fast_mask, SORWT
+                    )
+                current_biomass = np.maximum(current_biomass, 0.0)
+                if implicit_movement:
+                    _diffusion_batch.apply(current_biomass, _n_jobs)
+        for sub in range(rk4_steps if _month_call is None else 0):
             t_sub = t + sub * hh
             y0 = current_biomass
             r1 = _stage_rates()
@@ -1889,3 +2004,23 @@ def _run_spatial(
         output.out_StateVector = out_StateVector
 
     return output
+
+
+# The functions the compiled month stands in for (see _run_spatial). A caller
+# or test that replaces one of them (a spy, its own derivative) gets the
+# Python month, which calls it, as ecosim_fast.python_hooks_intact does for
+# Ecosim.
+_MONTH_HOOKS = (
+    "deriv_vector_spatial",
+    "deriv_spatial_fast",
+    "deriv_batched",
+    "deriv_vector",
+    "_diffuse_rows",
+)
+_DEFINED_MONTH_HOOKS = {name: globals()[name] for name in _MONTH_HOOKS}
+
+
+def _month_hooks_intact() -> bool:
+    """Whether this module's derivative and diffusion functions are its own."""
+    g = globals()
+    return all(g.get(name) is fn for name, fn in _DEFINED_MONTH_HOOKS.items())
