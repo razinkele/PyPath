@@ -31037,7 +31037,7 @@ dispersal, habitat effects, and optional IBM groups across the grid.</p>
 
 
 <a href="#pypath.spatial.integration.deriv_vector_spatial" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><span class="nf">deriv_vector_spatial</span><span class="p">(</span><span class="n">state_spatial</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">fishing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">ecospace</span><span class="p">:</span> <span class="n">EcospaceParams</span><span class="p">,</span> <span class="n">environmental_drivers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EnvironmentalDrivers</span><span class="p">],</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mf">12.0</span><span class="p">,</span> <span class="n">mpa_effort_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">mpa_cap_mult</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">effort_multiplier</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stanza_pred_ratio</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">rates_out</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include_diffusion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">deriv_vector_spatial</span><span class="p">(</span><span class="n">state_spatial</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">fishing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">ecospace</span><span class="p">:</span> <span class="n">EcospaceParams</span><span class="p">,</span> <span class="n">environmental_drivers</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EnvironmentalDrivers</span><span class="p">],</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mf">12.0</span><span class="p">,</span> <span class="n">mpa_effort_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">mpa_cap_mult</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">effort_multiplier</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stanza_pred_ratio</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">rates_out</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">include_diffusion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">_fast_capture</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -31249,6 +31249,28 @@ leaves it out when it diffuses implicitly after each RK4 step.</p>
                   <code>True</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>_fast_capture</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Internal (<code>rsim_run_spatial</code>'s month): nothing is evaluated and
+None is returned. When the compiled derivative would run, the dict
+gets <code>"call"</code>, its prepared :class:<code>~pypath.spatial.batched_fast.
+CellCall</code> (<code>call.run(state, out)</code> gives what this function would
+put in its result before the movement flux, for any state), and
+<code>"flux_zero"</code>, whether that flux would be all zeros; otherwise it
+is left empty.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -31289,12 +31311,7 @@ switches it on.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">342</span>
-<span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span>
-<span class="normal">346</span>
-<span class="normal">347</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">347</span>
 <span class="normal">348</span>
 <span class="normal">349</span>
 <span class="normal">350</span>
@@ -31772,7 +31789,52 @@ switches it on.</p>
 <span class="normal">822</span>
 <span class="normal">823</span>
 <span class="normal">824</span>
-<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span>
+<span class="normal">835</span>
+<span class="normal">836</span>
+<span class="normal">837</span>
+<span class="normal">838</span>
+<span class="normal">839</span>
+<span class="normal">840</span>
+<span class="normal">841</span>
+<span class="normal">842</span>
+<span class="normal">843</span>
+<span class="normal">844</span>
+<span class="normal">845</span>
+<span class="normal">846</span>
+<span class="normal">847</span>
+<span class="normal">848</span>
+<span class="normal">849</span>
+<span class="normal">850</span>
+<span class="normal">851</span>
+<span class="normal">852</span>
+<span class="normal">853</span>
+<span class="normal">854</span>
+<span class="normal">855</span>
+<span class="normal">856</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span>
+<span class="normal">867</span>
+<span class="normal">868</span>
+<span class="normal">869</span>
+<span class="normal">870</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">deriv_vector_spatial</span><span class="p">(</span>
     <span class="n">state_spatial</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
     <span class="n">forcing</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span>
@@ -31787,6 +31849,7 @@ switches it on.</p>
     <span class="n">stanza_pred_ratio</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">rates_out</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">include_diffusion</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">_fast_capture</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Calculate spatial derivative (local dynamics + movement).</span>
 
@@ -31827,6 +31890,14 @@ switches it on.</p>
 <span class="sd">    include_diffusion : bool</span>
 <span class="sd">        Include diffusion in the movement flux (default). ``rsim_run_spatial``</span>
 <span class="sd">        leaves it out when it diffuses implicitly after each RK4 step.</span>
+<span class="sd">    _fast_capture : dict, optional</span>
+<span class="sd">        Internal (``rsim_run_spatial``'s month): nothing is evaluated and</span>
+<span class="sd">        None is returned. When the compiled derivative would run, the dict</span>
+<span class="sd">        gets ``"call"``, its prepared :class:`~pypath.spatial.batched_fast.</span>
+<span class="sd">        CellCall` (``call.run(state, out)`` gives what this function would</span>
+<span class="sd">        put in its result before the movement flux, for any state), and</span>
+<span class="sd">        ``"flux_zero"``, whether that flux would be all zeros; otherwise it</span>
+<span class="sd">        is left empty.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -32075,6 +32146,8 @@ switches it on.</p>
         <span class="ow">and</span> <span class="n">batch_supported</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">forcing</span><span class="p">,</span> <span class="p">()</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">rates_out</span><span class="p">)</span>
     <span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_fast_capture</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_batched_ok</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">_batched_ok</span><span class="p">:</span>
             <span class="c1"># All patches in one array computation, bit-identical to the</span>
             <span class="c1"># per-patch loop below (pypath.spatial.batched)</span>
@@ -32105,6 +32178,33 @@ switches it on.</p>
                         <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">forcing</span><span class="p">[</span><span class="s2">"StanzaPredRatio"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">],</span>
                         <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_patches</span><span class="p">),</span>
                     <span class="p">)</span>
+                <span class="k">if</span> <span class="n">_fast_capture</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">_hden_ok</span> <span class="o">=</span> <span class="n">_hden_patches</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span>
+                        <span class="nb">isinstance</span><span class="p">(</span><span class="n">_hden_patches</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+                        <span class="ow">and</span> <span class="n">_hden_patches</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+                        <span class="ow">and</span> <span class="n">_hden_patches</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">c_contiguous</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">_hden_ok</span><span class="p">:</span>
+                        <span class="n">_fast_capture</span><span class="p">[</span><span class="s2">"call"</span><span class="p">]</span> <span class="o">=</span> <span class="n">spatial_call</span><span class="p">(</span>
+                            <span class="n">state_spatial</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+                            <span class="n">patch_share</span><span class="p">,</span>
+                            <span class="n">params</span><span class="p">,</span>
+                            <span class="n">forcing</span><span class="p">,</span>
+                            <span class="n">fishing</span><span class="p">,</span>
+                            <span class="n">bbase</span><span class="o">=</span><span class="n">_bb_p</span><span class="p">,</span>
+                            <span class="n">qqbase</span><span class="o">=</span><span class="n">_qq_p</span><span class="p">,</span>
+                            <span class="n">hden</span><span class="o">=</span><span class="n">_hden_patches</span><span class="p">,</span>
+                            <span class="n">patch_effort</span><span class="o">=</span><span class="n">_effort_p</span><span class="p">,</span>
+                            <span class="n">stanza_ratio</span><span class="o">=</span><span class="n">_ratio_gp</span><span class="p">,</span>
+                            <span class="n">eat_eff</span><span class="o">=</span><span class="n">_eat_gp</span><span class="p">,</span>
+                            <span class="n">nut_forcing</span><span class="o">=</span><span class="n">_nut_scale</span><span class="p">,</span>
+                            <span class="n">rate_keys</span><span class="o">=</span><span class="p">()</span> <span class="k">if</span> <span class="n">rates_out</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">rates_out</span><span class="p">),</span>
+                            <span class="n">n_threads</span><span class="o">=</span><span class="mi">1</span> <span class="k">if</span> <span class="n">_pool</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">_pool</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                        <span class="p">)</span>
+                        <span class="n">_fast_capture</span><span class="p">[</span><span class="s2">"flux_zero"</span><span class="p">]</span> <span class="o">=</span> <span class="n">spatial_flux_is_zero</span><span class="p">(</span>
+                            <span class="n">state_spatial</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ecospace</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">include_diffusion</span>
+                        <span class="p">)</span>
+                    <span class="k">return</span> <span class="kc">None</span>
                 <span class="n">deriv_spatial_fast</span><span class="p">(</span>
                     <span class="n">state_spatial</span><span class="p">,</span>
                     <span class="n">patch_share</span><span class="p">,</span>
@@ -32124,6 +32224,8 @@ switches it on.</p>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># NumPy's (pypath.spatial.batched), patch-major</span>
+                <span class="k">if</span> <span class="n">_fast_capture</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">None</span>
                 <span class="n">_dens</span> <span class="o">=</span> <span class="n">state_spatial</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">_w</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
                 <span class="n">_ratio_p</span> <span class="o">=</span> <span class="kc">None</span>
                 <span class="k">if</span> <span class="n">stanza_pred_ratio</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -32610,52 +32712,7 @@ Avoid "fork" in a program that runs threads.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>pypath/spatial/integration.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 908</span>
-<span class="normal"> 909</span>
-<span class="normal"> 910</span>
-<span class="normal"> 911</span>
-<span class="normal"> 912</span>
-<span class="normal"> 913</span>
-<span class="normal"> 914</span>
-<span class="normal"> 915</span>
-<span class="normal"> 916</span>
-<span class="normal"> 917</span>
-<span class="normal"> 918</span>
-<span class="normal"> 919</span>
-<span class="normal"> 920</span>
-<span class="normal"> 921</span>
-<span class="normal"> 922</span>
-<span class="normal"> 923</span>
-<span class="normal"> 924</span>
-<span class="normal"> 925</span>
-<span class="normal"> 926</span>
-<span class="normal"> 927</span>
-<span class="normal"> 928</span>
-<span class="normal"> 929</span>
-<span class="normal"> 930</span>
-<span class="normal"> 931</span>
-<span class="normal"> 932</span>
-<span class="normal"> 933</span>
-<span class="normal"> 934</span>
-<span class="normal"> 935</span>
-<span class="normal"> 936</span>
-<span class="normal"> 937</span>
-<span class="normal"> 938</span>
-<span class="normal"> 939</span>
-<span class="normal"> 940</span>
-<span class="normal"> 941</span>
-<span class="normal"> 942</span>
-<span class="normal"> 943</span>
-<span class="normal"> 944</span>
-<span class="normal"> 945</span>
-<span class="normal"> 946</span>
-<span class="normal"> 947</span>
-<span class="normal"> 948</span>
-<span class="normal"> 949</span>
-<span class="normal"> 950</span>
-<span class="normal"> 951</span>
-<span class="normal"> 952</span>
-<span class="normal"> 953</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 953</span>
 <span class="normal"> 954</span>
 <span class="normal"> 955</span>
 <span class="normal"> 956</span>
@@ -32762,7 +32819,52 @@ Avoid "fork" in a program that runs threads.</p>
 <span class="normal">1057</span>
 <span class="normal">1058</span>
 <span class="normal">1059</span>
-<span class="normal">1060</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span>
+<span class="normal">1068</span>
+<span class="normal">1069</span>
+<span class="normal">1070</span>
+<span class="normal">1071</span>
+<span class="normal">1072</span>
+<span class="normal">1073</span>
+<span class="normal">1074</span>
+<span class="normal">1075</span>
+<span class="normal">1076</span>
+<span class="normal">1077</span>
+<span class="normal">1078</span>
+<span class="normal">1079</span>
+<span class="normal">1080</span>
+<span class="normal">1081</span>
+<span class="normal">1082</span>
+<span class="normal">1083</span>
+<span class="normal">1084</span>
+<span class="normal">1085</span>
+<span class="normal">1086</span>
+<span class="normal">1087</span>
+<span class="normal">1088</span>
+<span class="normal">1089</span>
+<span class="normal">1090</span>
+<span class="normal">1091</span>
+<span class="normal">1092</span>
+<span class="normal">1093</span>
+<span class="normal">1094</span>
+<span class="normal">1095</span>
+<span class="normal">1096</span>
+<span class="normal">1097</span>
+<span class="normal">1098</span>
+<span class="normal">1099</span>
+<span class="normal">1100</span>
+<span class="normal">1101</span>
+<span class="normal">1102</span>
+<span class="normal">1103</span>
+<span class="normal">1104</span>
+<span class="normal">1105</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rsim_run_spatial</span><span class="p">(</span>
     <span class="n">scenario</span><span class="p">:</span> <span class="n">RsimScenario</span><span class="p">,</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"RK4"</span><span class="p">,</span>
     <span class="n">years</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">range</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
