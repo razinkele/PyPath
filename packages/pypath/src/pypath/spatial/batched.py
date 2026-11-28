@@ -8,10 +8,18 @@ patches at once on arrays laid out patch-major, ``(n_patches, n_groups + 1)``.
 The arithmetic mirrors ``deriv_vector`` operation for operation (same
 operand order, same sequential/pairwise summations), so results are
 bit-for-bit identical to the per-patch path. Only the commonly used feature
-set is covered; :func:`batch_supported` returns ``False`` for anything else
-(IBM groups, mediation, prey switching, suite pooling, variable P/Q,
-metabolism models, link-level forcing, instrumentation, the legacy detritus
-matrix, EatEff, exact handling time, the MoTot rule, ...), and the caller then falls back to the per-patch loop.
+set is covered, including EwE's Ecospace base calibration (each patch's
+feeding efficiency EatEff, ``eat_eff``), HandleSwitch and EwE's relative
+primary production map (``nut_forcing``). :func:`batch_supported` returns
+``False`` for anything else (IBM groups, mediation, prey switching, suite
+pooling, variable P/Q, metabolism models, link-level forcing,
+instrumentation, the legacy detritus matrix, a single ``_eat_eff``, exact
+handling time, the MoTot rule, ...), and the caller then falls back to the
+per-patch loop.
+
+A HandleSwitch exponent of 0 or 1 (the values EwE databases hold) gives the
+loop's bits; another positive exponent goes through numpy's array power,
+which can differ from the loop's scalar power in the last bit.
 """
 
 from __future__ import annotations
@@ -41,7 +49,10 @@ def batch_supported(params: dict, forcing: dict, rate_keys=()) -> bool:
         return False
     if not set(rate_keys) <= BATCHED_RATE_KEYS:
         return False
-    for key in ("_eat_eff", "_mo_tot", "_space_cal", "_eat_eff_patches"):
+    # _space_cal / _eat_eff_patches (EwE's base calibration) are supported:
+    # the calibrated arrays are shared by every patch and deriv_batched takes
+    # each patch's EatEff. A single _eat_eff (one patch's) is not.
+    for key in ("_eat_eff", "_mo_tot"):
         if params.get(key) is not None:
             return False
     if params.get("_hden_exact", False) or params.get("_KERNEL_VECTOR", False):
@@ -64,8 +75,12 @@ def batch_supported(params: dict, forcing: dict, rate_keys=()) -> bool:
     ):
         if params.get(key) is not None:
             return False
-    if _any_positive(params.get("HandleSwitch")):
-        return False
+    hs = params.get("HandleSwitch")
+    if hs is not None:
+        hs = np.asarray(hs)
+        G = params["NUM_GROUPS"] + 1
+        if hs.ndim != 2 or hs.shape[0] < G or hs.shape[1] < G:
+            return False
     if _any_positive(params.get("SwitchPower")):
         return False
     if params.get("UseVarPQ", False):
@@ -136,11 +151,17 @@ def _prey_multiplier_arena(VV, QQbase, f):
     return VV, QQbase
 
 
-def _consumption(QQ, BB, VV, DD, QQbase, preyYY, predYY, prey, pred):
-    """Batched sparse consumption kernel (no pooling / switching / mediation).
+def _consumption(
+    QQ, BB, VV, DD, QQbase, preyYY, predYY, prey, pred, hs_exp=None, eat_eff=None
+):
+    """Batched sparse consumption kernel (no pooling / prey switching /
+    mediation).
 
     Same formula as ``_compute_consumption_sparse_python``; links skipped
     there (non-positive biomass or base flow) leave ``QQ`` untouched.
+    ``hs_exp`` is each link's HandleSwitch * COUPLED (None: no HandleSwitch);
+    ``eat_eff`` (P, G) each patch's kernel EatEff, dividing the predator
+    term of the vulnerability denominator (None: no EatEff).
     """
     P = BB.shape[0]
     vv = VV[prey, pred]
@@ -153,10 +174,25 @@ def _consumption(QQ, BB, VV, DD, QQbase, preyYY, predYY, prey, pred):
     PYY = preyYY[:, prey]
     PDY = predYY[:, pred]
     dd_prey_safe = np.maximum(PYY, 1e-10)
-    dd_term = dd / np.maximum(dd - 1.0 + dd_prey_safe, 1e-10)
-    vv_pred_safe = np.maximum(PDY, 1e-10)
+    PYY_term = PYY
+    dd_denom = dd_prey_safe
+    if hs_exp is not None:
+        switch = hs_exp > 0.0
+        if switch.any():
+            # the loop: hs > 0 -> max(PYY, 1e-10) ** hs in both terms; x ** 1
+            # is x, so only other exponents take the power
+            PYY_term = np.where(switch, dd_prey_safe, PYY)
+            power = switch & (hs_exp != 1.0)
+            if power.any():
+                e = hs_exp[power]
+                PYY_term[:, power] = PYY_term[:, power] ** e
+                dd_denom = dd_prey_safe.copy()
+                dd_denom[:, power] = dd_denom[:, power] ** e
+    dd_term = dd / np.maximum(dd - 1.0 + dd_denom, 1e-10)
+    pdy = PDY if eat_eff is None else PDY / eat_eff[:, pred]
+    vv_pred_safe = np.maximum(pdy, 1e-10)
     vv_term = vv / np.maximum(vv - 1.0 + vv_pred_safe, 1e-10)
-    Q_calc = qbase * PDY * PYY * dd_term * vv_term
+    Q_calc = qbase * PDY * PYY_term * dd_term * vv_term
     val = np.where(Q_calc > 0.0, Q_calc, 0.0)
     if keep.all():
         QQ[:, prey, pred] = val
@@ -176,6 +212,8 @@ def deriv_batched(
     hden=None,
     patch_effort=None,
     stanza_ratio=None,
+    eat_eff=None,
+    nut_forcing=None,
     want_rates=False,
 ):
     """Ecosim derivative of every patch at once.
@@ -194,6 +232,13 @@ def deriv_batched(
         Per-patch ``ForcedEffort``.
     stanza_ratio : (P, G) array, optional
         Per-patch ``StanzaPredRatio``.
+    eat_eff : (P, G) array, optional
+        Per-patch feeding efficiency (``params["_eat_eff"]`` of each patch,
+        EwE's EatEff): scales producers' production and divides consumers'
+        predator term in the vulnerable pool.
+    nut_forcing : (P,) array, optional
+        Per-patch ``NutForcing`` (EwE's relative primary production map);
+        default ``forcing["NutForcing"]`` for every patch.
 
     Returns ``(deriv, rates)``: (P, G) derivative and, when ``want_rates``, a
     dict of (P, G) arrays keyed like ``deriv_vector``'s ``rates``.
@@ -232,18 +277,17 @@ def deriv_batched(
         _nut_base = params.get("_nut_base")
         nut_b = Bbase if _nut_base is None else _nut_base
         b_sum_shared = None if np.ndim(nut_b) == 2 else float(np.sum(nut_b[nb]))
-        nut_forcing = float(forcing.get("NutForcing", 1.0))
+        nut_f_all = float(forcing.get("NutForcing", 1.0))
         rows = []
         facts = []
         for p in range(P):
+            nut_f = nut_f_all if nut_forcing is None else float(nut_forcing[p])
             b_sum = (
                 b_sum_shared
                 if b_sum_shared is not None
                 else float(np.sum(nut_b[p, nb]))
             )
-            f = _ewe_nutrient_factor(
-                float(np.sum(S[p, nb])), b_sum, _nut_prop, nut_forcing
-            )
+            f = _ewe_nutrient_factor(float(np.sum(S[p, nb])), b_sum, _nut_prop, nut_f)
             if f != 1.0:
                 rows.append(p)
                 facts.append(f)
@@ -251,6 +295,19 @@ def deriv_batched(
             PPF = np.array(PPF, dtype=float, copy=True)
             for p, f in zip(rows, facts):
                 PPF[p, _producer] *= f
+
+    # Ecospace feeding efficiency (deriv_vector's _eat_eff, per patch):
+    # producers' production x EatEff (after the nutrient factor, as there),
+    # and the kernel's EatEff with producers at 1
+    _kernel_eat = None
+    if eat_eff is not None:
+        _eat = np.asarray(eat_eff, dtype=float)
+        _prod_e = np.asarray(PP_type, dtype=float)[: _eat.shape[1]] > 0
+        _prod_e[0] = False
+        PPF = np.array(PPF, dtype=float, copy=True)
+        PPF[:, : _eat.shape[1]][:, _prod_e] *= _eat[:, _prod_e]
+        _kernel_eat = _eat.copy()
+        _kernel_eat[:, _prod_e] = 1.0
 
     ForcedPrey = forcing.get("ForcedPrey", np.ones(G))
     ForcedSearch = forcing.get("ForcedSearch", None)
@@ -303,12 +360,17 @@ def deriv_batched(
     prey = np.asarray(params["_link_prey"], dtype=np.intp)
     pred = np.asarray(params["_link_pred"], dtype=np.intp)
     QQ = np.zeros((P, G, G))
+    _hs = params.get("HandleSwitch")
+    hs_exp = None
+    if _hs is not None:
+        hs_exp = np.asarray(_hs, dtype=float)[prey, pred] * params.get("COUPLED", 1)
+    kw = {"hs_exp": hs_exp, "eat_eff": _kernel_eat}
 
     _hden0 = params.get("_hden0")
     if hden is not None:
         _cmco_qb = params["_cmco_qb"]
         _consumption(
-            QQ, BB, VV, DD, QQbase, preyYY, predYY * (_hden0 / hden), prey, pred
+            QQ, BB, VV, DD, QQbase, preyYY, predYY * (_hden0 / hden), prey, pred, **kw
         )
         _index = np.array(BB, dtype=float, copy=True)
         if _has_ratio is not None:
@@ -317,10 +379,19 @@ def deriv_batched(
         if not params.get("_hden_frozen", False):
             hden[:] = _hden_new
         _consumption(
-            QQ, BB, VV, DD, QQbase, preyYY, predYY * (_hden0 / _hden_new), prey, pred
+            QQ,
+            BB,
+            VV,
+            DD,
+            QQbase,
+            preyYY,
+            predYY * (_hden0 / _hden_new),
+            prey,
+            pred,
+            **kw,
         )
     else:
-        _consumption(QQ, BB, VV, DD, QQbase, preyYY, predYY, prey, pred)
+        _consumption(QQ, BB, VV, DD, QQbase, preyYY, predYY, prey, pred, **kw)
 
     fb = np.asarray(ForcedBio)
     for i in range(1, G):

@@ -18,9 +18,9 @@ import numpy as np
 
 warnings.filterwarnings("ignore")
 
+import pypath.spatial.integration as spatial_integration
 from pypath.io.ewemdb import ecosim_scenario_from_ewemdb, read_ecospace
 from pypath.spatial import EcospaceParams, rsim_run_spatial
-from pypath.spatial.batched import batch_supported
 
 
 def main():
@@ -52,16 +52,39 @@ def main():
         gravity_strength=np.zeros(n_rows),
     )
     first = int(scenario.start_year)
-    from pypath.core.ecosim import _month_forcing, _run_setup
+    # Which derivative the run takes: count deriv_batched calls in a 1-year
+    # run (batch_supported on Ecosim's own params dict says nothing, as
+    # rsim_run_spatial builds its own, with EwE's base calibration)
+    calls = {"deriv_spatial_fast": 0, "deriv_batched": 0, "deriv_vector": 0}
+    real = {name: getattr(spatial_integration, name) for name in calls}
 
-    setup = _run_setup(scenario, range(first, first + 1))
-    batched = batch_supported(
-        setup.params_dict, _month_forcing(scenario, setup, 1, setup.ftime)
-    )
+    def spy(name):
+        def f(*args, **kwargs):
+            calls[name] += 1
+            return real[name](*args, **kwargs)
+
+        return f
+
+    for name in calls:
+        setattr(spatial_integration, name, spy(name))
+    try:
+        rsim_run_spatial(scenario, ecospace=eco, years=range(first, first + 1))
+    finally:
+        for name in calls:
+            setattr(spatial_integration, name, real[name])
+    if calls["deriv_spatial_fast"]:
+        path = "batched over cells, compiled (numba)"
+    elif calls["deriv_batched"]:
+        path = "batched over cells (NumPy)"
+    else:
+        path = "per cell (Python fallback)"
+    if calls["deriv_vector"] and (
+        calls["deriv_spatial_fast"] or calls["deriv_batched"]
+    ):
+        path += f"; {calls['deriv_vector']} single deriv_vector calls"
     print(
         f"{a.database}: Ecosim {a.ecosim}, Ecospace {a.ecospace}: {n_p} water cells, "
-        f"{p.NUM_GROUPS} groups, monthly RK4, derivative "
-        f"{'batched over cells' if batched else 'per cell (Python fallback)'}"
+        f"{p.NUM_GROUPS} groups, monthly RK4, derivative {path}"
     )
     for jobs in a.jobs:
         # first call: numba compiles / caches warm up

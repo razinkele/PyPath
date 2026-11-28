@@ -188,24 +188,41 @@ def test_the_map_needs_the_ewe_rules_nutrient_limitation():
 # --- the ways a run evaluates the patches ---------------------------------------
 
 
-def test_the_batched_kernel_is_left_out_and_the_workers_carry_the_map(
-    lagoon, monkeypatch
+@pytest.mark.parametrize("fast", [True, False])
+def test_the_batched_kernel_carries_the_map_as_the_patch_loop(
+    lagoon, monkeypatch, fast
 ):
+    """Each patch's nutrient forcing reaches the batched kernel (compiled or
+    NumPy's): the run is the per-patch loop's, bit for bit."""
     scenario, _ = lagoon
     grid = _three_cells()
     calls = []
-    real = integ.deriv_batched
+    for name in ("deriv_batched", "deriv_spatial_fast"):
+        real = getattr(integ, name)
 
-    def counting(*args, **kwargs):
-        calls.append(1)
-        return real(*args, **kwargs)
+        def counting(*args, _real=real, **kwargs):
+            calls.append(1)
+            return _real(*args, **kwargs)
 
-    monkeypatch.setattr(integ, "deriv_batched", counting)
+        monkeypatch.setattr(integ, name, counting)
+    monkeypatch.setattr(integ, "USE_FAST_BATCHED", fast and integ.USE_FAST_BATCHED)
+    batched = _run(
+        copy.deepcopy(scenario), _ecospace(scenario, grid, relative_pp=PATTERN)
+    )
+    assert calls  # the map no longer keeps the batched kernel out
+    monkeypatch.setattr(integ, "USE_BATCHED_DERIV", False)
+    loop = _run(copy.deepcopy(scenario), _ecospace(scenario, grid, relative_pp=PATTERN))
+    np.testing.assert_array_equal(batched, loop)
+
+
+def test_the_workers_carry_the_map(lagoon, monkeypatch):
+    """The per-patch loop in worker processes (n_jobs) gives the serial run."""
+    scenario, _ = lagoon
+    grid = _three_cells()
+    monkeypatch.setattr(integ, "USE_BATCHED_DERIV", False)
     serial = _run(
         copy.deepcopy(scenario), _ecospace(scenario, grid, relative_pp=PATTERN)
     )
-    assert calls == []  # one nutrient forcing for the whole map would not do
-
     pools = []
 
     class _CountingPool(ProcessPoolExecutor):
@@ -221,9 +238,6 @@ def test_the_batched_kernel_is_left_out_and_the_workers_carry_the_map(
     )
     assert pools == [2]  # the patches did run in workers
     np.testing.assert_array_equal(pooled, serial)
-    # and without the map the batched kernel is what runs
-    _run(copy.deepcopy(scenario), _ecospace(scenario, grid))
-    assert calls
 
 
 # --- from an EwE database ---------------------------------------------------------
